@@ -195,6 +195,7 @@ export type Database = {
           approved: boolean
           created_at: string
           department: string | null
+          division: string | null
           email: string | null
           full_name: string
           id: string
@@ -204,6 +205,7 @@ export type Database = {
           approved?: boolean
           created_at?: string
           department?: string | null
+          division?: string | null
           email?: string | null
           full_name?: string
           id: string
@@ -213,6 +215,7 @@ export type Database = {
           approved?: boolean
           created_at?: string
           department?: string | null
+          division?: string | null
           email?: string | null
           full_name?: string
           id?: string
