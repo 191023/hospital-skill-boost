@@ -10,6 +10,7 @@ export const createMember = createServerFn({ method: "POST" })
         email: z.string().email(),
         password: z.string().min(6),
         full_name: z.string().min(1).max(200),
+        division: z.string().max(100),
         department: z.string().max(100),
         position: z.string().max(100),
         role: z.enum(["learner", "instructor", "admin"]),
@@ -24,7 +25,7 @@ export const createMember = createServerFn({ method: "POST" })
       email: data.email,
       password: data.password,
       email_confirm: true,
-      user_metadata: { full_name: data.full_name, department: data.department, position: data.position },
+      user_metadata: { full_name: data.full_name, division: data.division, department: data.department, position: data.position },
     });
     if (error) throw new Error(error.message);
     await supabaseAdmin.from("profiles").update({ approved: true }).eq("id", created.user.id);

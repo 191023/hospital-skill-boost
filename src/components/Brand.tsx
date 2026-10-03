@@ -15,10 +15,10 @@ export function Blobs() {
 export function Brand() {
   return (
     <div className="flex items-center gap-3">
-      <div className="grid size-10 place-items-center rounded-2xl bg-brand-gradient text-lg font-bold text-primary-foreground shadow-brand">พ</div>
+      <div className="grid size-10 place-items-center rounded-2xl bg-brand-gradient text-lg font-bold text-primary-foreground shadow-brand">อ</div>
       <div>
-        <div className="text-sm font-bold leading-tight">ศูนย์พัฒนาศักยภาพบุคลากร</div>
-        <div className="text-[11px] text-primary-deep/70">ระบบอบรมออนไลน์โรงพยาบาล</div>
+        <div className="text-sm font-bold leading-tight">โรงพยาบาลโอเวอร์บรุ๊ค</div>
+        <div className="text-[11px] text-primary-deep/70">ศูนย์พัฒนาศักยภาพบุคลากร</div>
       </div>
     </div>
   );

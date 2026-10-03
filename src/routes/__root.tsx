@@ -66,7 +66,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "ระบบอบรมออนไลน์บุคลากรโรงพยาบาล" },
+      { title: "ระบบอบรมออนไลน์ โรงพยาบาลโอเวอร์บรุ๊ค" },
       { name: "description", content: "ระบบฝึกอบรมออนไลน์สำหรับบุคลากรโรงพยาบาล" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
