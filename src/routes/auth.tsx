@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable";
 import { DeptPicker } from "@/components/DeptPicker";
 import { Blobs, Brand } from "@/components/Brand";
 
@@ -24,6 +25,25 @@ function AuthPage() {
   const [mode, setMode] = useState<"in" | "up">("in");
   const [busy, setBusy] = useState(false);
   const [f, setF] = useState({ email: "", password: "", full_name: "", division: "", department: "", position: "" });
+
+  async function signInGoogle() {
+    setBusy(true);
+    try {
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin + "/auth",
+      });
+      if (result.error) {
+        toast.error("เข้าสู่ระบบด้วย Google ไม่สำเร็จ");
+        return;
+      }
+      if (result.redirected) return;
+      nav({ to: "/dashboard" });
+    } catch {
+      toast.error("เข้าสู่ระบบด้วย Google ไม่สำเร็จ");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
