@@ -1,0 +1,12 @@
+revoke execute on function public.has_role(uuid, app_role) from anon, public;
+revoke execute on function public.is_staff(uuid) from anon, public;
+revoke execute on function public.is_approved(uuid) from anon, public;
+revoke execute on function public.can_edit_course(uuid) from anon, public;
+revoke execute on function public.get_test_questions(uuid) from anon, public;
+revoke execute on function public.submit_test(uuid, text, jsonb) from anon, public;
+revoke execute on function public.handle_new_user() from anon, authenticated, public;
+revoke execute on function public.protect_profile() from anon, authenticated, public;
+grant execute on function public.has_role(uuid, app_role) to authenticated;
+grant execute on function public.is_staff(uuid) to authenticated;
+grant execute on function public.is_approved(uuid) to authenticated;
+grant execute on function public.can_edit_course(uuid) to authenticated;
