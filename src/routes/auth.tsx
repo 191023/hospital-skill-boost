@@ -3,7 +3,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { departments } from "@/lib/auth";
-import { Blobs, Brand } from "./index";
+import { Blobs, Brand } from "@/components/Brand";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({

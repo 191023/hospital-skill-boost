@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe, roleLabel } from "@/lib/auth";
-import { Blobs, Brand } from "@/routes/index";
+import { Blobs, Brand } from "@/components/Brand";
 
 const navCls = "flex items-center gap-3 rounded-xl px-3 py-2.5 text-foreground/70 hover:bg-sidebar-accent";
 const activeCls = "flex items-center gap-3 rounded-xl px-3 py-2.5 bg-primary text-primary-foreground font-semibold shadow-brand";

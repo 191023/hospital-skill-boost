@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import hero from "@/assets/hero.jpg";
+import { Blobs, Brand } from "@/components/Brand";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -60,24 +61,3 @@ function Landing() {
   );
 }
 
-export function Blobs() {
-  return (
-    <>
-      <div className="pointer-events-none absolute -left-32 -top-40 size-[560px] rounded-full bg-primary/20 blur-3xl" />
-      <div className="pointer-events-none absolute -right-40 top-1/3 size-[520px] rounded-full bg-mint/20 blur-3xl" />
-      <div className="pointer-events-none absolute bottom-0 left-1/4 size-[480px] rounded-full bg-lilac/15 blur-3xl" />
-    </>
-  );
-}
-
-export function Brand() {
-  return (
-    <div className="flex items-center gap-3">
-      <div className="grid size-10 place-items-center rounded-2xl bg-brand-gradient text-lg font-bold text-primary-foreground shadow-brand">พ</div>
-      <div>
-        <div className="text-sm font-bold leading-tight">ศูนย์พัฒนาศักยภาพบุคลากร</div>
-        <div className="text-[11px] text-primary-deep/70">ระบบอบรมออนไลน์โรงพยาบาล</div>
-      </div>
-    </div>
-  );
-}
