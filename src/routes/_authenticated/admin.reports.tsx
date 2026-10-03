@@ -18,12 +18,13 @@ function avg(xs: number[]) {
 function Reports() {
   const { data: me } = useMe();
   const [by, setBy] = useState<"division" | "department">("division");
+  const [year, setYear] = useState<number | "all">("all");
   const { data } = useQuery({
     queryKey: ["reports"],
     enabled: !!me?.isStaff,
     queryFn: async () => {
       const [{ data: courses }, { data: enr }, { data: att }, { data: certs }, { data: profiles }] = await Promise.all([
-        supabase.from("courses").select("id,title"),
+        supabase.from("courses").select("id,title,training_year"),
         supabase.from("enrollments").select("user_id,course_id"),
         supabase.from("test_attempts").select("user_id,course_id,kind,percent,passed"),
         supabase.from("certificates").select("user_id,course_id,issued_at,cert_no,score"),
@@ -34,7 +35,13 @@ function Reports() {
   });
   if (!me?.isStaff) return <div className="glass rounded-3xl p-10 text-center">เฉพาะวิทยากรและผู้ดูแล</div>;
   if (!data) return <div className="text-muted-foreground">กำลังโหลด...</div>;
-  const { courses, enr, att, certs, profiles } = data;
+  const years = [...new Set(data.courses.map((c) => c.training_year))].sort((a, b) => b - a);
+  const courses = data.courses.filter((c) => year === "all" || c.training_year === year);
+  const courseIds = new Set(courses.map((c) => c.id));
+  const enr = data.enr.filter((e) => courseIds.has(e.course_id));
+  const att = data.att.filter((a) => courseIds.has(a.course_id));
+  const certs = data.certs.filter((c) => courseIds.has(c.course_id));
+  const { profiles } = data;
   const pmap = new Map(profiles.map((p) => [p.id, p]));
   const learners = new Set(enr.map((e) => e.user_id)).size;
   const passRate = enr.length ? Math.round((certs.length / enr.length) * 1000) / 10 : 0;
@@ -62,7 +69,7 @@ function Reports() {
   }
 
   function exportCsv() {
-    const rows = [["ชื่อ", "ฝ่าย", "แผนก", "หลักสูตร", "ก่อนเรียน(%)", "หลังเรียนสูงสุด(%)", "ผ่าน", "เลขใบประกาศ", "วันที่ออก"]];
+    const rows = [["ชื่อ", "ฝ่าย", "แผนก", "หลักสูตร", "ปีที่อบรม", "ก่อนเรียน(%)", "หลังเรียนสูงสุด(%)", "ผ่าน", "เลขใบประกาศ", "วันที่ออก"]];
     for (const e of enr) {
       const p = pmap.get(e.user_id);
       const c = courses.find((x) => x.id === e.course_id);
@@ -70,7 +77,7 @@ function Reports() {
       const preA = a.find((x) => x.kind === "pre");
       const posts = a.filter((x) => x.kind === "post").map((x) => Number(x.percent));
       const cert = certs.find((x) => x.user_id === e.user_id && x.course_id === e.course_id);
-      rows.push([p?.full_name ?? "", p?.division ?? "", p?.department ?? "", c?.title ?? "", preA ? String(preA.percent) : "", posts.length ? String(Math.max(...posts)) : "", cert ? "ผ่าน" : "ยังไม่ผ่าน", cert?.cert_no ?? "", cert ? thaiDate(cert.issued_at) : ""]);
+      rows.push([p?.full_name ?? "", p?.division ?? "", p?.department ?? "", c?.title ?? "", c ? String(c.training_year) : "", preA ? String(preA.percent) : "", posts.length ? String(Math.max(...posts)) : "", cert ? "ผ่าน" : "ยังไม่ผ่าน", cert?.cert_no ?? "", cert ? thaiDate(cert.issued_at) : ""]);
     }
     const csv = "\uFEFF" + rows.map((r) => r.map((x) => `"${x.replace(/"/g, '""')}"`).join(",")).join("\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
@@ -81,7 +88,15 @@ function Reports() {
 
   return (
     <>
-      <PageHeader eyebrow="ระบบอบรมออนไลน์" title="แดชบอร์ดสรุปผลอบรม" right={<button onClick={exportCsv} className="glass rounded-full px-4 py-2 text-sm font-semibold text-primary">⬇ ส่งออก Excel (CSV)</button>} />
+      <PageHeader eyebrow="ระบบอบรมออนไลน์" title="แดชบอร์ดสรุปผลอบรม" right={
+        <div className="flex gap-2">
+          <select value={year} onChange={(e) => setYear(e.target.value === "all" ? "all" : Number(e.target.value))} className="glass rounded-full px-4 py-2 text-sm outline-none">
+            <option value="all">ทุกปี</option>
+            {years.map((y) => <option key={y} value={y}>ปี {y}</option>)}
+          </select>
+          <button onClick={exportCsv} className="glass rounded-full px-4 py-2 text-sm font-semibold text-primary">⬇ ส่งออก Excel (CSV)</button>
+        </div>
+      } />
       <section className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="บุคลากรที่อบรม" value={learners} note={`${enr.length} การลงทะเบียน`} tone="mint" />
         <Stat label="อัตราผ่านเกณฑ์" value={`${passRate}%`} note="ได้รับใบประกาศ / ลงทะเบียน" tone="mint" />
