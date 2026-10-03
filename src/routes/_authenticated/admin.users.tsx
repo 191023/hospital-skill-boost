@@ -21,6 +21,8 @@ function Users() {
   const qc = useQueryClient();
   const [filter, setFilter] = useState<"all" | "pending">("all");
   const [showAdd, setShowAdd] = useState(false);
+  const [q, setQ] = useState("");
+  const [sort, setSort] = useState<{ key: "full_name" | "division" | "department" | "position" | "approved"; dir: 1 | -1 }>({ key: "full_name", dir: 1 });
   const { data = [] } = useQuery({
     queryKey: ["admin-users"],
     enabled: !!me?.isAdmin,
