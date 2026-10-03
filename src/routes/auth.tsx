@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
@@ -25,6 +25,12 @@ function AuthPage() {
   const [mode, setMode] = useState<"in" | "up">("in");
   const [busy, setBusy] = useState(false);
   const [f, setF] = useState({ email: "", password: "", full_name: "", division: "", department: "", position: "" });
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) nav({ to: "/dashboard" });
+    });
+  }, [nav]);
 
   async function signInGoogle() {
     setBusy(true);
