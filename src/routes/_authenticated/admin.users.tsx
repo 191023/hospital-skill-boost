@@ -82,9 +82,13 @@ function Users() {
     <>
       <PageHeader eyebrow="ตั้งค่าระบบ" title="จัดการสมาชิก" right={<button onClick={() => setShowAdd(!showAdd)} className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-brand">+ เพิ่มสมาชิก</button>} />
       {showAdd && <AddMember onDone={() => { setShowAdd(false); refresh(); }} />}
-      <div className="mb-4 flex gap-2 text-sm">
+      <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
         <button onClick={() => setFilter("all")} className={`rounded-full px-4 py-1.5 ${filter === "all" ? "bg-primary text-primary-foreground" : "glass"}`}>ทั้งหมด ({data.length})</button>
         <button onClick={() => setFilter("pending")} className={`rounded-full px-4 py-1.5 ${filter === "pending" ? "bg-primary text-primary-foreground" : "glass"}`}>รออนุมัติ ({pending})</button>
+        <div className="relative min-w-[220px] flex-1">
+          <input className={`${inp} pl-9`} placeholder="ค้นหาชื่อ อีเมล ฝ่าย แผนก ตำแหน่ง..." value={q} onChange={(e) => setQ(e.target.value)} />
+          <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+        </div>
       </div>
       <div className="glass overflow-x-auto rounded-3xl">
         <table className="w-full text-sm">
