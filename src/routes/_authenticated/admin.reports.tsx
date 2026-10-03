@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -111,7 +111,7 @@ function Reports() {
             <tbody>
               {perCourse.map((c) => (
                 <tr key={c.id} className="border-t border-glass-border">
-                  <td className="py-3 font-medium">{c.title}</td><td>{c.enrolled}</td><td>{c.passed}</td><td>{c.pre}%</td><td>{c.post}%</td>
+                  <td className="py-3 font-medium"><Link to="/admin/reports/$courseId" params={{ courseId: c.id }} className="text-primary hover:underline">{c.title} ›</Link></td><td>{c.enrolled}</td><td>{c.passed}</td><td>{c.pre}%</td><td>{c.post}%</td>
                   <td className="font-bold text-primary">{c.post && c.pre ? `+${(c.post - c.pre).toFixed(1)}` : "-"}</td>
                 </tr>
               ))}
