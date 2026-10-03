@@ -93,7 +93,12 @@ function Users() {
       <div className="glass overflow-x-auto rounded-3xl">
         <table className="w-full text-sm">
           <thead className="bg-mist/60 text-left text-xs text-muted-foreground">
-            <tr><th className="p-4">ชื่อ</th><th>ฝ่าย / แผนก / ตำแหน่ง</th><th>บทบาท</th><th>สถานะ</th></tr>
+            <tr>
+              <th className="p-4">{thLabel("ชื่อ", "full_name")}</th>
+              <th>{thLabel("ฝ่าย", "division")} / {thLabel("แผนก", "department")} / {thLabel("ตำแหน่ง", "position")}</th>
+              <th>บทบาท</th>
+              <th>{thLabel("สถานะ", "approved")}</th>
+            </tr>
           </thead>
           <tbody>
             {list.map((u) => (
