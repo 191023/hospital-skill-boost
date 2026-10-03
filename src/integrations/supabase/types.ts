@@ -94,6 +94,7 @@ export type Database = {
           pass_score: number
           published: boolean
           title: string
+          training_year: number
         }
         Insert: {
           audience?: string
@@ -107,6 +108,7 @@ export type Database = {
           pass_score?: number
           published?: boolean
           title: string
+          training_year?: number
         }
         Update: {
           audience?: string
@@ -120,6 +122,7 @@ export type Database = {
           pass_score?: number
           published?: boolean
           title?: string
+          training_year?: number
         }
         Relationships: []
       }
