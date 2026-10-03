@@ -138,4 +138,9 @@
 @media print {
   .no-print { display: none !important; }
   body { background: white; }
+  body:has(.print-area) * { visibility: hidden; }
+  body:has(.print-area) .print-area, body:has(.print-area) .print-area * { visibility: visible; }
+  .print-area { position: absolute; left: 0; top: 0; width: 100%; }
+  .print-area .glass { box-shadow: none; backdrop-filter: none; border: 1px solid #ddd; }
+  @page { size: A4; margin: 12mm; }
 }
