@@ -52,7 +52,7 @@ function CourseReport() {
         return {
           name: p.full_name || "-", email: p.email || "", division: p.division || "ไม่ระบุ", department: p.department || "ไม่ระบุ", position: p.position || "",
           enrolledAt: e.created_at, lessons: done, totalLessons: lessonIds.length,
-          pre: pre.length ? pre[0] : null, post: post.length ? Math.max(...post) : null,
+          pre: pre.length ? pre[0]! : null, post: post.length ? Math.max(...post) : null,
           passed: !!cert, certNo: cert?.cert_no ?? "", issuedAt: cert?.issued_at ?? "",
         };
       }).sort((a, b) => a.division.localeCompare(b.division, "th") || a.department.localeCompare(b.department, "th") || a.name.localeCompare(b.name, "th"));
