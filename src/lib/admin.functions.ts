@@ -24,9 +24,10 @@ export const createMember = createServerFn({ method: "POST" })
       email: data.email,
       password: data.password,
       email_confirm: true,
-      user_metadata: { full_name: data.full_name, department: data.department, position: data.position, pre_approved: true },
+      user_metadata: { full_name: data.full_name, department: data.department, position: data.position },
     });
     if (error) throw new Error(error.message);
+    await supabaseAdmin.from("profiles").update({ approved: true }).eq("id", created.user.id);
     if (data.role !== "learner") {
       await supabaseAdmin.from("user_roles").insert({ user_id: created.user.id, role: data.role });
     }

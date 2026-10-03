@@ -18,6 +18,7 @@ import { Route as AuthenticatedCertificatesIndexRouteImport } from './routes/_au
 import { Route as AuthenticatedCertificatesCertIdRouteImport } from './routes/_authenticated/certificates.$certId'
 import { Route as AuthenticatedCoursesIndexRouteImport } from './routes/_authenticated/courses.index'
 import { Route as AuthenticatedManageIndexRouteImport } from './routes/_authenticated/manage.index'
+import { Route as AuthenticatedManageCourseIdRouteImport } from './routes/_authenticated/manage.$courseId'
 import { Route as AuthenticatedCoursesCourseIdIndexRouteImport } from './routes/_authenticated/courses.$courseId.index'
 import { Route as AuthenticatedCoursesCourseIdLessonLessonIdRouteImport } from './routes/_authenticated/courses.$courseId.lesson.$lessonId'
 import { Route as AuthenticatedCoursesCourseIdTestKindRouteImport } from './routes/_authenticated/courses.$courseId.test.$kind'
@@ -70,6 +71,12 @@ const AuthenticatedManageIndexRoute =
     path: '/manage/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedManageCourseIdRoute =
+  AuthenticatedManageCourseIdRouteImport.update({
+    id: '/manage/$courseId',
+    path: '/manage/$courseId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedCoursesCourseIdIndexRoute =
   AuthenticatedCoursesCourseIdIndexRouteImport.update({
     id: '/courses/$courseId/',
@@ -95,6 +102,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/my-courses': typeof AuthenticatedMyCoursesRoute
   '/certificates/$certId': typeof AuthenticatedCertificatesCertIdRoute
+  '/manage/$courseId': typeof AuthenticatedManageCourseIdRoute
   '/certificates/': typeof AuthenticatedCertificatesIndexRoute
   '/courses/': typeof AuthenticatedCoursesIndexRoute
   '/manage/': typeof AuthenticatedManageIndexRoute
@@ -108,6 +116,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/my-courses': typeof AuthenticatedMyCoursesRoute
   '/certificates/$certId': typeof AuthenticatedCertificatesCertIdRoute
+  '/manage/$courseId': typeof AuthenticatedManageCourseIdRoute
   '/certificates': typeof AuthenticatedCertificatesIndexRoute
   '/courses': typeof AuthenticatedCoursesIndexRoute
   '/manage': typeof AuthenticatedManageIndexRoute
@@ -123,6 +132,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/my-courses': typeof AuthenticatedMyCoursesRoute
   '/_authenticated/certificates/$certId': typeof AuthenticatedCertificatesCertIdRoute
+  '/_authenticated/manage/$courseId': typeof AuthenticatedManageCourseIdRoute
   '/_authenticated/certificates/': typeof AuthenticatedCertificatesIndexRoute
   '/_authenticated/courses/': typeof AuthenticatedCoursesIndexRoute
   '/_authenticated/manage/': typeof AuthenticatedManageIndexRoute
@@ -138,6 +148,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/my-courses'
     | '/certificates/$certId'
+    | '/manage/$courseId'
     | '/certificates/'
     | '/courses/'
     | '/manage/'
@@ -151,6 +162,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/my-courses'
     | '/certificates/$certId'
+    | '/manage/$courseId'
     | '/certificates'
     | '/courses'
     | '/manage'
@@ -165,6 +177,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/my-courses'
     | '/_authenticated/certificates/$certId'
+    | '/_authenticated/manage/$courseId'
     | '/_authenticated/certificates/'
     | '/_authenticated/courses/'
     | '/_authenticated/manage/'
@@ -244,6 +257,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedManageIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/manage/$courseId': {
+      id: '/_authenticated/manage/$courseId'
+      path: '/manage/$courseId'
+      fullPath: '/manage/$courseId'
+      preLoaderRoute: typeof AuthenticatedManageCourseIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/courses/$courseId/': {
       id: '/_authenticated/courses/$courseId/'
       path: '/courses/$courseId'
@@ -272,6 +292,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedMyCoursesRoute: typeof AuthenticatedMyCoursesRoute
   AuthenticatedCertificatesCertIdRoute: typeof AuthenticatedCertificatesCertIdRoute
+  AuthenticatedManageCourseIdRoute: typeof AuthenticatedManageCourseIdRoute
   AuthenticatedCertificatesIndexRoute: typeof AuthenticatedCertificatesIndexRoute
   AuthenticatedCoursesIndexRoute: typeof AuthenticatedCoursesIndexRoute
   AuthenticatedManageIndexRoute: typeof AuthenticatedManageIndexRoute
@@ -284,6 +305,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedMyCoursesRoute: AuthenticatedMyCoursesRoute,
   AuthenticatedCertificatesCertIdRoute: AuthenticatedCertificatesCertIdRoute,
+  AuthenticatedManageCourseIdRoute: AuthenticatedManageCourseIdRoute,
   AuthenticatedCertificatesIndexRoute: AuthenticatedCertificatesIndexRoute,
   AuthenticatedCoursesIndexRoute: AuthenticatedCoursesIndexRoute,
   AuthenticatedManageIndexRoute: AuthenticatedManageIndexRoute,
