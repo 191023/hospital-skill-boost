@@ -90,6 +90,7 @@ function Users() {
           <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
         </div>
       </div>
+      <p className="mb-2 text-xs text-muted-foreground">แสดง {list.length} จาก {data.length} คน</p>
       <div className="glass overflow-x-auto rounded-3xl">
         <table className="w-full text-sm">
           <thead className="bg-mist/60 text-left text-xs text-muted-foreground">
