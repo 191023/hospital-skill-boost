@@ -26,7 +26,7 @@ function Manage() {
 
   async function create() {
     const { data: c, error } = await supabase.from("courses").insert({ title: "หลักสูตรใหม่" }).select("id").single();
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     nav({ to: "/manage/$courseId", params: { courseId: c.id } });
   }
   const cnt = (x: unknown) => (x as { count: number }[])[0]?.count ?? 0;

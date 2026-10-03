@@ -12,10 +12,10 @@ export type CourseProgress = {
   lessonCount: number;
   done: number;
   pct: number;
-  pre?: number;
-  post?: number;
+  pre?: number | undefined;
+  post?: number | undefined;
   passed: boolean;
-  certId?: string;
+  certId?: string | undefined;
 };
 
 export function useMyCourses(userId?: string) {

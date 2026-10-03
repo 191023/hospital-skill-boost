@@ -65,14 +65,14 @@ function Info({ course }: { course: Course }) {
     const { error } = await supabase.from("courses").update({
       title: f.title, description: f.description, category: f.category, hours: f.hours, pass_score: f.pass_score, published: f.published, cover_url: f.cover_url,
     }).eq("id", course.id);
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     toast.success("บันทึกแล้ว");
     qc.invalidateQueries();
   }
   async function del() {
     if (!confirm("ลบหลักสูตรนี้? ข้อมูลผู้เรียนจะถูกลบด้วย")) return;
     const { error } = await supabase.from("courses").delete().eq("id", course.id);
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     nav({ to: "/manage" });
   }
   return (
@@ -114,7 +114,7 @@ function Lessons({ courseId }: { courseId: string }) {
   });
   async function add() {
     const { error } = await supabase.from("lessons").insert({ course_id: courseId, title: `บทที่ ${data.length + 1}`, position: data.length + 1, kind: "text" });
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     qc.invalidateQueries({ queryKey: ["edit-lessons", courseId] });
   }
   return (
@@ -133,7 +133,7 @@ function LessonRow({ lesson, courseId }: { lesson: Lesson; courseId: string }) {
   const refresh = () => qc.invalidateQueries({ queryKey: ["edit-lessons", courseId] });
   async function save() {
     const { error } = await supabase.from("lessons").update({ title: f.title, kind: f.kind, body: f.body, video_url: f.video_url, file_url: f.file_url, position: f.position }).eq("id", lesson.id);
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     toast.success("บันทึกบทเรียนแล้ว"); refresh();
   }
   async function del() {
@@ -177,9 +177,9 @@ function Questions({ courseId }: { courseId: string }) {
   const [q, setQ] = useState({ question: "", options: ["", "", "", ""], correct: 0 });
   async function add() {
     const opts = q.options.filter((o) => o.trim());
-    if (!q.question.trim() || opts.length < 2) return toast.error("กรอกคำถามและตัวเลือกอย่างน้อย 2 ข้อ");
+    if (!q.question.trim() || opts.length < 2) { toast.error("กรอกคำถามและตัวเลือกอย่างน้อย 2 ข้อ"); return; }
     const { error } = await supabase.from("questions").insert({ course_id: courseId, question: q.question, options: opts, correct_index: Math.min(q.correct, opts.length - 1), position: data.length + 1 });
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     setQ({ question: "", options: ["", "", "", ""], correct: 0 });
     qc.invalidateQueries({ queryKey: ["edit-questions", courseId] });
   }

@@ -38,15 +38,15 @@ function Users() {
 
   async function setApproved(id: string, v: boolean) {
     const { error } = await supabase.from("profiles").update({ approved: v }).eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     refresh();
   }
   async function toggleRole(id: string, role: Role, has: boolean) {
-    if (id === me!.id && role === "admin") return toast.error("ไม่สามารถเปลี่ยนสิทธิ์ผู้ดูแลของตัวเองได้");
+    if (id === me!.id && role === "admin") { toast.error("ไม่สามารถเปลี่ยนสิทธิ์ผู้ดูแลของตัวเองได้"); return; }
     const { error } = has
       ? await supabase.from("user_roles").delete().eq("user_id", id).eq("role", role)
       : await supabase.from("user_roles").insert({ user_id: id, role });
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     refresh();
   }
 

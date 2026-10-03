@@ -37,7 +37,7 @@ function LessonPage() {
   async function complete() {
     if (!done) {
       const { error } = await supabase.from("lesson_progress").insert({ lesson_id: lessonId, user_id: me!.id });
-      if (error) return toast.error(error.message);
+      if (error) { toast.error(error.message); return; }
       toast.success("บันทึกการเรียนแล้ว");
       qc.invalidateQueries();
     }

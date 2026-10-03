@@ -24,11 +24,11 @@ function TestPage() {
   const title = kind === "pre" ? "แบบทดสอบก่อนเรียน" : "แบบทดสอบหลังเรียน";
 
   async function submit() {
-    if (Object.keys(answers).length < qs.length) return toast.error("กรุณาตอบให้ครบทุกข้อ");
+    if (Object.keys(answers).length < qs.length) { toast.error("กรุณาตอบให้ครบทุกข้อ"); return; }
     setBusy(true);
     const { data, error } = await supabase.rpc("submit_test", { _course: courseId, _kind: kind, _answers: answers });
     setBusy(false);
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     setResult(data as unknown as Result);
     qc.invalidateQueries();
   }

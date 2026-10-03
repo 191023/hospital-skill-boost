@@ -60,7 +60,7 @@ function CoursePage() {
 
   async function enroll() {
     const { error } = await supabase.from("enrollments").insert({ course_id: courseId, user_id: me!.id });
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     toast.success("ลงทะเบียนเรียบร้อย");
     qc.invalidateQueries();
   }
@@ -145,7 +145,7 @@ function Num({ n, done }: { n: number; done?: boolean }) {
   return <div className={`grid size-8 place-items-center rounded-lg text-xs font-semibold ${done ? "bg-mint text-primary-foreground" : "bg-primary/15 text-primary"}`}>{done ? "✓" : n}</div>;
 }
 
-function Step({ n, title, sub, badge, done, to, courseId }: { n: string; title: string; sub: string; badge: string; done: boolean; to?: { kind: string }; courseId: string }) {
+function Step({ n, title, sub, badge, done, to, courseId }: { n: string; title: string; sub: string; badge: string; done: boolean; to?: { kind: string } | undefined; courseId: string }) {
   const body = (
     <>
       <div className={`grid size-8 place-items-center rounded-lg text-xs font-semibold ${done ? "bg-mint text-primary-foreground" : "bg-amber/20 text-amber"}`}>{n}</div>
