@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { roleLabel, useMe, type Role } from "@/lib/auth";
@@ -21,6 +21,8 @@ function Users() {
   const qc = useQueryClient();
   const [filter, setFilter] = useState<"all" | "pending">("all");
   const [showAdd, setShowAdd] = useState(false);
+  const [q, setQ] = useState("");
+  const [sort, setSort] = useState<{ key: "full_name" | "division" | "department" | "position" | "approved"; dir: 1 | -1 }>({ key: "full_name", dir: 1 });
   const { data = [] } = useQuery({
     queryKey: ["admin-users"],
     enabled: !!me?.isAdmin,
@@ -34,8 +36,33 @@ function Users() {
   });
   if (!me?.isAdmin) return <div className="glass rounded-3xl p-10 text-center">เฉพาะผู้ดูแลระบบ</div>;
   const refresh = () => qc.invalidateQueries({ queryKey: ["admin-users"] });
-  const list = filter === "pending" ? data.filter((u) => !u.approved) : data;
   const pending = data.filter((u) => !u.approved).length;
+  const list = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    let rows = filter === "pending" ? data.filter((u) => !u.approved) : data;
+    if (term) rows = rows.filter((u) =>
+      [u.full_name, u.email, u.division, u.department, u.position].some((v) => (v ?? "").toLowerCase().includes(term)),
+    );
+    const val = (u: (typeof data)[number]) => {
+      const raw = sort.key === "approved" ? String(u.approved) : (u[sort.key] ?? "");
+      return raw;
+    };
+    return [...rows].sort((a, b) => {
+      const av = val(a) as string;
+      const bv = val(b) as string;
+      if (sort.key === "approved" && av !== bv) return sort.dir * (av === "true" ? 1 : -1);
+      return sort.dir * av.localeCompare(bv, "th");
+    });
+  }, [data, filter, q, sort]);
+
+  function thLabel(label: string, key: typeof sort.key) {
+    const active = sort.key === key;
+    return (
+      <button onClick={() => setSort((s) => ({ key, dir: active && s.dir === 1 ? -1 : 1 }))} className={`inline-flex items-center gap-1 hover:text-foreground ${active ? "text-foreground font-semibold" : ""}`}>
+        {label}<span className="text-[10px]">{active ? (sort.dir === 1 ? "▲" : "▼") : "↕"}</span>
+      </button>
+    );
+  }
 
   async function setApproved(id: string, v: boolean) {
     const { error } = await supabase.from("profiles").update({ approved: v }).eq("id", id);
@@ -55,14 +82,24 @@ function Users() {
     <>
       <PageHeader eyebrow="ตั้งค่าระบบ" title="จัดการสมาชิก" right={<button onClick={() => setShowAdd(!showAdd)} className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-brand">+ เพิ่มสมาชิก</button>} />
       {showAdd && <AddMember onDone={() => { setShowAdd(false); refresh(); }} />}
-      <div className="mb-4 flex gap-2 text-sm">
+      <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
         <button onClick={() => setFilter("all")} className={`rounded-full px-4 py-1.5 ${filter === "all" ? "bg-primary text-primary-foreground" : "glass"}`}>ทั้งหมด ({data.length})</button>
         <button onClick={() => setFilter("pending")} className={`rounded-full px-4 py-1.5 ${filter === "pending" ? "bg-primary text-primary-foreground" : "glass"}`}>รออนุมัติ ({pending})</button>
+        <div className="relative min-w-[220px] flex-1">
+          <input className={`${inp} pl-9`} placeholder="ค้นหาชื่อ อีเมล ฝ่าย แผนก ตำแหน่ง..." value={q} onChange={(e) => setQ(e.target.value)} />
+          <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+        </div>
       </div>
+      <p className="mb-2 text-xs text-muted-foreground">แสดง {list.length} จาก {data.length} คน</p>
       <div className="glass overflow-x-auto rounded-3xl">
         <table className="w-full text-sm">
           <thead className="bg-mist/60 text-left text-xs text-muted-foreground">
-            <tr><th className="p-4">ชื่อ</th><th>ฝ่าย / แผนก / ตำแหน่ง</th><th>บทบาท</th><th>สถานะ</th></tr>
+            <tr>
+              <th className="p-4">{thLabel("ชื่อ", "full_name")}</th>
+              <th>{thLabel("ฝ่าย", "division")} / {thLabel("แผนก", "department")} / {thLabel("ตำแหน่ง", "position")}</th>
+              <th>บทบาท</th>
+              <th>{thLabel("สถานะ", "approved")}</th>
+            </tr>
           </thead>
           <tbody>
             {list.map((u) => (
