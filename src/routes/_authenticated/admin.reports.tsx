@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/lib/auth";
 import { thaiDate } from "@/lib/data";
@@ -16,6 +17,7 @@ function avg(xs: number[]) {
 
 function Reports() {
   const { data: me } = useMe();
+  const [by, setBy] = useState<"division" | "department">("division");
   const { data } = useQuery({
     queryKey: ["reports"],
     enabled: !!me?.isStaff,
@@ -25,7 +27,7 @@ function Reports() {
         supabase.from("enrollments").select("user_id,course_id"),
         supabase.from("test_attempts").select("user_id,course_id,kind,percent,passed"),
         supabase.from("certificates").select("user_id,course_id,issued_at,cert_no,score"),
-        supabase.from("profiles").select("id,full_name,department"),
+        supabase.from("profiles").select("id,full_name,division,department"),
       ]);
       return { courses: courses ?? [], enr: enr ?? [], att: att ?? [], certs: certs ?? [], profiles: profiles ?? [] };
     },
@@ -52,7 +54,7 @@ function Reports() {
 
   const depts = new Map<string, { enrolled: number; passed: number }>();
   for (const e of enr) {
-    const d = pmap.get(e.user_id)?.department || "ไม่ระบุ";
+    const d = pmap.get(e.user_id)?.[by] || "ไม่ระบุ";
     const v = depts.get(d) ?? { enrolled: 0, passed: 0 };
     v.enrolled++;
     if (certs.some((c) => c.user_id === e.user_id && c.course_id === e.course_id)) v.passed++;
@@ -60,7 +62,7 @@ function Reports() {
   }
 
   function exportCsv() {
-    const rows = [["ชื่อ", "แผนก", "หลักสูตร", "ก่อนเรียน(%)", "หลังเรียนสูงสุด(%)", "ผ่าน", "เลขใบประกาศ", "วันที่ออก"]];
+    const rows = [["ชื่อ", "ฝ่าย", "แผนก", "หลักสูตร", "ก่อนเรียน(%)", "หลังเรียนสูงสุด(%)", "ผ่าน", "เลขใบประกาศ", "วันที่ออก"]];
     for (const e of enr) {
       const p = pmap.get(e.user_id);
       const c = courses.find((x) => x.id === e.course_id);
@@ -68,7 +70,7 @@ function Reports() {
       const preA = a.find((x) => x.kind === "pre");
       const posts = a.filter((x) => x.kind === "post").map((x) => Number(x.percent));
       const cert = certs.find((x) => x.user_id === e.user_id && x.course_id === e.course_id);
-      rows.push([p?.full_name ?? "", p?.department ?? "", c?.title ?? "", preA ? String(preA.percent) : "", posts.length ? String(Math.max(...posts)) : "", cert ? "ผ่าน" : "ยังไม่ผ่าน", cert?.cert_no ?? "", cert ? thaiDate(cert.issued_at) : ""]);
+      rows.push([p?.full_name ?? "", p?.division ?? "", p?.department ?? "", c?.title ?? "", preA ? String(preA.percent) : "", posts.length ? String(Math.max(...posts)) : "", cert ? "ผ่าน" : "ยังไม่ผ่าน", cert?.cert_no ?? "", cert ? thaiDate(cert.issued_at) : ""]);
     }
     const csv = "\uFEFF" + rows.map((r) => r.map((x) => `"${x.replace(/"/g, '""')}"`).join(",")).join("\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
@@ -102,7 +104,8 @@ function Reports() {
           </table>
         </div>
         <div className="glass rounded-3xl p-6">
-          <h2 className="text-lg font-bold">สำเร็จตามแผนก</h2>
+          <div className="flex items-center justify-between"><h2 className="text-lg font-bold">ผลสำเร็จตาม{by === "division" ? "ฝ่าย" : "แผนก"}</h2>
+            <div className="flex gap-1 text-xs">{(["division", "department"] as const).map((k) => <button key={k} onClick={() => setBy(k)} className={`rounded-full px-3 py-1 ${by === k ? "bg-primary text-primary-foreground" : "bg-mist"}`}>{k === "division" ? "ฝ่าย" : "แผนก"}</button>)}</div></div>
           <div className="mt-4 space-y-4">
             {[...depts.entries()].map(([d, v]) => (
               <div key={d}>

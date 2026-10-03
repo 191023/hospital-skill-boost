@@ -4,9 +4,10 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { departments, roleLabel, useMe, type Role } from "@/lib/auth";
+import { roleLabel, useMe, type Role } from "@/lib/auth";
 import { createMember } from "@/lib/admin.functions";
 import { PageHeader } from "@/components/AppShell";
+import { DeptPicker } from "@/components/DeptPicker";
 
 export const Route = createFileRoute("/_authenticated/admin/users")({
   head: () => ({ meta: [{ title: "จัดการสมาชิก — ระบบอบรมออนไลน์" }] }),
@@ -61,13 +62,13 @@ function Users() {
       <div className="glass overflow-x-auto rounded-3xl">
         <table className="w-full text-sm">
           <thead className="bg-mist/60 text-left text-xs text-muted-foreground">
-            <tr><th className="p-4">ชื่อ</th><th>แผนก / ตำแหน่ง</th><th>บทบาท</th><th>สถานะ</th></tr>
+            <tr><th className="p-4">ชื่อ</th><th>ฝ่าย / แผนก / ตำแหน่ง</th><th>บทบาท</th><th>สถานะ</th></tr>
           </thead>
           <tbody>
             {list.map((u) => (
               <tr key={u.id} className="border-t border-glass-border">
                 <td className="p-4"><div className="font-semibold">{u.full_name}</div><div className="text-[11px] text-muted-foreground">{u.email}</div></td>
-                <td className="text-xs">{u.department}<div className="text-muted-foreground">{u.position}</div></td>
+                <td className="text-xs"><div className="text-muted-foreground">{u.division}</div>{u.department}<div className="text-muted-foreground">{u.position}</div></td>
                 <td>
                   <div className="flex flex-wrap gap-1">
                     {(["learner", "instructor", "admin"] as Role[]).map((r) => {
@@ -99,7 +100,7 @@ function Users() {
 function AddMember({ onDone }: { onDone: () => void }) {
   const create = useServerFn(createMember);
   const [busy, setBusy] = useState(false);
-  const [f, setF] = useState({ email: "", password: "", full_name: "", department: departments[0], position: "", role: "learner" as Role });
+  const [f, setF] = useState({ email: "", password: "", full_name: "", division: "", department: "", position: "", role: "learner" as Role });
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -118,7 +119,7 @@ function AddMember({ onDone }: { onDone: () => void }) {
       <input className={inp} placeholder="ชื่อ-นามสกุล" required value={f.full_name} onChange={(e) => setF({ ...f, full_name: e.target.value })} />
       <input className={inp} type="email" placeholder="อีเมล" required value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} />
       <input className={inp} type="text" placeholder="รหัสผ่านเริ่มต้น" minLength={6} required value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} />
-      <select className={inp} value={f.department} onChange={(e) => setF({ ...f, department: e.target.value })}>{departments.map((d) => <option key={d}>{d}</option>)}</select>
+      <DeptPicker className={inp} division={f.division} department={f.department} onChange={(division, department) => setF({ ...f, division, department })} />
       <input className={inp} placeholder="ตำแหน่ง" value={f.position} onChange={(e) => setF({ ...f, position: e.target.value })} />
       <select className={inp} value={f.role} onChange={(e) => setF({ ...f, role: e.target.value as Role })}>
         {(["learner", "instructor", "admin"] as Role[]).map((r) => <option key={r} value={r}>{roleLabel[r]}</option>)}

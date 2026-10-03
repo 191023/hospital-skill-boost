@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { departments } from "@/lib/auth";
+import { DeptPicker } from "@/components/DeptPicker";
 import { Blobs, Brand } from "@/components/Brand";
 
 export const Route = createFileRoute("/auth")({
@@ -23,7 +23,7 @@ function AuthPage() {
   const nav = useNavigate();
   const [mode, setMode] = useState<"in" | "up">("in");
   const [busy, setBusy] = useState(false);
-  const [f, setF] = useState({ email: "", password: "", full_name: "", department: departments[0], position: "" });
+  const [f, setF] = useState({ email: "", password: "", full_name: "", division: "", department: "", position: "" });
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -39,7 +39,7 @@ function AuthPage() {
           password: f.password,
           options: {
             emailRedirectTo: window.location.origin + "/dashboard",
-            data: { full_name: f.full_name, department: f.department, position: f.position },
+            data: { full_name: f.full_name, division: f.division, department: f.department, position: f.position },
           },
         });
         if (error) throw error;
@@ -63,9 +63,7 @@ function AuthPage() {
           {mode === "up" && (
             <>
               <input className={input} placeholder="ชื่อ-นามสกุล" required value={f.full_name} onChange={(e) => setF({ ...f, full_name: e.target.value })} />
-              <select className={input} value={f.department} onChange={(e) => setF({ ...f, department: e.target.value })}>
-                {departments.map((d) => <option key={d}>{d}</option>)}
-              </select>
+              <DeptPicker className={input} division={f.division} department={f.department} onChange={(division, department) => setF({ ...f, division, department })} />
               <input className={input} placeholder="ตำแหน่ง" value={f.position} onChange={(e) => setF({ ...f, position: e.target.value })} />
             </>
           )}

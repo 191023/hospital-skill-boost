@@ -7,6 +7,7 @@ export type Me = {
   id: string;
   email: string;
   full_name: string;
+  division: string;
   department: string;
   position: string;
   approved: boolean;
@@ -30,6 +31,7 @@ export function useMe() {
         id: u.user.id,
         email: u.user.email ?? "",
         full_name: p?.full_name ?? "",
+        division: p?.division ?? "",
         department: p?.department ?? "",
         position: p?.position ?? "",
         approved: p?.approved ?? false,
@@ -47,18 +49,6 @@ export const roleLabel: Record<Role, string> = {
   learner: "ผู้เรียน",
 };
 
-export const departments = [
-  "การพยาบาล",
-  "แพทย์",
-  "เภสัชกรรม",
-  "ห้องฉุกเฉิน",
-  "ห้องผ่าตัด",
-  "ห้องปฏิบัติการ",
-  "รังสีวิทยา",
-  "กายภาพบำบัด",
-  "บริหารทั่วไป",
-  "อื่นๆ",
-];
 
 export async function fileUrl(path: string | null | undefined) {
   if (!path) return null;
