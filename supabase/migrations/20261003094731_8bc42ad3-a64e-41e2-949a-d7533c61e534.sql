@@ -1,0 +1,3 @@
+create policy "course files read" on storage.objects for select to authenticated using (bucket_id = 'course-files');
+create policy "course files staff insert" on storage.objects for insert to authenticated with check (bucket_id = 'course-files' and public.is_staff(auth.uid()));
+create policy "course files staff delete" on storage.objects for delete to authenticated using (bucket_id = 'course-files' and public.is_staff(auth.uid()));
