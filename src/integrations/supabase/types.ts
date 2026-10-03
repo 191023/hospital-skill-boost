@@ -49,8 +49,41 @@ export type Database = {
           },
         ]
       }
+      course_access: {
+        Row: {
+          course_id: string
+          created_at: string
+          id: string
+          kind: string
+          value: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          id?: string
+          kind: string
+          value: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_access_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       courses: {
         Row: {
+          audience: string
           category: string | null
           cover_url: string | null
           created_at: string
@@ -63,6 +96,7 @@ export type Database = {
           title: string
         }
         Insert: {
+          audience?: string
           category?: string | null
           cover_url?: string | null
           created_at?: string
@@ -75,6 +109,7 @@ export type Database = {
           title: string
         }
         Update: {
+          audience?: string
           category?: string | null
           cover_url?: string | null
           created_at?: string
@@ -325,6 +360,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_access_course: {
+        Args: { _course: string; _user: string }
+        Returns: boolean
+      }
       can_edit_course: { Args: { _course: string }; Returns: boolean }
       get_test_questions: {
         Args: { _course: string }
