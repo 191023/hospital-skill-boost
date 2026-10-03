@@ -65,7 +65,7 @@ function Info({ course }: { course: Course }) {
 
   async function save() {
     const { error } = await supabase.from("courses").update({
-      title: f.title, description: f.description, category: f.category, hours: f.hours, pass_score: f.pass_score, published: f.published, cover_url: f.cover_url,
+      title: f.title, description: f.description, category: f.category, hours: f.hours, pass_score: f.pass_score, published: f.published, cover_url: f.cover_url, training_year: f.training_year,
     }).eq("id", course.id);
     if (error) { toast.error(error.message); return; }
     toast.success("บันทึกแล้ว");
@@ -81,7 +81,8 @@ function Info({ course }: { course: Course }) {
     <div className="glass space-y-4 rounded-3xl p-6">
       <L label="ชื่อหลักสูตร"><input className={inp} value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></L>
       <L label="รายละเอียด"><textarea rows={4} className={inp} value={f.description ?? ""} onChange={(e) => setF({ ...f, description: e.target.value })} /></L>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-4">
+        <L label="ปีที่อบรม (ค.ศ.)"><input type="number" min={2020} max={2100} className={inp} value={f.training_year} onChange={(e) => setF({ ...f, training_year: Number(e.target.value) })} /></L>
         <L label="หมวดหมู่"><input className={inp} value={f.category ?? ""} onChange={(e) => setF({ ...f, category: e.target.value })} placeholder="เช่น ICU, ความปลอดภัย" /></L>
         <L label="จำนวนชั่วโมง"><input type="number" className={inp} value={f.hours ?? 0} onChange={(e) => setF({ ...f, hours: Number(e.target.value) })} /></L>
         <L label="เกณฑ์ผ่านหลังเรียน (%)"><input type="number" min={0} max={100} className={inp} value={f.pass_score} onChange={(e) => setF({ ...f, pass_score: Number(e.target.value) })} /></L>

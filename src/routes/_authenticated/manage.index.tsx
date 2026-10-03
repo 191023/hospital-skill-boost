@@ -42,7 +42,7 @@ function Manage() {
           <tbody>
             {data.map((c) => (
               <tr key={c.id} className="border-t border-glass-border">
-                <td className="p-4"><div className="font-semibold">{c.title}</div><div className="text-[11px] text-muted-foreground">{c.category}</div></td>
+                <td className="p-4"><div className="font-semibold">{c.title}</div><div className="text-[11px] text-muted-foreground">ปี {c.training_year} · {c.category}</div></td>
                 <td>{cnt(c.lessons)}</td><td>{cnt(c.questions)}</td><td>{cnt(c.enrollments)}</td>
                 <td><span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${c.published ? "bg-mint/15 text-mint" : "bg-amber/15 text-amber"}`}>{c.published ? "เผยแพร่" : "ฉบับร่าง"}</span></td>
                 <td className="pr-4 text-right"><Link to="/manage/$courseId" params={{ courseId: c.id }} className="font-semibold text-primary">แก้ไข →</Link></td>
