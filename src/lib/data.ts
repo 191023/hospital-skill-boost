@@ -9,6 +9,7 @@ export type CourseProgress = {
   cover_url: string | null;
   description: string | null;
   pass_score: number;
+  training_year: number;
   lessonCount: number;
   done: number;
   pct: number;
@@ -25,7 +26,7 @@ export function useMyCourses(userId?: string) {
     queryFn: async (): Promise<CourseProgress[]> => {
       const { data: enr } = await supabase
         .from("enrollments")
-        .select("course_id, courses(id,title,category,hours,cover_url,description,pass_score, lessons(id))")
+        .select("course_id, courses(id,title,category,hours,cover_url,description,pass_score,training_year, lessons(id))")
         .eq("user_id", userId!);
       const [{ data: prog }, { data: att }, { data: certs }] = await Promise.all([
         supabase.from("lesson_progress").select("lesson_id").eq("user_id", userId!),
@@ -52,6 +53,7 @@ export function useMyCourses(userId?: string) {
             cover_url: c.cover_url,
             description: c.description,
             pass_score: c.pass_score,
+            training_year: c.training_year,
             lessonCount: lessons.length,
             done,
             pct: lessons.length ? Math.round((done / lessons.length) * 100) : 0,
