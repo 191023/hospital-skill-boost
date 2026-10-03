@@ -12,7 +12,7 @@ export const Route = createFileRoute("/_authenticated/courses/$courseId/")({
   component: CoursePage,
 });
 
-export function useCourseState(courseId: string, userId?: string) {
+function useCourseState(courseId: string, userId?: string) {
   return useQuery({
     queryKey: ["course", courseId, userId],
     enabled: !!userId,

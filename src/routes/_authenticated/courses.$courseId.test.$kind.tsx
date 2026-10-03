@@ -65,7 +65,7 @@ function TestPage() {
               {(q.options as string[]).map((o, oi) => (
                 <button key={oi} onClick={() => setAnswers({ ...answers, [q.id]: oi })}
                   className={`rounded-xl border px-4 py-2.5 text-left text-sm transition ${answers[q.id] === oi ? "border-primary bg-primary text-primary-foreground" : "border-glass-border bg-glass hover:bg-card"}`}>
-                  {String.fromCharCode(3585 + oi)}. {o}
+                  {"กขคงจฉชซ"[oi]}. {o}
                 </button>
               ))}
             </div>
