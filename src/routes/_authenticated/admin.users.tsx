@@ -36,8 +36,33 @@ function Users() {
   });
   if (!me?.isAdmin) return <div className="glass rounded-3xl p-10 text-center">เฉพาะผู้ดูแลระบบ</div>;
   const refresh = () => qc.invalidateQueries({ queryKey: ["admin-users"] });
-  const list = filter === "pending" ? data.filter((u) => !u.approved) : data;
   const pending = data.filter((u) => !u.approved).length;
+  const list = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    let rows = filter === "pending" ? data.filter((u) => !u.approved) : data;
+    if (term) rows = rows.filter((u) =>
+      [u.full_name, u.email, u.division, u.department, u.position].some((v) => (v ?? "").toLowerCase().includes(term)),
+    );
+    const val = (u: (typeof data)[number]) => {
+      const raw = sort.key === "approved" ? String(u.approved) : (u[sort.key] ?? "");
+      return raw;
+    };
+    return [...rows].sort((a, b) => {
+      const av = val(a) as string;
+      const bv = val(b) as string;
+      if (sort.key === "approved" && av !== bv) return sort.dir * (av === "true" ? 1 : -1);
+      return sort.dir * av.localeCompare(bv, "th");
+    });
+  }, [data, filter, q, sort]);
+
+  function thLabel(label: string, key: typeof sort.key) {
+    const active = sort.key === key;
+    return (
+      <button onClick={() => setSort((s) => ({ key, dir: active && s.dir === 1 ? -1 : 1 }))} className={`inline-flex items-center gap-1 hover:text-foreground ${active ? "text-foreground font-semibold" : ""}`}>
+        {label}<span className="text-[10px]">{active ? (sort.dir === 1 ? "▲" : "▼") : "↕"}</span>
+      </button>
+    );
+  }
 
   async function setApproved(id: string, v: boolean) {
     const { error } = await supabase.from("profiles").update({ approved: v }).eq("id", id);
