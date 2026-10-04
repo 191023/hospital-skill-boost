@@ -114,6 +114,27 @@ function RootComponent() {
     return () => data.subscription.unsubscribe();
   }, [router, queryClient]);
 
+  // After an update, a browser tab still holding the old bundle can fail to load
+  // renamed chunks ("Importing a module script failed") — reload once to pick up
+  // the fresh deployment instead of showing a blank screen.
+  useEffect(() => {
+    const onChunkError = (event: ErrorEvent | PromiseRejectionEvent) => {
+      const msg = event instanceof ErrorEvent ? event.message : String((event as PromiseRejectionEvent).reason);
+      if (!/Importing a module script failed|Failed to fetch dynamically imported module|error loading dynamically imported module/i.test(msg)) return;
+      const key = "chunk-reload-at";
+      const last = Number(sessionStorage.getItem(key) ?? 0);
+      if (Date.now() - last < 10_000) return;
+      sessionStorage.setItem(key, String(Date.now()));
+      window.location.reload();
+    };
+    window.addEventListener("error", onChunkError);
+    window.addEventListener("unhandledrejection", onChunkError);
+    return () => {
+      window.removeEventListener("error", onChunkError);
+      window.removeEventListener("unhandledrejection", onChunkError);
+    };
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <Outlet />

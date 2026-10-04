@@ -8,6 +8,7 @@ import { roleLabel, useMe, type Role } from "@/lib/auth";
 import { createMember } from "@/lib/admin.functions";
 import { PageHeader } from "@/components/AppShell";
 import { DeptPicker } from "@/components/DeptPicker";
+import { divisions, orgChart } from "@/lib/org";
 
 export const Route = createFileRoute("/_authenticated/admin/users")({
   head: () => ({ meta: [{ title: "จัดการสมาชิก — ระบบอบรมออนไลน์" }] }),
@@ -22,6 +23,8 @@ function Users() {
   const [filter, setFilter] = useState<"all" | "pending">("all");
   const [showAdd, setShowAdd] = useState(false);
   const [q, setQ] = useState("");
+  const [fDiv, setFDiv] = useState("");
+  const [fDept, setFDept] = useState("");
   const [sort, setSort] = useState<{ key: "full_name" | "division" | "department" | "position" | "approved"; dir: 1 | -1 }>({ key: "full_name", dir: 1 });
   const { data = [] } = useQuery({
     queryKey: ["admin-users"],
@@ -40,6 +43,8 @@ function Users() {
   const list = useMemo(() => {
     const term = q.trim().toLowerCase();
     let rows = filter === "pending" ? data.filter((u) => !u.approved) : data;
+    if (fDiv) rows = rows.filter((u) => u.division === fDiv);
+    if (fDept) rows = rows.filter((u) => u.department === fDept);
     if (term) rows = rows.filter((u) =>
       [u.full_name, u.email, u.division, u.department, u.position].some((v) => (v ?? "").toLowerCase().includes(term)),
     );
@@ -53,7 +58,7 @@ function Users() {
       if (sort.key === "approved" && av !== bv) return sort.dir * (av === "true" ? 1 : -1);
       return sort.dir * av.localeCompare(bv, "th");
     });
-  }, [data, filter, q, sort]);
+  }, [data, filter, q, sort, fDiv, fDept]);
 
   function thLabel(label: string, key: typeof sort.key) {
     const active = sort.key === key;
@@ -78,6 +83,24 @@ function Users() {
     refresh();
   }
 
+  function exportCsv() {
+    const rows: string[][] = [["ชื่อ", "อีเมล", "ฝ่าย", "แผนก", "ตำแหน่ง", "บทบาท", "สถานะ"]];
+    for (const u of list) {
+      rows.push([
+        u.full_name ?? "", u.email ?? "", u.division ?? "", u.department ?? "", u.position ?? "",
+        u.roles.map((r) => roleLabel[r]).join(", "),
+        u.approved ? "อนุมัติแล้ว" : "รออนุมัติ",
+      ]);
+    }
+    const csv = "\uFEFF" + rows.map((r) => r.map((x) => `"${String(x).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url; a.download = "members.csv"; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const hasFilter = !!fDiv || !!fDept || !!q.trim();
+
   return (
     <>
       <PageHeader eyebrow="ตั้งค่าระบบ" title="จัดการสมาชิก" right={<button onClick={() => setShowAdd(!showAdd)} className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-brand">+ เพิ่มสมาชิก</button>} />
@@ -85,6 +108,18 @@ function Users() {
       <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
         <button onClick={() => setFilter("all")} className={`rounded-full px-4 py-1.5 ${filter === "all" ? "bg-primary text-primary-foreground" : "glass"}`}>ทั้งหมด ({data.length})</button>
         <button onClick={() => setFilter("pending")} className={`rounded-full px-4 py-1.5 ${filter === "pending" ? "bg-primary text-primary-foreground" : "glass"}`}>รออนุมัติ ({pending})</button>
+        <select value={fDiv} onChange={(e) => { setFDiv(e.target.value); setFDept(""); }} className="glass rounded-full px-4 py-1.5 outline-none">
+          <option value="">ทุกฝ่าย</option>
+          {divisions.map((d) => <option key={d} value={d}>{d}</option>)}
+        </select>
+        <select value={fDept} disabled={!fDiv} onChange={(e) => setFDept(e.target.value)} className="glass rounded-full px-4 py-1.5 outline-none disabled:opacity-50">
+          <option value="">{fDiv ? "ทุกแผนก" : "ทุกแผนก (เลือกฝ่ายก่อน)"}</option>
+          {(orgChart[fDiv] ?? []).map((d) => <option key={d} value={d}>{d}</option>)}
+        </select>
+        {hasFilter && (
+          <button onClick={() => { setFDiv(""); setFDept(""); setQ(""); }} className="rounded-full px-3 py-1.5 text-xs text-muted-foreground underline">ล้างตัวกรอง</button>
+        )}
+        <button onClick={exportCsv} className="glass rounded-full px-4 py-1.5 font-semibold text-primary">⬇ ส่งออก Excel (CSV)</button>
         <div className="relative min-w-[220px] flex-1">
           <input className={`${inp} pl-9`} placeholder="ค้นหาชื่อ อีเมล ฝ่าย แผนก ตำแหน่ง..." value={q} onChange={(e) => setQ(e.target.value)} />
           <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
