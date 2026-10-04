@@ -43,6 +43,8 @@ function Users() {
   const list = useMemo(() => {
     const term = q.trim().toLowerCase();
     let rows = filter === "pending" ? data.filter((u) => !u.approved) : data;
+    if (fDiv) rows = rows.filter((u) => u.division === fDiv);
+    if (fDept) rows = rows.filter((u) => u.department === fDept);
     if (term) rows = rows.filter((u) =>
       [u.full_name, u.email, u.division, u.department, u.position].some((v) => (v ?? "").toLowerCase().includes(term)),
     );
@@ -56,7 +58,7 @@ function Users() {
       if (sort.key === "approved" && av !== bv) return sort.dir * (av === "true" ? 1 : -1);
       return sort.dir * av.localeCompare(bv, "th");
     });
-  }, [data, filter, q, sort]);
+  }, [data, filter, q, sort, fDiv, fDept]);
 
   function thLabel(label: string, key: typeof sort.key) {
     const active = sort.key === key;
