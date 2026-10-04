@@ -41,7 +41,7 @@ function Audit() {
   function detail(l: { action: string; details: unknown }) {
     const d = (l.details ?? {}) as Record<string, any>;
     if (l.action === "updated") return Object.entries(d).map(([k, v]) => `${fieldLabel[k] ?? k}: "${v?.from ?? ""}" → "${v?.to ?? ""}"`).join(" · ");
-    if (l.action.startsWith("role_")) return roleLabel[d.role as Role] ?? d.role;
+    if (l.action.startsWith("role_")) return roleLabel[d["role"] as Role] ?? d["role"];
     return "";
   }
 

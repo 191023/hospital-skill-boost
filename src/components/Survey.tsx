@@ -42,12 +42,12 @@ export function SurveyManager({ courseId }: { courseId: string }) {
 
   async function add(items: { kind: "rating" | "text"; prompt: string }[]) {
     const { error } = await supabase.from("survey_questions").insert(items.map((x, i) => ({ ...x, course_id: courseId, position: qs.length + i })));
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     setNq({ kind: nq.kind, prompt: "" }); refresh();
   }
   async function del(id: string) {
     const { error } = await supabase.from("survey_questions").delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     refresh();
   }
   async function runAi() {
@@ -119,9 +119,9 @@ export function SurveyForm({ courseId, userId }: { courseId: string; userId: str
   if (isLoading || !qs.length) return null;
   if (mine) return <div className="glass rounded-3xl p-5 text-sm text-mint">✓ ขอบคุณที่ตอบแบบประเมินหลักสูตร</div>;
   async function submit() {
-    if (qs.some((q) => q.kind === "rating" && !ans[q.id])) return toast.error("กรุณาให้คะแนนให้ครบทุกข้อ");
+    if (qs.some((q) => q.kind === "rating" && !ans[q.id])) { toast.error("กรุณาให้คะแนนให้ครบทุกข้อ"); return; }
     const { error } = await supabase.from("survey_responses").insert({ course_id: courseId, user_id: userId, answers: ans });
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     toast.success("ส่งแบบประเมินแล้ว");
     qc.invalidateQueries({ queryKey: ["survey-mine", courseId, userId] });
   }
