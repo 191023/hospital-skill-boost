@@ -83,6 +83,24 @@ function Users() {
     refresh();
   }
 
+  function exportCsv() {
+    const rows: string[][] = [["ชื่อ", "อีเมล", "ฝ่าย", "แผนก", "ตำแหน่ง", "บทบาท", "สถานะ"]];
+    for (const u of list) {
+      rows.push([
+        u.full_name ?? "", u.email ?? "", u.division ?? "", u.department ?? "", u.position ?? "",
+        u.roles.map((r) => roleLabel[r]).join(", "),
+        u.approved ? "อนุมัติแล้ว" : "รออนุมัติ",
+      ]);
+    }
+    const csv = "\uFEFF" + rows.map((r) => r.map((x) => `"${String(x).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url; a.download = "members.csv"; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const hasFilter = !!fDiv || !!fDept || !!q.trim();
+
   return (
     <>
       <PageHeader eyebrow="ตั้งค่าระบบ" title="จัดการสมาชิก" right={<button onClick={() => setShowAdd(!showAdd)} className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-brand">+ เพิ่มสมาชิก</button>} />
