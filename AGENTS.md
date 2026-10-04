@@ -15,3 +15,5 @@
 - Roles live in `user_roles` (admin/instructor/learner); approval flag lives on `profiles` guarded by a trigger — prevents self-escalation.
 - Admin-only user creation uses a server function with the admin client after a has_role check.
 - Course files go in the private `course-files` bucket and are shown via signed URLs — workspace blocks public buckets.
+- Member history is written by DB triggers into `member_audit_log` (admin-read only); admin server fns re-attribute admin-created rows — keeps the log tamper-proof.
+- AI calls go through `src/lib/ai.server.ts` (Lovable AI Gateway, Responses API), invoked only from server functions — keeps the key server-side.
