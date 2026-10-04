@@ -8,6 +8,7 @@ import { roleLabel, useMe, type Role } from "@/lib/auth";
 import { createMember } from "@/lib/admin.functions";
 import { PageHeader } from "@/components/AppShell";
 import { DeptPicker } from "@/components/DeptPicker";
+import { divisions, orgChart } from "@/lib/org";
 
 export const Route = createFileRoute("/_authenticated/admin/users")({
   head: () => ({ meta: [{ title: "จัดการสมาชิก — ระบบอบรมออนไลน์" }] }),
@@ -22,6 +23,8 @@ function Users() {
   const [filter, setFilter] = useState<"all" | "pending">("all");
   const [showAdd, setShowAdd] = useState(false);
   const [q, setQ] = useState("");
+  const [fDiv, setFDiv] = useState("");
+  const [fDept, setFDept] = useState("");
   const [sort, setSort] = useState<{ key: "full_name" | "division" | "department" | "position" | "approved"; dir: 1 | -1 }>({ key: "full_name", dir: 1 });
   const { data = [] } = useQuery({
     queryKey: ["admin-users"],
