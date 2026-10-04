@@ -9,6 +9,7 @@ import { createMember } from "@/lib/admin.functions";
 import { PageHeader } from "@/components/AppShell";
 import { DeptPicker } from "@/components/DeptPicker";
 import { divisions, orgChart } from "@/lib/org";
+import { ImportMembers } from "@/components/ImportMembers";
 
 export const Route = createFileRoute("/_authenticated/admin/users")({
   head: () => ({ meta: [{ title: "จัดการสมาชิก — ระบบอบรมออนไลน์" }] }),
@@ -22,6 +23,7 @@ function Users() {
   const qc = useQueryClient();
   const [filter, setFilter] = useState<"all" | "pending">("all");
   const [showAdd, setShowAdd] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [q, setQ] = useState("");
   const [fDiv, setFDiv] = useState("");
   const [fDept, setFDept] = useState("");
@@ -103,7 +105,8 @@ function Users() {
 
   return (
     <>
-      <PageHeader eyebrow="ตั้งค่าระบบ" title="จัดการสมาชิก" right={<button onClick={() => setShowAdd(!showAdd)} className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-brand">+ เพิ่มสมาชิก</button>} />
+      <PageHeader eyebrow="ตั้งค่าระบบ" title="จัดการสมาชิก" right={<div className="flex gap-2"><button onClick={() => setShowImport(!showImport)} className="glass rounded-xl px-4 py-2 text-sm font-semibold text-primary">⬆ นำเข้า CSV</button><button onClick={() => setShowAdd(!showAdd)} className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-brand">+ เพิ่มสมาชิก</button></div>} />
+      {showImport && <ImportMembers existingEmails={data.map((u) => u.email ?? "")} onDone={refresh} />}
       {showAdd && <AddMember onDone={() => { setShowAdd(false); refresh(); }} />}
       <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
         <button onClick={() => setFilter("all")} className={`rounded-full px-4 py-1.5 ${filter === "all" ? "bg-primary text-primary-foreground" : "glass"}`}>ทั้งหมด ({data.length})</button>

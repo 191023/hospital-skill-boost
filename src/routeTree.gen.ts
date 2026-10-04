@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedMyCoursesRouteImport } from './routes/_authenticated/my-courses'
+import { Route as AuthenticatedAdminAuditRouteImport } from './routes/_authenticated/admin.audit'
 import { Route as AuthenticatedAdminReportsRouteImport } from './routes/_authenticated/admin.reports'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin.users'
 import { Route as AuthenticatedCertificatesIndexRouteImport } from './routes/_authenticated/certificates.index'
@@ -48,6 +49,11 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
 const AuthenticatedMyCoursesRoute = AuthenticatedMyCoursesRouteImport.update({
   id: '/my-courses',
   path: '/my-courses',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAdminAuditRoute = AuthenticatedAdminAuditRouteImport.update({
+  id: '/admin/audit',
+  path: '/admin/audit',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedAdminReportsRoute =
@@ -121,6 +127,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/my-courses': typeof AuthenticatedMyCoursesRoute
+  '/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/certificates/$certId': typeof AuthenticatedCertificatesCertIdRoute
@@ -138,6 +145,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/my-courses': typeof AuthenticatedMyCoursesRoute
+  '/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/certificates/$certId': typeof AuthenticatedCertificatesCertIdRoute
@@ -157,6 +165,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/my-courses': typeof AuthenticatedMyCoursesRoute
+  '/_authenticated/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/_authenticated/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
   '/_authenticated/certificates/$certId': typeof AuthenticatedCertificatesCertIdRoute
@@ -176,6 +185,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/my-courses'
+    | '/admin/audit'
     | '/admin/reports'
     | '/admin/users'
     | '/certificates/$certId'
@@ -193,6 +203,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/my-courses'
+    | '/admin/audit'
     | '/admin/reports'
     | '/admin/users'
     | '/certificates/$certId'
@@ -211,6 +222,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/dashboard'
     | '/_authenticated/my-courses'
+    | '/_authenticated/admin/audit'
     | '/_authenticated/admin/reports'
     | '/_authenticated/admin/users'
     | '/_authenticated/certificates/$certId'
@@ -265,6 +277,13 @@ declare module '@tanstack/react-router' {
       path: '/my-courses'
       fullPath: '/my-courses'
       preLoaderRoute: typeof AuthenticatedMyCoursesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/admin/audit': {
+      id: '/_authenticated/admin/audit'
+      path: '/admin/audit'
+      fullPath: '/admin/audit'
+      preLoaderRoute: typeof AuthenticatedAdminAuditRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/admin/reports': {
@@ -350,6 +369,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedMyCoursesRoute: typeof AuthenticatedMyCoursesRoute
+  AuthenticatedAdminAuditRoute: typeof AuthenticatedAdminAuditRoute
   AuthenticatedAdminReportsRoute: typeof AuthenticatedAdminReportsRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
   AuthenticatedCertificatesCertIdRoute: typeof AuthenticatedCertificatesCertIdRoute
@@ -366,6 +386,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedMyCoursesRoute: AuthenticatedMyCoursesRoute,
+  AuthenticatedAdminAuditRoute: AuthenticatedAdminAuditRoute,
   AuthenticatedAdminReportsRoute: AuthenticatedAdminReportsRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
   AuthenticatedCertificatesCertIdRoute: AuthenticatedCertificatesCertIdRoute,

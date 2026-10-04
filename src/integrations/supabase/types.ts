@@ -228,6 +228,33 @@ export type Database = {
           },
         ]
       }
+      member_audit_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          details: Json
+          id: string
+          target_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          details?: Json
+          id?: string
+          target_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          details?: Json
+          id?: string
+          target_id?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           approved: boolean
@@ -291,6 +318,108 @@ export type Database = {
             foreignKeyName: "questions_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      survey_questions: {
+        Row: {
+          course_id: string
+          created_at: string
+          id: string
+          kind: string
+          position: number
+          prompt: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          id?: string
+          kind?: string
+          position?: number
+          prompt: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          position?: number
+          prompt?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "survey_questions_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      survey_responses: {
+        Row: {
+          answers: Json
+          course_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          answers?: Json
+          course_id: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Update: {
+          answers?: Json
+          course_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "survey_responses_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      survey_summaries: {
+        Row: {
+          course_id: string
+          created_at: string
+          created_by: string | null
+          response_count: number
+          summary: string
+          updated_at: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          created_by?: string | null
+          response_count?: number
+          summary: string
+          updated_at?: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          created_by?: string | null
+          response_count?: number
+          summary?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "survey_summaries_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: true
             referencedRelation: "courses"
             referencedColumns: ["id"]
           },

@@ -28,6 +28,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     { to: "/manage", label: "จัดการหลักสูตร", icon: "✎", show: !!me?.isStaff },
     { to: "/admin/reports", label: "สรุปผลอบรม", icon: "▥", show: !!me?.isStaff },
     { to: "/admin/users", label: "จัดการสมาชิก", icon: "⚙", show: !!me?.isAdmin },
+    { to: "/admin/audit", label: "ประวัติสมาชิก", icon: "◷", show: !!me?.isAdmin },
   ];
 
   return (

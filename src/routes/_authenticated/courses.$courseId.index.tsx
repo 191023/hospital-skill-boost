@@ -6,6 +6,7 @@ import { useMe } from "@/lib/auth";
 import { kindLabel } from "@/lib/data";
 import { Bar } from "@/components/AppShell";
 import { coverFor } from "@/components/Brand";
+import { SurveyForm } from "@/components/Survey";
 
 export const Route = createFileRoute("/_authenticated/courses/$courseId/")({
   head: () => ({ meta: [{ title: "รายละเอียดหลักสูตร — ระบบอบรมออนไลน์" }] }),
@@ -136,6 +137,7 @@ function CoursePage() {
             </>
           )}
         </div>
+        {enrolled && me && <SurveyForm courseId={courseId} userId={me.id} />}
       </aside>
     </div>
   );

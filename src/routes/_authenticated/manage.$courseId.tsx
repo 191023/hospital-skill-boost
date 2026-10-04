@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { fileUrl } from "@/lib/auth";
 import { kindLabel } from "@/lib/data";
 import { divisions, orgChart } from "@/lib/org";
+import { SurveyManager } from "@/components/Survey";
 
 export const Route = createFileRoute("/_authenticated/manage/$courseId")({
   head: () => ({ meta: [{ title: "แก้ไขหลักสูตร — ระบบอบรมออนไลน์" }] }),
@@ -24,7 +25,7 @@ async function upload(file: File, courseId: string) {
 
 function Editor() {
   const { courseId } = Route.useParams();
-  const [tab, setTab] = useState<"info" | "access" | "lessons" | "questions">("info");
+  const [tab, setTab] = useState<"info" | "access" | "lessons" | "questions" | "survey">("info");
   const { data: course } = useQuery({
     queryKey: ["edit-course", courseId],
     queryFn: async () => (await supabase.from("courses").select("*").eq("id", courseId).maybeSingle()).data,
@@ -34,10 +35,10 @@ function Editor() {
     <div className="mx-auto max-w-4xl">
       <Link to="/manage" className="text-sm text-primary">← หลักสูตรทั้งหมด</Link>
       <h1 className="mt-2 text-3xl font-bold">{course.title}</h1>
-      <div className="glass mt-4 inline-flex rounded-2xl p-1 text-sm">
-        {(["info", "access", "lessons", "questions"] as const).map((t) => (
+      <div className="glass mt-4 inline-flex flex-wrap rounded-2xl p-1 text-sm">
+        {(["info", "access", "lessons", "questions", "survey"] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)} className={`rounded-xl px-4 py-2 ${tab === t ? "bg-primary font-semibold text-primary-foreground" : "text-foreground/70"}`}>
-            {{ info: "ข้อมูลหลักสูตร", access: "ผู้มีสิทธิ์เรียน", lessons: "บทเรียน", questions: "ข้อสอบก่อน/หลังเรียน" }[t]}
+            {{ info: "ข้อมูลหลักสูตร", access: "ผู้มีสิทธิ์เรียน", lessons: "บทเรียน", questions: "ข้อสอบก่อน/หลังเรียน", survey: "แบบประเมินหลักสูตร" }[t]}
           </button>
         ))}
       </div>
@@ -46,6 +47,7 @@ function Editor() {
         {tab === "access" && <Access courseId={courseId} audience={(course as { audience?: string }).audience ?? "all"} />}
         {tab === "lessons" && <Lessons courseId={courseId} />}
         {tab === "questions" && <Questions courseId={courseId} />}
+        {tab === "survey" && <SurveyManager courseId={courseId} />}
       </div>
     </div>
   );
