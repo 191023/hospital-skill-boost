@@ -108,6 +108,18 @@ function Users() {
       <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
         <button onClick={() => setFilter("all")} className={`rounded-full px-4 py-1.5 ${filter === "all" ? "bg-primary text-primary-foreground" : "glass"}`}>ทั้งหมด ({data.length})</button>
         <button onClick={() => setFilter("pending")} className={`rounded-full px-4 py-1.5 ${filter === "pending" ? "bg-primary text-primary-foreground" : "glass"}`}>รออนุมัติ ({pending})</button>
+        <select value={fDiv} onChange={(e) => { setFDiv(e.target.value); setFDept(""); }} className="glass rounded-full px-4 py-1.5 outline-none">
+          <option value="">ทุกฝ่าย</option>
+          {divisions.map((d) => <option key={d} value={d}>{d}</option>)}
+        </select>
+        <select value={fDept} disabled={!fDiv} onChange={(e) => setFDept(e.target.value)} className="glass rounded-full px-4 py-1.5 outline-none disabled:opacity-50">
+          <option value="">{fDiv ? "ทุกแผนก" : "ทุกแผนก (เลือกฝ่ายก่อน)"}</option>
+          {(orgChart[fDiv] ?? []).map((d) => <option key={d} value={d}>{d}</option>)}
+        </select>
+        {hasFilter && (
+          <button onClick={() => { setFDiv(""); setFDept(""); setQ(""); }} className="rounded-full px-3 py-1.5 text-xs text-muted-foreground underline">ล้างตัวกรอง</button>
+        )}
+        <button onClick={exportCsv} className="glass rounded-full px-4 py-1.5 font-semibold text-primary">⬇ ส่งออก Excel (CSV)</button>
         <div className="relative min-w-[220px] flex-1">
           <input className={`${inp} pl-9`} placeholder="ค้นหาชื่อ อีเมล ฝ่าย แผนก ตำแหน่ง..." value={q} onChange={(e) => setQ(e.target.value)} />
           <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
