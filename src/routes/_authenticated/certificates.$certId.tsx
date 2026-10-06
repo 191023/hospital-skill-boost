@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { thaiDate } from "@/lib/data";
+import { QRImg, origin } from "@/components/QR";
 
 export const Route = createFileRoute("/_authenticated/certificates/$certId")({
   head: () => ({ meta: [{ title: "ใบประกาศนียบัตร — ระบบอบรมออนไลน์" }] }),
@@ -43,6 +44,10 @@ function CertView() {
           <div className="mt-8 flex w-full justify-between px-8 text-xs text-muted-foreground">
             <span>เลขที่ {c.cert_no}</span>
             <span>ให้ไว้ ณ วันที่ {thaiDate(c.issued_at)}</span>
+          </div>
+          <div className="absolute bottom-0 right-0 text-center text-[9px] text-muted-foreground">
+            <QRImg value={`${origin()}/verify/${c.cert_no}`} size={72} />
+            สแกนตรวจสอบ
           </div>
         </div>
       </div>

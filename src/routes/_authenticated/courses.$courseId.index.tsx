@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -51,6 +52,19 @@ function CoursePage() {
   const { data: me } = useMe();
   const qc = useQueryClient();
   const { data, isLoading } = useCourseState(courseId, me?.id);
+
+  const joined = useRef(false);
+  useEffect(() => {
+    if (!data?.course || !me || data.enrolled || joined.current) return;
+    if (new URLSearchParams(window.location.search).get("join") !== "1") return;
+    joined.current = true;
+    sessionStorage.removeItem("after-auth");
+    supabase.from("enrollments").insert({ course_id: courseId, user_id: me.id }).then(({ error }) => {
+      if (error) { toast.error("ลงทะเบียนไม่สำเร็จ: " + error.message); return; }
+      toast.success("ลงทะเบียนหลักสูตรเรียบร้อย");
+      qc.invalidateQueries();
+    });
+  }, [data, me, courseId, qc]);
 
   if (isLoading || !data) return <div className="text-muted-foreground">กำลังโหลด...</div>;
   const { course, lessons, done, enrolled, pre, posts, cert, hasQuestions, allDone } = data;
