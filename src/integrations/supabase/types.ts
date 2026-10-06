@@ -14,6 +14,35 @@ export type Database = {
   }
   public: {
     Tables: {
+      attendance: {
+        Row: {
+          checked_at: string
+          course_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          checked_at?: string
+          course_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          checked_at?: string
+          course_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       certificates: {
         Row: {
           cert_no: string
@@ -85,6 +114,7 @@ export type Database = {
         Row: {
           audience: string
           category: string | null
+          checkin_code: string
           cover_url: string | null
           created_at: string
           created_by: string | null
@@ -99,6 +129,7 @@ export type Database = {
         Insert: {
           audience?: string
           category?: string | null
+          checkin_code?: string
           cover_url?: string | null
           created_at?: string
           created_by?: string | null
@@ -113,6 +144,7 @@ export type Database = {
         Update: {
           audience?: string
           category?: string | null
+          checkin_code?: string
           cover_url?: string | null
           created_at?: string
           created_by?: string | null
@@ -497,6 +529,7 @@ export type Database = {
         Returns: boolean
       }
       can_edit_course: { Args: { _course: string }; Returns: boolean }
+      check_in: { Args: { _code: string; _course: string }; Returns: Json }
       get_test_questions: {
         Args: { _course: string }
         Returns: {

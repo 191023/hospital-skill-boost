@@ -15,7 +15,7 @@ export const Route = createFileRoute("/_authenticated/admin/reports_/$courseId")
 type Row = {
   name: string; email: string; division: string; department: string; position: string;
   enrolledAt: string; lessons: number; totalLessons: number;
-  pre: number | null; post: number | null; passed: boolean; certNo: string; issuedAt: string;
+  pre: number | null; post: number | null; passed: boolean; onsite: boolean; checkedAt: string; certNo: string; issuedAt: string;
 };
 
 const avg = (xs: number[]) => (xs.length ? Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 10) / 10 : 0);
@@ -24,17 +24,20 @@ function CourseReport() {
   const { courseId } = Route.useParams();
   const { data: me } = useMe();
   const [division, setDivision] = useState("all");
+  const [mode, setMode] = useState("all");
   const { data } = useQuery({
     queryKey: ["course-report", courseId],
     enabled: !!me?.isStaff,
     queryFn: async () => {
-      const [{ data: course }, { data: lessons }, { data: enr }, { data: att }, { data: certs }] = await Promise.all([
+      const [{ data: course }, { data: lessons }, { data: enr }, { data: att }, { data: certs }, { data: atd }] = await Promise.all([
         supabase.from("courses").select("id,title,category,hours,pass_score,training_year").eq("id", courseId).single(),
         supabase.from("lessons").select("id").eq("course_id", courseId),
         supabase.from("enrollments").select("user_id,created_at").eq("course_id", courseId),
         supabase.from("test_attempts").select("user_id,kind,percent").eq("course_id", courseId),
         supabase.from("certificates").select("user_id,cert_no,issued_at").eq("course_id", courseId),
+        supabase.from("attendance").select("user_id,checked_at").eq("course_id", courseId),
       ]);
+      const amap = new Map((atd ?? []).map((a) => [a.user_id, a.checked_at]));
       const lessonIds = (lessons ?? []).map((l) => l.id);
       const userIds = (enr ?? []).map((e) => e.user_id);
       const [{ data: profiles }, { data: prog }] = await Promise.all([
@@ -53,7 +56,7 @@ function CourseReport() {
           name: p.full_name || "-", email: p.email || "", division: p.division || "ไม่ระบุ", department: p.department || "ไม่ระบุ", position: p.position || "",
           enrolledAt: e.created_at, lessons: done, totalLessons: lessonIds.length,
           pre: pre.length ? pre[0]! : null, post: post.length ? Math.max(...post) : null,
-          passed: !!cert, certNo: cert?.cert_no ?? "", issuedAt: cert?.issued_at ?? "",
+          passed: !!cert, onsite: amap.has(e.user_id), checkedAt: amap.get(e.user_id) ?? "", certNo: cert?.cert_no ?? "", issuedAt: cert?.issued_at ?? "",
         };
       }).sort((a, b) => a.division.localeCompare(b.division, "th") || a.department.localeCompare(b.department, "th") || a.name.localeCompare(b.name, "th"));
       return { course, rows };
@@ -65,7 +68,9 @@ function CourseReport() {
   if (!data.course) return <div className="glass rounded-3xl p-10 text-center">ไม่พบหลักสูตร</div>;
   const { course } = data;
   const divisions = [...new Set(data.rows.map((r) => r.division))];
-  const rows = data.rows.filter((r) => division === "all" || r.division === division);
+  const rows = data.rows.filter((r) => (division === "all" || r.division === division) && (mode === "all" || (mode === "onsite") === r.onsite));
+  const onsite = rows.filter((r) => r.onsite).length;
+  const modeLabel = (r: Row) => (r.onsite ? "อบรมสด" : "ออนไลน์");
 
   const groups = new Map<string, Map<string, Row[]>>();
   for (const r of rows) {
@@ -83,21 +88,22 @@ function CourseReport() {
     const summary: (string | number)[][] = [
       ["รายงานสรุปผลการอบรม โรงพยาบาลโอเวอร์บรุ๊ค"],
       ["หลักสูตร", course!.title], ["ปีที่อบรม (ค.ศ.)", course!.training_year], ["เกณฑ์ผ่าน (%)", course!.pass_score],
-      ["ผู้เข้าอบรม", rows.length], ["ผ่านเกณฑ์", passed], ["อัตราผ่าน (%)", pct(passed, rows.length)],
+      ["ผู้เข้าอบรม", rows.length], ["อบรมสด (on-site)", onsite], ["ออนไลน์", rows.length - onsite], ["ผ่านเกณฑ์", passed], ["อัตราผ่าน (%)", pct(passed, rows.length)],
       ["คะแนนก่อนเรียนเฉลี่ย", preAvg], ["คะแนนหลังเรียนเฉลี่ย", postAvg], [],
-      ["ฝ่าย", "แผนก", "ผู้เข้าอบรม", "ผ่าน", "ยังไม่ผ่าน", "อัตราผ่าน (%)"],
+      ["ฝ่าย", "แผนก", "ผู้เข้าอบรม", "อบรมสด", "ออนไลน์", "ผ่าน", "ยังไม่ผ่าน", "อัตราผ่าน (%)"],
     ];
     for (const [d, deps] of groups) for (const [dep, rs] of deps) {
       const p = rs.filter((r) => r.passed).length;
-      summary.push([d, dep, rs.length, p, rs.length - p, pct(p, rs.length)]);
+      const o = rs.filter((r) => r.onsite).length;
+      summary.push([d, dep, rs.length, o, rs.length - o, p, rs.length - p, pct(p, rs.length)]);
     }
     const ws1 = XLSX.utils.aoa_to_sheet(summary);
     ws1["!cols"] = [{ wch: 28 }, { wch: 32 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 14 }];
     XLSX.utils.book_append_sheet(wb, ws1, "สรุปตามฝ่าย-แผนก");
-    const detail = [["ลำดับ", "ชื่อ-นามสกุล", "อีเมล", "ตำแหน่ง", "ฝ่าย", "แผนก", "วันที่ลงทะเบียน", "บทเรียนที่เรียน", "ก่อนเรียน (%)", "หลังเรียนสูงสุด (%)", "ผลการอบรม", "เลขใบประกาศ", "วันที่ออกใบประกาศ"],
-      ...rows.map((r, i) => [i + 1, r.name, r.email, r.position, r.division, r.department, thaiDate(r.enrolledAt), `${r.lessons}/${r.totalLessons}`, r.pre ?? "", r.post ?? "", r.passed ? "ผ่าน" : "ยังไม่ผ่าน", r.certNo, r.issuedAt ? thaiDate(r.issuedAt) : ""])];
+    const detail = [["ลำดับ", "ชื่อ-นามสกุล", "อีเมล", "ตำแหน่ง", "ฝ่าย", "แผนก", "วันที่ลงทะเบียน", "รูปแบบการอบรม", "เวลาเช็คชื่อ", "บทเรียนที่เรียน", "ก่อนเรียน (%)", "หลังเรียนสูงสุด (%)", "ผลการอบรม", "เลขใบประกาศ", "วันที่ออกใบประกาศ"],
+      ...rows.map((r, i) => [i + 1, r.name, r.email, r.position, r.division, r.department, thaiDate(r.enrolledAt), modeLabel(r), r.checkedAt ? new Date(r.checkedAt).toLocaleString("th-TH") : "", `${r.lessons}/${r.totalLessons}`, r.pre ?? "", r.post ?? "", r.passed ? "ผ่าน" : "ยังไม่ผ่าน", r.certNo, r.issuedAt ? thaiDate(r.issuedAt) : ""])];
     const ws2 = XLSX.utils.aoa_to_sheet(detail);
-    ws2["!cols"] = [6, 26, 30, 16, 28, 32, 16, 14, 12, 16, 12, 18, 18].map((wch) => ({ wch }));
+    ws2["!cols"] = [6, 26, 30, 16, 28, 32, 16, 14, 20, 14, 12, 16, 12, 18, 18].map((wch) => ({ wch }));
     XLSX.utils.book_append_sheet(wb, ws2, "รายชื่อผู้เข้าอบรม");
     XLSX.writeFile(wb, `report-${course!.training_year}-${course!.title}.xlsx`);
   }
@@ -111,13 +117,18 @@ function CourseReport() {
             <option value="all">ทุกฝ่าย</option>
             {divisions.map((d) => <option key={d} value={d}>{d}</option>)}
           </select>
+          <select value={mode} onChange={(e) => setMode(e.target.value)} className="glass rounded-full px-4 py-2 text-sm outline-none">
+            <option value="all">ทุกรูปแบบ</option>
+            <option value="onsite">อบรมสด</option>
+            <option value="online">ออนไลน์</option>
+          </select>
           <button onClick={exportExcel} className="glass rounded-full px-4 py-2 text-sm font-semibold text-primary">⬇ Excel</button>
           <button onClick={() => window.print()} className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">⬇ PDF / พิมพ์</button>
         </div>
       } />
       <p className="mb-4 hidden text-sm print:block">โรงพยาบาลโอเวอร์บรุ๊ค · ศูนย์พัฒนาศักยภาพบุคลากร · เกณฑ์ผ่าน {course.pass_score}%{division !== "all" ? ` · ${division}` : ""}</p>
       <section className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Stat label="ผู้เข้าอบรม" value={rows.length} note={`${divisions.length} ฝ่าย`} tone="primary" />
+        <Stat label="ผู้เข้าอบรม" value={rows.length} note={`อบรมสด ${onsite} · ออนไลน์ ${rows.length - onsite}`} tone="primary" />
         <Stat label="ผ่านเกณฑ์" value={passed} note={`อัตราผ่าน ${pct(passed, rows.length)}%`} tone="mint" />
         <Stat label="ก่อนเรียนเฉลี่ย" value={`${preAvg}%`} tone="amber" />
         <Stat label="หลังเรียนเฉลี่ย" value={`${postAvg}%`} note={`เกณฑ์ ${course.pass_score}%`} tone="mint" />
@@ -138,11 +149,11 @@ function CourseReport() {
                 <div key={dep} className="mt-5 overflow-x-auto">
                   <h3 className="text-sm font-semibold text-primary">{dep} · {rs.filter((r) => r.passed).length}/{rs.length} คน</h3>
                   <table className="mt-2 w-full min-w-[640px] text-sm">
-                    <thead className="text-left text-xs text-muted-foreground"><tr><th className="py-1">ชื่อ-นามสกุล</th><th>ตำแหน่ง</th><th>บทเรียน</th><th>ก่อน</th><th>หลัง</th><th>ผล</th><th>เลขใบประกาศ</th></tr></thead>
+                    <thead className="text-left text-xs text-muted-foreground"><tr><th className="py-1">ชื่อ-นามสกุล</th><th>ตำแหน่ง</th><th>รูปแบบ</th><th>บทเรียน</th><th>ก่อน</th><th>หลัง</th><th>ผล</th><th>เลขใบประกาศ</th></tr></thead>
                     <tbody>
                       {rs.map((r, i) => (
                         <tr key={i} className="border-t border-glass-border">
-                          <td className="py-2 font-medium">{r.name}</td><td>{r.position || "-"}</td><td>{r.lessons}/{r.totalLessons}</td>
+                          <td className="py-2 font-medium">{r.name}</td><td>{r.position || "-"}</td><td><span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${r.onsite ? "bg-mint/25 text-primary-deep" : "bg-primary/10 text-primary"}`}>{modeLabel(r)}</span></td><td>{r.lessons}/{r.totalLessons}</td>
                           <td>{r.pre ?? "-"}{r.pre != null && "%"}</td><td>{r.post ?? "-"}{r.post != null && "%"}</td>
                           <td className={r.passed ? "font-semibold text-primary" : "text-muted-foreground"}>{r.passed ? "ผ่าน" : "ยังไม่ผ่าน"}</td>
                           <td className="text-xs">{r.certNo || "-"}</td>
