@@ -25,7 +25,9 @@ import { Route as AuthenticatedCertificatesCertIdRouteImport } from './routes/_a
 import { Route as AuthenticatedCoursesIndexRouteImport } from './routes/_authenticated/courses.index'
 import { Route as AuthenticatedManageIndexRouteImport } from './routes/_authenticated/manage.index'
 import { Route as AuthenticatedManageCourseIdRouteImport } from './routes/_authenticated/manage.$courseId'
+import { Route as CheckinCourseIdCodeRouteImport } from './routes/checkin.$courseId.$code'
 import { Route as AuthenticatedAdminReportsCourseIdRouteImport } from './routes/_authenticated/admin.reports_.$courseId'
+import { Route as AuthenticatedAttendCourseIdCodeRouteImport } from './routes/_authenticated/attend.$courseId.$code'
 import { Route as AuthenticatedCoursesCourseIdIndexRouteImport } from './routes/_authenticated/courses.$courseId.index'
 import { Route as AuthenticatedCoursesCourseIdLessonLessonIdRouteImport } from './routes/_authenticated/courses.$courseId.lesson.$lessonId'
 import { Route as AuthenticatedCoursesCourseIdTestKindRouteImport } from './routes/_authenticated/courses.$courseId.test.$kind'
@@ -115,10 +117,21 @@ const AuthenticatedManageCourseIdRoute =
     path: '/manage/$courseId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const CheckinCourseIdCodeRoute = CheckinCourseIdCodeRouteImport.update({
+  id: '/checkin/$courseId/$code',
+  path: '/checkin/$courseId/$code',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAdminReportsCourseIdRoute =
   AuthenticatedAdminReportsCourseIdRouteImport.update({
     id: '/admin/reports_/$courseId',
     path: '/admin/reports/$courseId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAttendCourseIdCodeRoute =
+  AuthenticatedAttendCourseIdCodeRouteImport.update({
+    id: '/attend/$courseId/$code',
+    path: '/attend/$courseId/$code',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedCoursesCourseIdIndexRoute =
@@ -153,10 +166,12 @@ export interface FileRoutesByFullPath {
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/certificates/$certId': typeof AuthenticatedCertificatesCertIdRoute
   '/manage/$courseId': typeof AuthenticatedManageCourseIdRoute
+  '/checkin/$courseId/$code': typeof CheckinCourseIdCodeRoute
   '/certificates/': typeof AuthenticatedCertificatesIndexRoute
   '/courses/': typeof AuthenticatedCoursesIndexRoute
   '/manage/': typeof AuthenticatedManageIndexRoute
   '/admin/reports/$courseId': typeof AuthenticatedAdminReportsCourseIdRoute
+  '/attend/$courseId/$code': typeof AuthenticatedAttendCourseIdCodeRoute
   '/courses/$courseId/': typeof AuthenticatedCoursesCourseIdIndexRoute
   '/courses/$courseId/lesson/$lessonId': typeof AuthenticatedCoursesCourseIdLessonLessonIdRoute
   '/courses/$courseId/test/$kind': typeof AuthenticatedCoursesCourseIdTestKindRoute
@@ -174,10 +189,12 @@ export interface FileRoutesByTo {
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/certificates/$certId': typeof AuthenticatedCertificatesCertIdRoute
   '/manage/$courseId': typeof AuthenticatedManageCourseIdRoute
+  '/checkin/$courseId/$code': typeof CheckinCourseIdCodeRoute
   '/certificates': typeof AuthenticatedCertificatesIndexRoute
   '/courses': typeof AuthenticatedCoursesIndexRoute
   '/manage': typeof AuthenticatedManageIndexRoute
   '/admin/reports/$courseId': typeof AuthenticatedAdminReportsCourseIdRoute
+  '/attend/$courseId/$code': typeof AuthenticatedAttendCourseIdCodeRoute
   '/courses/$courseId': typeof AuthenticatedCoursesCourseIdIndexRoute
   '/courses/$courseId/lesson/$lessonId': typeof AuthenticatedCoursesCourseIdLessonLessonIdRoute
   '/courses/$courseId/test/$kind': typeof AuthenticatedCoursesCourseIdTestKindRoute
@@ -197,10 +214,12 @@ export interface FileRoutesById {
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
   '/_authenticated/certificates/$certId': typeof AuthenticatedCertificatesCertIdRoute
   '/_authenticated/manage/$courseId': typeof AuthenticatedManageCourseIdRoute
+  '/checkin/$courseId/$code': typeof CheckinCourseIdCodeRoute
   '/_authenticated/certificates/': typeof AuthenticatedCertificatesIndexRoute
   '/_authenticated/courses/': typeof AuthenticatedCoursesIndexRoute
   '/_authenticated/manage/': typeof AuthenticatedManageIndexRoute
   '/_authenticated/admin/reports_/$courseId': typeof AuthenticatedAdminReportsCourseIdRoute
+  '/_authenticated/attend/$courseId/$code': typeof AuthenticatedAttendCourseIdCodeRoute
   '/_authenticated/courses/$courseId/': typeof AuthenticatedCoursesCourseIdIndexRoute
   '/_authenticated/courses/$courseId/lesson/$lessonId': typeof AuthenticatedCoursesCourseIdLessonLessonIdRoute
   '/_authenticated/courses/$courseId/test/$kind': typeof AuthenticatedCoursesCourseIdTestKindRoute
@@ -220,10 +239,12 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/certificates/$certId'
     | '/manage/$courseId'
+    | '/checkin/$courseId/$code'
     | '/certificates/'
     | '/courses/'
     | '/manage/'
     | '/admin/reports/$courseId'
+    | '/attend/$courseId/$code'
     | '/courses/$courseId/'
     | '/courses/$courseId/lesson/$lessonId'
     | '/courses/$courseId/test/$kind'
@@ -241,10 +262,12 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/certificates/$certId'
     | '/manage/$courseId'
+    | '/checkin/$courseId/$code'
     | '/certificates'
     | '/courses'
     | '/manage'
     | '/admin/reports/$courseId'
+    | '/attend/$courseId/$code'
     | '/courses/$courseId'
     | '/courses/$courseId/lesson/$lessonId'
     | '/courses/$courseId/test/$kind'
@@ -263,10 +286,12 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/users'
     | '/_authenticated/certificates/$certId'
     | '/_authenticated/manage/$courseId'
+    | '/checkin/$courseId/$code'
     | '/_authenticated/certificates/'
     | '/_authenticated/courses/'
     | '/_authenticated/manage/'
     | '/_authenticated/admin/reports_/$courseId'
+    | '/_authenticated/attend/$courseId/$code'
     | '/_authenticated/courses/$courseId/'
     | '/_authenticated/courses/$courseId/lesson/$lessonId'
     | '/_authenticated/courses/$courseId/test/$kind'
@@ -278,6 +303,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   JoinCourseIdRoute: typeof JoinCourseIdRoute
   VerifyCertNoRoute: typeof VerifyCertNoRoute
+  CheckinCourseIdCodeRoute: typeof CheckinCourseIdCodeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -394,11 +420,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedManageCourseIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/checkin/$courseId/$code': {
+      id: '/checkin/$courseId/$code'
+      path: '/checkin/$courseId/$code'
+      fullPath: '/checkin/$courseId/$code'
+      preLoaderRoute: typeof CheckinCourseIdCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/admin/reports_/$courseId': {
       id: '/_authenticated/admin/reports_/$courseId'
       path: '/admin/reports/$courseId'
       fullPath: '/admin/reports/$courseId'
       preLoaderRoute: typeof AuthenticatedAdminReportsCourseIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/attend/$courseId/$code': {
+      id: '/_authenticated/attend/$courseId/$code'
+      path: '/attend/$courseId/$code'
+      fullPath: '/attend/$courseId/$code'
+      preLoaderRoute: typeof AuthenticatedAttendCourseIdCodeRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/courses/$courseId/': {
@@ -438,6 +478,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCoursesIndexRoute: typeof AuthenticatedCoursesIndexRoute
   AuthenticatedManageIndexRoute: typeof AuthenticatedManageIndexRoute
   AuthenticatedAdminReportsCourseIdRoute: typeof AuthenticatedAdminReportsCourseIdRoute
+  AuthenticatedAttendCourseIdCodeRoute: typeof AuthenticatedAttendCourseIdCodeRoute
   AuthenticatedCoursesCourseIdIndexRoute: typeof AuthenticatedCoursesCourseIdIndexRoute
   AuthenticatedCoursesCourseIdLessonLessonIdRoute: typeof AuthenticatedCoursesCourseIdLessonLessonIdRoute
   AuthenticatedCoursesCourseIdTestKindRoute: typeof AuthenticatedCoursesCourseIdTestKindRoute
@@ -457,6 +498,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedManageIndexRoute: AuthenticatedManageIndexRoute,
   AuthenticatedAdminReportsCourseIdRoute:
     AuthenticatedAdminReportsCourseIdRoute,
+  AuthenticatedAttendCourseIdCodeRoute: AuthenticatedAttendCourseIdCodeRoute,
   AuthenticatedCoursesCourseIdIndexRoute:
     AuthenticatedCoursesCourseIdIndexRoute,
   AuthenticatedCoursesCourseIdLessonLessonIdRoute:
@@ -474,6 +516,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   JoinCourseIdRoute: JoinCourseIdRoute,
   VerifyCertNoRoute: VerifyCertNoRoute,
+  CheckinCourseIdCodeRoute: CheckinCourseIdCodeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
