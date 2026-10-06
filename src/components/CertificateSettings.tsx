@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { ImagePlus, Save, Trash2 } from "lucide-react";
+import { ImagePlus, PenLine, Save, Trash2 } from "lucide-react";
+import { SignaturePad } from "@/components/SignaturePad";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { CertificateDesign } from "@/components/CertificateDesign";
@@ -38,6 +39,7 @@ export function CertificateSettings({ course }: { course: Course }) {
   const [previews, setPreviews] = useState<PreviewUrls>({ hospital_logo_url: null, course_logo_url: null, instructor_signature_url: null, certificate_background_url: null });
   const [uploading, setUploading] = useState<AssetField | null>(null);
   const [saving, setSaving] = useState(false);
+  const [signing, setSigning] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -110,6 +112,11 @@ export function CertificateSettings({ course }: { course: Course }) {
                   </Button>
                   {form[field] && <Button type="button" size="icon" variant="ghost" title={`ลบ${config.title}`} aria-label={`ลบ${config.title}`} onClick={() => removeAsset(field)}><Trash2 aria-hidden="true" /></Button>}
                 </div>
+                {field === "instructor_signature_url" && (signing ? (
+                  <SignaturePad onCancel={() => setSigning(false)} onSave={async (file) => { setSigning(false); await uploadAsset(field, file); }} />
+                ) : (
+                  <Button type="button" size="sm" variant="secondary" className="mt-2 w-full" disabled={uploading !== null} onClick={() => setSigning(true)}><PenLine aria-hidden="true" />เซ็นลายเซ็นบนหน้าจอ</Button>
+                ))}
               </div>
             );
           })}
