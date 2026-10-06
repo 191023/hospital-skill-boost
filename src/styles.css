@@ -144,3 +144,21 @@
   .print-area .glass { box-shadow: none; backdrop-filter: none; border: 1px solid #ddd; }
   @page { size: A4; margin: 12mm; }
 }
+
+@media print {
+  body:has(.certificate-print-area) { background: white; }
+  body:has(.certificate-print-area) .certificate-print-area {
+    position: fixed;
+    inset: 0;
+    width: 297mm;
+    height: 210mm;
+  }
+  body:has(.certificate-print-area) .certificate-sheet {
+    width: 297mm;
+    height: 210mm;
+    aspect-ratio: auto;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  @page { size: A4 landscape; margin: 0; }
+}

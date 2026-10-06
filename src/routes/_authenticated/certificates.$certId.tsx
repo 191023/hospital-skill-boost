@@ -2,10 +2,20 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { thaiDate } from "@/lib/data";
-import { QRImg, origin } from "@/components/QR";
+import { origin } from "@/components/QR";
+import { CertificateDesign } from "@/components/CertificateDesign";
+import { fileUrl } from "@/lib/auth";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_authenticated/certificates/$certId")({
-  head: () => ({ meta: [{ title: "ใบประกาศนียบัตร — ระบบอบรมออนไลน์" }] }),
+  head: () => ({ meta: [
+    { title: "ใบประกาศนียบัตร — โรงพยาบาลโอเวอร์บรุ๊ค" },
+    { name: "description", content: "ใบประกาศนียบัตรการฝึกอบรมสำหรับบุคลากรโรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:title", content: "ใบประกาศนียบัตร — โรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:description", content: "ใบประกาศนียบัตรการฝึกอบรมสำหรับบุคลากรโรงพยาบาล" },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: CertView,
 });
 
@@ -14,42 +24,42 @@ function CertView() {
   const { data } = useQuery({
     queryKey: ["cert", certId],
     queryFn: async () => {
-      const { data: c } = await supabase.from("certificates").select("*, courses(title,hours)").eq("id", certId).maybeSingle();
+      const { data: c } = await supabase.from("certificates").select("*, courses(title,hours,training_year,hospital_logo_url,course_logo_url,instructor_signature_url,instructor_name,instructor_title)").eq("id", certId).maybeSingle();
       if (!c) return null;
       const { data: p } = await supabase.from("profiles").select("full_name,division,department,position").eq("id", c.user_id).maybeSingle();
-      return { c, p };
+      const [hospitalLogoUrl, courseLogoUrl, signatureUrl] = await Promise.all([
+        fileUrl(c.courses?.hospital_logo_url),
+        fileUrl(c.courses?.course_logo_url),
+        fileUrl(c.courses?.instructor_signature_url),
+      ]);
+      return { c, p, hospitalLogoUrl, courseLogoUrl, signatureUrl };
     },
   });
   if (!data) return <div className="text-muted-foreground">กำลังโหลด...</div>;
-  const { c, p } = data;
+  const { c, p, hospitalLogoUrl, courseLogoUrl, signatureUrl } = data;
   return (
     <div className="mx-auto max-w-4xl">
       <div className="no-print mb-4 flex justify-between">
         <Link to="/certificates" className="text-sm text-primary">← ใบประกาศทั้งหมด</Link>
-        <button onClick={() => window.print()} className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-brand">พิมพ์ / บันทึก PDF</button>
+        <Button onClick={() => window.print()}>พิมพ์ / บันทึก PDF</Button>
       </div>
-      <div className="relative aspect-[1.414] overflow-hidden rounded-3xl border-[10px] border-primary/20 bg-card p-12 text-center shadow-brand">
-        <div className="absolute inset-4 rounded-2xl border-2 border-mint/40" />
-        <div className="relative flex h-full flex-col items-center justify-center">
-          <div className="grid size-16 place-items-center rounded-2xl bg-brand-gradient text-2xl font-bold text-primary-foreground">อ</div>
-          <div className="mt-3 text-sm font-semibold text-primary-deep">โรงพยาบาลโอเวอร์บรุ๊ค · ศูนย์พัฒนาศักยภาพบุคลากร</div>
-          <h1 className="mt-6 text-4xl font-bold text-primary">ประกาศนียบัตร</h1>
-          <div className="mt-1 text-xs uppercase tracking-[0.3em] text-muted-foreground">Certificate of Completion</div>
-          <p className="mt-6 text-sm text-muted-foreground">ขอมอบให้ไว้เพื่อแสดงว่า</p>
-          <div className="mt-2 text-3xl font-bold">{p?.full_name}</div>
-          <div className="text-sm text-muted-foreground">{[p?.position, p?.department, p?.division].filter(Boolean).join(" · ")}</div>
-          <p className="mt-6 text-sm text-muted-foreground">ได้ผ่านการอบรมหลักสูตร</p>
-          <div className="mt-1 text-xl font-bold text-primary-deep">{c.courses?.title}</div>
-          <div className="mt-2 text-sm text-muted-foreground">จำนวน {c.courses?.hours} ชั่วโมง · คะแนนหลังเรียน {c.score}%</div>
-          <div className="mt-8 flex w-full justify-between px-8 text-xs text-muted-foreground">
-            <span>เลขที่ {c.cert_no}</span>
-            <span>ให้ไว้ ณ วันที่ {thaiDate(c.issued_at)}</span>
-          </div>
-          <div className="absolute bottom-0 right-0 text-center text-[9px] text-muted-foreground">
-            <QRImg value={`${origin()}/verify/${c.cert_no}`} size={72} />
-            สแกนตรวจสอบ
-          </div>
-        </div>
+      <div className="print-area certificate-print-area">
+        <CertificateDesign
+          recipientName={p?.full_name ?? ""}
+          recipientDetail={[p?.position, p?.department, p?.division].filter(Boolean).join(" · ")}
+          courseTitle={c.courses?.title ?? ""}
+          trainingYear={c.courses?.training_year}
+          hours={c.courses?.hours}
+          score={c.score}
+          certificateNumber={c.cert_no}
+          issuedDate={thaiDate(c.issued_at)}
+          hospitalLogoUrl={hospitalLogoUrl}
+          courseLogoUrl={courseLogoUrl}
+          signatureUrl={signatureUrl}
+          instructorName={c.courses?.instructor_name}
+          instructorTitle={c.courses?.instructor_title}
+          verifyUrl={`${origin()}/verify/${c.cert_no}`}
+        />
       </div>
     </div>
   );

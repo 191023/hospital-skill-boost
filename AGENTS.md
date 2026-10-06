@@ -17,3 +17,4 @@
 - Course files go in the private `course-files` bucket and are shown via signed URLs — workspace blocks public buckets.
 - Member history is written by DB triggers into `member_audit_log` (admin-read only); admin server fns re-attribute admin-created rows — keeps the log tamper-proof.
 - AI calls go through `src/lib/ai.server.ts` (Lovable AI Gateway, Responses API), invoked only from server functions — keeps the key server-side.
+- Certificate previews and issued certificates use the shared `CertificateDesign` component — keeps on-screen, print, and saved branding layouts consistent.

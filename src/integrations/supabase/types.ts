@@ -115,12 +115,17 @@ export type Database = {
           audience: string
           category: string | null
           checkin_code: string
+          course_logo_url: string | null
           cover_url: string | null
           created_at: string
           created_by: string | null
           description: string | null
+          hospital_logo_url: string | null
           hours: number | null
           id: string
+          instructor_name: string | null
+          instructor_signature_url: string | null
+          instructor_title: string | null
           pass_score: number
           published: boolean
           title: string
@@ -130,12 +135,17 @@ export type Database = {
           audience?: string
           category?: string | null
           checkin_code?: string
+          course_logo_url?: string | null
           cover_url?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
+          hospital_logo_url?: string | null
           hours?: number | null
           id?: string
+          instructor_name?: string | null
+          instructor_signature_url?: string | null
+          instructor_title?: string | null
           pass_score?: number
           published?: boolean
           title: string
@@ -145,12 +155,17 @@ export type Database = {
           audience?: string
           category?: string | null
           checkin_code?: string
+          course_logo_url?: string | null
           cover_url?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
+          hospital_logo_url?: string | null
           hours?: number | null
           id?: string
+          instructor_name?: string | null
+          instructor_signature_url?: string | null
+          instructor_title?: string | null
           pass_score?: number
           published?: boolean
           title?: string
