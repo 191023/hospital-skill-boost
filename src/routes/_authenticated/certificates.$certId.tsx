@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { thaiDate } from "@/lib/data";
-import { QRImg, origin } from "@/components/QR";
+import { origin } from "@/components/QR";
 import { CertificateDesign } from "@/components/CertificateDesign";
 import { fileUrl } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
