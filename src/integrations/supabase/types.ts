@@ -114,6 +114,7 @@ export type Database = {
         Row: {
           audience: string
           category: string | null
+          certificate_background_url: string | null
           checkin_code: string
           course_logo_url: string | null
           cover_url: string | null
@@ -134,6 +135,7 @@ export type Database = {
         Insert: {
           audience?: string
           category?: string | null
+          certificate_background_url?: string | null
           checkin_code?: string
           course_logo_url?: string | null
           cover_url?: string | null
@@ -154,6 +156,7 @@ export type Database = {
         Update: {
           audience?: string
           category?: string | null
+          certificate_background_url?: string | null
           checkin_code?: string
           course_logo_url?: string | null
           cover_url?: string | null
