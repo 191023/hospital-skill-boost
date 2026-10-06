@@ -24,19 +24,20 @@ function CertView() {
   const { data } = useQuery({
     queryKey: ["cert", certId],
     queryFn: async () => {
-      const { data: c } = await supabase.from("certificates").select("*, courses(title,hours,training_year,hospital_logo_url,course_logo_url,instructor_signature_url,instructor_name,instructor_title)").eq("id", certId).maybeSingle();
+      const { data: c } = await supabase.from("certificates").select("*, courses(title,hours,training_year,hospital_logo_url,course_logo_url,instructor_signature_url,instructor_name,instructor_title,certificate_background_url)").eq("id", certId).maybeSingle();
       if (!c) return null;
       const { data: p } = await supabase.from("profiles").select("full_name,division,department,position").eq("id", c.user_id).maybeSingle();
-      const [hospitalLogoUrl, courseLogoUrl, signatureUrl] = await Promise.all([
+      const [hospitalLogoUrl, courseLogoUrl, signatureUrl, backgroundUrl] = await Promise.all([
         fileUrl(c.courses?.hospital_logo_url),
         fileUrl(c.courses?.course_logo_url),
         fileUrl(c.courses?.instructor_signature_url),
+        fileUrl(c.courses?.certificate_background_url),
       ]);
-      return { c, p, hospitalLogoUrl, courseLogoUrl, signatureUrl };
+      return { c, p, hospitalLogoUrl, courseLogoUrl, signatureUrl, backgroundUrl };
     },
   });
   if (!data) return <div className="text-muted-foreground">กำลังโหลด...</div>;
-  const { c, p, hospitalLogoUrl, courseLogoUrl, signatureUrl } = data;
+  const { c, p, hospitalLogoUrl, courseLogoUrl, signatureUrl, backgroundUrl } = data;
   return (
     <div className="mx-auto max-w-4xl">
       <div className="no-print mb-4 flex justify-between">
@@ -58,6 +59,7 @@ function CertView() {
           signatureUrl={signatureUrl}
           instructorName={c.courses?.instructor_name}
           instructorTitle={c.courses?.instructor_title}
+          backgroundUrl={backgroundUrl}
           verifyUrl={`${origin()}/verify/${c.cert_no}`}
         />
       </div>
