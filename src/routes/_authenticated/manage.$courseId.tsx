@@ -7,9 +7,17 @@ import { fileUrl } from "@/lib/auth";
 import { kindLabel } from "@/lib/data";
 import { divisions, orgChart } from "@/lib/org";
 import { SurveyManager } from "@/components/Survey";
+import { CertificateSettings } from "@/components/CertificateSettings";
 
 export const Route = createFileRoute("/_authenticated/manage/$courseId")({
-  head: () => ({ meta: [{ title: "แก้ไขหลักสูตร — ระบบอบรมออนไลน์" }] }),
+  head: () => ({ meta: [
+    { title: "แก้ไขหลักสูตร — โรงพยาบาลโอเวอร์บรุ๊ค" },
+    { name: "description", content: "จัดการข้อมูล บทเรียน แบบทดสอบ แบบประเมิน และใบประกาศของหลักสูตร" },
+    { property: "og:title", content: "แก้ไขหลักสูตร — โรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:description", content: "จัดการหลักสูตรและใบประกาศสำหรับบุคลากรโรงพยาบาล" },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: Editor,
 });
 
@@ -25,7 +33,7 @@ async function upload(file: File, courseId: string) {
 
 function Editor() {
   const { courseId } = Route.useParams();
-  const [tab, setTab] = useState<"info" | "access" | "lessons" | "questions" | "survey">("info");
+  const [tab, setTab] = useState<"info" | "access" | "lessons" | "questions" | "survey" | "certificate">("info");
   const { data: course } = useQuery({
     queryKey: ["edit-course", courseId],
     queryFn: async () => (await supabase.from("courses").select("*").eq("id", courseId).maybeSingle()).data,
@@ -36,9 +44,9 @@ function Editor() {
       <Link to="/manage" className="text-sm text-primary">← หลักสูตรทั้งหมด</Link>
       <h1 className="mt-2 text-3xl font-bold">{course.title}</h1>
       <div className="glass mt-4 inline-flex flex-wrap rounded-2xl p-1 text-sm">
-        {(["info", "access", "lessons", "questions", "survey"] as const).map((t) => (
+        {(["info", "access", "lessons", "questions", "survey", "certificate"] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)} className={`rounded-xl px-4 py-2 ${tab === t ? "bg-primary font-semibold text-primary-foreground" : "text-foreground/70"}`}>
-            {{ info: "ข้อมูลหลักสูตร", access: "ผู้มีสิทธิ์เรียน", lessons: "บทเรียน", questions: "ข้อสอบก่อน/หลังเรียน", survey: "แบบประเมินหลักสูตร" }[t]}
+            {{ info: "ข้อมูลหลักสูตร", access: "ผู้มีสิทธิ์เรียน", lessons: "บทเรียน", questions: "ข้อสอบก่อน/หลังเรียน", survey: "แบบประเมินหลักสูตร", certificate: "ใบประกาศนียบัตร" }[t]}
           </button>
         ))}
       </div>
@@ -48,6 +56,7 @@ function Editor() {
         {tab === "lessons" && <Lessons courseId={courseId} />}
         {tab === "questions" && <Questions courseId={courseId} />}
         {tab === "survey" && <SurveyManager courseId={courseId} />}
+        {tab === "certificate" && <CertificateSettings course={course} />}
       </div>
     </div>
   );
