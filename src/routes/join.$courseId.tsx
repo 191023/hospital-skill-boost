@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect } from "react";
 
 export const Route = createFileRoute("/join/$courseId")({
@@ -17,11 +17,10 @@ export const Route = createFileRoute("/join/$courseId")({
 
 function Join() {
   const { courseId } = Route.useParams();
-  const nav = useNavigate();
   useEffect(() => {
     // Remember where to go after sign-in, then go to the course with auto-enroll.
     sessionStorage.setItem("after-auth", `/courses/${courseId}?join=1`);
-    nav({ to: "/courses/$courseId", params: { courseId }, search: { join: 1 } as never });
-  }, [courseId, nav]);
+    window.location.replace(`/courses/${courseId}?join=1`);
+  }, [courseId]);
   return <div className="grid min-h-screen place-items-center text-muted-foreground">กำลังเปิดหลักสูตร...</div>;
 }

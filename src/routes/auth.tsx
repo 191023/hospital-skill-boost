@@ -28,9 +28,17 @@ function AuthPage() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) nav({ to: "/dashboard" });
+      if (data.session) goNext();
     });
   }, [nav]);
+
+  function goNext() {
+    const next = sessionStorage.getItem("after-auth");
+    if (next && next.startsWith("/") && !next.startsWith("//")) {
+      sessionStorage.removeItem("after-auth");
+      window.location.assign(next);
+    } else nav({ to: "/dashboard" });
+  }
 
   async function signInGoogle() {
     setBusy(true);
@@ -43,7 +51,7 @@ function AuthPage() {
         return;
       }
       if (result.redirected) return;
-      nav({ to: "/dashboard" });
+      goNext();
     } catch {
       toast.error("เข้าสู่ระบบด้วย Google ไม่สำเร็จ");
     } finally {
@@ -58,7 +66,7 @@ function AuthPage() {
       if (mode === "in") {
         const { error } = await supabase.auth.signInWithPassword({ email: f.email, password: f.password });
         if (error) throw error;
-        nav({ to: "/dashboard" });
+        goNext();
       } else {
         const { data, error } = await supabase.auth.signUp({
           email: f.email,
@@ -69,7 +77,7 @@ function AuthPage() {
           },
         });
         if (error) throw error;
-        if (data.session) nav({ to: "/dashboard" });
+        if (data.session) goNext();
         else toast.success("สมัครสำเร็จ กรุณายืนยันอีเมล แล้วรอผู้ดูแลอนุมัติ");
       }
     } catch (err) {

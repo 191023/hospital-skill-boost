@@ -14,6 +14,8 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedMyCoursesRouteImport } from './routes/_authenticated/my-courses'
+import { Route as JoinCourseIdRouteImport } from './routes/join.$courseId'
+import { Route as VerifyCertNoRouteImport } from './routes/verify.$certNo'
 import { Route as AuthenticatedAdminAuditRouteImport } from './routes/_authenticated/admin.audit'
 import { Route as AuthenticatedAdminReportsRouteImport } from './routes/_authenticated/admin.reports'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin.users'
@@ -50,6 +52,16 @@ const AuthenticatedMyCoursesRoute = AuthenticatedMyCoursesRouteImport.update({
   id: '/my-courses',
   path: '/my-courses',
   getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const JoinCourseIdRoute = JoinCourseIdRouteImport.update({
+  id: '/join/$courseId',
+  path: '/join/$courseId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VerifyCertNoRoute = VerifyCertNoRouteImport.update({
+  id: '/verify/$certNo',
+  path: '/verify/$certNo',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAdminAuditRoute = AuthenticatedAdminAuditRouteImport.update({
   id: '/admin/audit',
@@ -127,6 +139,8 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/my-courses': typeof AuthenticatedMyCoursesRoute
+  '/join/$courseId': typeof JoinCourseIdRoute
+  '/verify/$certNo': typeof VerifyCertNoRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
@@ -145,6 +159,8 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/my-courses': typeof AuthenticatedMyCoursesRoute
+  '/join/$courseId': typeof JoinCourseIdRoute
+  '/verify/$certNo': typeof VerifyCertNoRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
@@ -165,6 +181,8 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/my-courses': typeof AuthenticatedMyCoursesRoute
+  '/join/$courseId': typeof JoinCourseIdRoute
+  '/verify/$certNo': typeof VerifyCertNoRoute
   '/_authenticated/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/_authenticated/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
@@ -185,6 +203,8 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/my-courses'
+    | '/join/$courseId'
+    | '/verify/$certNo'
     | '/admin/audit'
     | '/admin/reports'
     | '/admin/users'
@@ -203,6 +223,8 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/my-courses'
+    | '/join/$courseId'
+    | '/verify/$certNo'
     | '/admin/audit'
     | '/admin/reports'
     | '/admin/users'
@@ -222,6 +244,8 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/dashboard'
     | '/_authenticated/my-courses'
+    | '/join/$courseId'
+    | '/verify/$certNo'
     | '/_authenticated/admin/audit'
     | '/_authenticated/admin/reports'
     | '/_authenticated/admin/users'
@@ -240,6 +264,8 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  JoinCourseIdRoute: typeof JoinCourseIdRoute
+  VerifyCertNoRoute: typeof VerifyCertNoRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -278,6 +304,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/my-courses'
       preLoaderRoute: typeof AuthenticatedMyCoursesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/join/$courseId': {
+      id: '/join/$courseId'
+      path: '/join/$courseId'
+      fullPath: '/join/$courseId'
+      preLoaderRoute: typeof JoinCourseIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/verify/$certNo': {
+      id: '/verify/$certNo'
+      path: '/verify/$certNo'
+      fullPath: '/verify/$certNo'
+      preLoaderRoute: typeof VerifyCertNoRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/admin/audit': {
       id: '/_authenticated/admin/audit'
@@ -411,6 +451,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  JoinCourseIdRoute: JoinCourseIdRoute,
+  VerifyCertNoRoute: VerifyCertNoRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
