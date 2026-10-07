@@ -19,18 +19,21 @@ export type Database = {
           checked_at: string
           course_id: string
           id: string
+          session_id: string | null
           user_id: string
         }
         Insert: {
           checked_at?: string
           course_id: string
           id?: string
+          session_id?: string | null
           user_id: string
         }
         Update: {
           checked_at?: string
           course_id?: string
           id?: string
+          session_id?: string | null
           user_id?: string
         }
         Relationships: [
@@ -39,6 +42,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "course_sessions"
             referencedColumns: ["id"]
           },
         ]
@@ -103,6 +113,50 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "course_access_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      course_sessions: {
+        Row: {
+          capacity: number | null
+          checkin_code: string
+          course_id: string
+          created_at: string
+          ends_at: string | null
+          id: string
+          location: string
+          round_no: number
+          starts_at: string | null
+        }
+        Insert: {
+          capacity?: number | null
+          checkin_code?: string
+          course_id: string
+          created_at?: string
+          ends_at?: string | null
+          id?: string
+          location?: string
+          round_no?: number
+          starts_at?: string | null
+        }
+        Update: {
+          capacity?: number | null
+          checkin_code?: string
+          course_id?: string
+          created_at?: string
+          ends_at?: string | null
+          id?: string
+          location?: string
+          round_no?: number
+          starts_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_sessions_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
@@ -181,18 +235,21 @@ export type Database = {
           course_id: string
           created_at: string
           id: string
+          session_id: string | null
           user_id: string
         }
         Insert: {
           course_id: string
           created_at?: string
           id?: string
+          session_id?: string | null
           user_id?: string
         }
         Update: {
           course_id?: string
           created_at?: string
           id?: string
+          session_id?: string | null
           user_id?: string
         }
         Relationships: [
@@ -201,6 +258,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enrollments_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "course_sessions"
             referencedColumns: ["id"]
           },
         ]
@@ -548,6 +612,7 @@ export type Database = {
       }
       can_edit_course: { Args: { _course: string }; Returns: boolean }
       check_in: { Args: { _code: string; _course: string }; Returns: Json }
+      choose_session: { Args: { _session: string }; Returns: undefined }
       get_test_questions: {
         Args: { _course: string }
         Returns: {
@@ -565,6 +630,13 @@ export type Database = {
       }
       is_approved: { Args: { _user_id: string }; Returns: boolean }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
+      session_seats: {
+        Args: { _course: string }
+        Returns: {
+          session_id: string
+          taken: number
+        }[]
+      }
       submit_test: {
         Args: { _answers: Json; _course: string; _kind: string }
         Returns: Json

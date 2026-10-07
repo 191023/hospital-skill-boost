@@ -8,6 +8,7 @@ import { kindLabel } from "@/lib/data";
 import { Bar } from "@/components/AppShell";
 import { coverFor } from "@/components/Brand";
 import { SurveyForm } from "@/components/Survey";
+import { SessionPicker } from "@/components/Sessions";
 
 export const Route = createFileRoute("/_authenticated/courses/$courseId/")({
   head: () => ({ meta: [{ title: "รายละเอียดหลักสูตร — ระบบอบรมออนไลน์" }] }),
@@ -19,14 +20,15 @@ function useCourseState(courseId: string, userId?: string) {
     queryKey: ["course", courseId, userId],
     enabled: !!userId,
     queryFn: async () => {
-      const [{ data: course }, { data: lessons }, { data: enr }, { data: prog }, { data: att }, { data: cert }, { data: qs }] = await Promise.all([
+      const [{ data: course }, { data: lessons }, { data: enr }, { data: prog }, { data: att }, { data: cert }, { data: qs }, { data: atd }] = await Promise.all([
         supabase.from("courses").select("*").eq("id", courseId).maybeSingle(),
         supabase.from("lessons").select("id,title,kind,position").eq("course_id", courseId).order("position"),
-        supabase.from("enrollments").select("id").eq("course_id", courseId).eq("user_id", userId!).maybeSingle(),
+        supabase.from("enrollments").select("id,session_id").eq("course_id", courseId).eq("user_id", userId!).maybeSingle(),
         supabase.from("lesson_progress").select("lesson_id").eq("user_id", userId!),
         supabase.from("test_attempts").select("*").eq("course_id", courseId).eq("user_id", userId!).order("created_at"),
         supabase.from("certificates").select("id").eq("course_id", courseId).eq("user_id", userId!).maybeSingle(),
         supabase.rpc("get_test_questions", { _course: courseId }),
+        supabase.from("attendance").select("id").eq("course_id", courseId).eq("user_id", userId!).maybeSingle(),
       ]);
       const done = new Set((prog ?? []).map((p) => p.lesson_id));
       const ls = lessons ?? [];
@@ -37,6 +39,8 @@ function useCourseState(courseId: string, userId?: string) {
         lessons: ls,
         done,
         enrolled: !!enr,
+        sessionId: enr?.session_id ?? null,
+        attended: !!atd,
         pre,
         posts,
         cert,
@@ -151,6 +155,7 @@ function CoursePage() {
             </>
           )}
         </div>
+        {enrolled && <SessionPicker courseId={courseId} current={data.sessionId} locked={data.attended} />}
         {enrolled && me && <SurveyForm courseId={courseId} userId={me.id} />}
       </aside>
     </div>

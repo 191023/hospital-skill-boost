@@ -18,3 +18,4 @@
 - Member history is written by DB triggers into `member_audit_log` (admin-read only); admin server fns re-attribute admin-created rows — keeps the log tamper-proof.
 - AI calls go through `src/lib/ai.server.ts` (Lovable AI Gateway, Responses API), invoked only from server functions — keeps the key server-side.
 - Certificate previews and issued certificates use the shared `CertificateDesign` component — keeps on-screen, print, and saved branding layouts consistent.
+- Course rounds live in `course_sessions` (one row per round with its own check-in code); enrollments/attendance carry an optional session_id, set via `choose_session` / `check_in` DB functions — keeps capacity checks server-side.

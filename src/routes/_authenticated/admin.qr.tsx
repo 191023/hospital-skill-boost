@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { thaiDate } from "@/lib/data";
 import { QRImg, origin } from "@/components/QR";
+import { sessionLabel, type Session } from "@/components/Sessions";
 
 export const Route = createFileRoute("/_authenticated/admin/qr")({
   head: () => ({ meta: [{ title: "QR Code ใบประกาศและหลักสูตร — ระบบอบรมออนไลน์" }] }),
@@ -18,9 +19,11 @@ function QrPage() {
   const [fCourse, setFCourse] = useState("");
   const [fYear, setFYear] = useState("");
   const qc = useQueryClient();
-  async function newCode(id: string) {
+  async function newCode(id: string, session?: boolean) {
     const code = Math.random().toString(36).slice(2, 10).toUpperCase();
-    const { error } = await supabase.from("courses").update({ checkin_code: code }).eq("id", id);
+    const { error } = session
+      ? await supabase.from("course_sessions").update({ checkin_code: code }).eq("id", id)
+      : await supabase.from("courses").update({ checkin_code: code }).eq("id", id);
     if (error) { toast.error(error.message); return; }
     toast.success("สร้างรหัสเช็คชื่อใหม่แล้ว QR เดิมใช้ไม่ได้อีก");
     qc.invalidateQueries({ queryKey: ["qr-page"] });
@@ -29,12 +32,13 @@ function QrPage() {
   const { data } = useQuery({
     queryKey: ["qr-page"],
     queryFn: async () => {
-      const [{ data: courses }, { data: certs }, { data: profs }] = await Promise.all([
+      const [{ data: courses }, { data: certs }, { data: profs }, { data: sess }] = await Promise.all([
         supabase.from("courses").select("id,title,training_year,hours,category,published,checkin_code").order("training_year", { ascending: false }),
         supabase.from("certificates").select("id,cert_no,issued_at,course_id,user_id").order("issued_at", { ascending: false }),
         supabase.from("profiles").select("id,full_name,department"),
+        supabase.from("course_sessions").select("*").order("round_no"),
       ]);
-      return { courses: courses ?? [], certs: certs ?? [], profs: new Map((profs ?? []).map((p) => [p.id, p])) };
+      return { sessions: (sess ?? []) as Session[], courses: courses ?? [], certs: certs ?? [], profs: new Map((profs ?? []).map((p) => [p.id, p])) };
     },
   });
 
@@ -89,7 +93,20 @@ function QrPage() {
         )
       ) : tab === "checkin" ? (
         <div className="grid gap-5 md:grid-cols-2">
-          {courses.map((c) => (
+          {courses.flatMap((c) => {
+            const ss = data.sessions.filter((s) => s.course_id === c.id);
+            return ss.length ? ss.map((s) => (
+              <div key={s.id} className="glass break-inside-avoid rounded-3xl p-6 text-center">
+                <div className="text-sm font-semibold text-primary-deep">โรงพยาบาลโอเวอร์บรุ๊ค · เช็คชื่อเข้าอบรม</div>
+                <h2 className="mt-2 text-xl font-bold text-primary">{c.title}</h2>
+                <div className="mt-1 text-sm font-semibold">{sessionLabel(s)}</div>
+                <QRImg value={`${origin()}/checkin/${c.id}/${s.checkin_code}`} size={220} className="mx-auto mt-4" />
+                <div className="mt-3 text-lg font-bold">สแกนเพื่อเช็คชื่อเข้าอบรม</div>
+                <div className="text-xs text-muted-foreground">รหัส {s.checkin_code}</div>
+                <button onClick={() => newCode(s.id, true)} className="no-print mt-3 rounded-xl bg-card px-4 py-2 text-xs font-semibold text-primary">↻ สร้างรหัสใหม่</button>
+                {!c.published && <div className="no-print mt-2 text-xs text-destructive">หลักสูตรนี้ยังไม่เผยแพร่ — เช็คชื่อไม่ได้</div>}
+              </div>
+            )) : [(
             <div key={c.id} className="glass break-inside-avoid rounded-3xl p-6 text-center">
               <div className="text-sm font-semibold text-primary-deep">โรงพยาบาลโอเวอร์บรุ๊ค · เช็คชื่อเข้าอบรม</div>
               <h2 className="mt-2 text-xl font-bold text-primary">{c.title}</h2>
@@ -100,7 +117,8 @@ function QrPage() {
               <button onClick={() => newCode(c.id)} className="no-print mt-3 rounded-xl bg-card px-4 py-2 text-xs font-semibold text-primary">↻ สร้างรหัสใหม่ (สำหรับรอบอบรมใหม่)</button>
               {!c.published && <div className="no-print mt-2 text-xs text-destructive">หลักสูตรนี้ยังไม่เผยแพร่ — เช็คชื่อไม่ได้</div>}
             </div>
-          ))}
+          )];
+          })}
         </div>
       ) : (
         <div className="grid gap-5 md:grid-cols-2">
