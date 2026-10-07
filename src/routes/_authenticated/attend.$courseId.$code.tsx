@@ -7,7 +7,7 @@ export const Route = createFileRoute("/_authenticated/attend/$courseId/$code")({
   component: Attend,
 });
 
-type Res = { title: string; checked_at: string; new: boolean };
+type Res = { title: string; checked_at: string; new: boolean; round: number | null };
 
 function Attend() {
   const { courseId, code } = Route.useParams();
@@ -39,7 +39,7 @@ function Attend() {
           <>
             <div className="mx-auto grid size-16 place-items-center rounded-full bg-mint/25 text-3xl text-primary-deep">✓</div>
             <div className="mt-3 text-lg font-bold">{res.new ? "เช็คชื่อเข้าอบรมเรียบร้อย" : "คุณเช็คชื่อไว้แล้ว"}</div>
-            <div className="mt-1 font-semibold text-primary">{res.title}</div>
+            <div className="mt-1 font-semibold text-primary">{res.title}{res.round ? ` · รอบที่ ${res.round}` : ""}</div>
             <div className="mt-1 text-sm text-muted-foreground">
               เวลา {new Date(res.checked_at).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" })}
             </div>
