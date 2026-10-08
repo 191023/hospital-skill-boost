@@ -109,12 +109,17 @@ function SessionRoster({ sessionId }: { sessionId: string }) {
     queryFn: async () => {
       const { data: enr } = await supabase
         .from("enrollments")
-        .select("user_id, created_at, profiles(full_name, division, department)")
+        .select("user_id, created_at")
         .eq("session_id", sessionId)
         .order("created_at");
-      const { data: att } = await supabase.from("attendance").select("user_id, checked_at").eq("session_id", sessionId);
+      const ids = (enr ?? []).map((e) => e.user_id);
+      const [{ data: profs }, { data: att }] = await Promise.all([
+        ids.length ? supabase.from("profiles").select("id, full_name, division, department").in("id", ids) : Promise.resolve({ data: [] }),
+        supabase.from("attendance").select("user_id, checked_at").eq("session_id", sessionId),
+      ]);
+      const pmap = new Map((profs ?? []).map((p) => [p.id, p]));
       const checked = new Map((att ?? []).map((a) => [a.user_id, a.checked_at]));
-      return (enr ?? []).map((e) => ({ ...e, checked_at: checked.get(e.user_id) ?? null }));
+      return (enr ?? []).map((e) => ({ ...e, profile: pmap.get(e.user_id) ?? null, checked_at: checked.get(e.user_id) ?? null }));
     },
   });
   if (isLoading) return <div className="mt-3 text-sm text-muted-foreground">กำลังโหลดรายชื่อ...</div>;
