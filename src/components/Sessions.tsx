@@ -77,6 +77,7 @@ function SessionRow({ s, onChange }: { s: Session & { taken: number }; onChange:
     const { error } = await supabase.from("course_sessions").delete().eq("id", s.id);
     if (error) toast.error(error.message); else onChange();
   }
+  const [open, setOpen] = useState(false);
   return (
     <div className="glass rounded-3xl p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -91,9 +92,61 @@ function SessionRow({ s, onChange }: { s: Session & { taken: number }; onChange:
         <label className="text-xs">จำนวนที่นั่ง<input type="number" min={1} className={inp} value={f.capacity} placeholder="ไม่จำกัด" onChange={(e) => setF({ ...f, capacity: e.target.value })} /></label>
       </div>
       <div className="mt-3 flex justify-end gap-2">
+        <button onClick={() => setOpen(!open)} className="rounded-xl border px-4 py-2 text-sm font-semibold text-primary">
+          {open ? "ซ่อนรายชื่อ" : `ดูรายชื่อ (${s.taken})`}
+        </button>
         <button onClick={del} className="rounded-xl px-4 py-2 text-sm text-destructive">ลบรอบ</button>
         <button onClick={save} className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">บันทึก</button>
       </div>
+      {open && <SessionRoster sessionId={s.id} />}
+    </div>
+  );
+}
+
+function SessionRoster({ sessionId }: { sessionId: string }) {
+  const { data = [], isLoading } = useQuery({
+    queryKey: ["session-roster", sessionId],
+    queryFn: async () => {
+      const { data: enr } = await supabase
+        .from("enrollments")
+        .select("user_id, created_at")
+        .eq("session_id", sessionId)
+        .order("created_at");
+      const ids = (enr ?? []).map((e) => e.user_id);
+      const [{ data: profs }, { data: att }] = await Promise.all([
+        ids.length ? supabase.from("profiles").select("id, full_name, division, department").in("id", ids) : Promise.resolve({ data: [] }),
+        supabase.from("attendance").select("user_id, checked_at").eq("session_id", sessionId),
+      ]);
+      const pmap = new Map((profs ?? []).map((p) => [p.id, p]));
+      const checked = new Map((att ?? []).map((a) => [a.user_id, a.checked_at]));
+      return (enr ?? []).map((e) => ({ ...e, profile: pmap.get(e.user_id) ?? null, checked_at: checked.get(e.user_id) ?? null }));
+    },
+  });
+  if (isLoading) return <div className="mt-3 text-sm text-muted-foreground">กำลังโหลดรายชื่อ...</div>;
+  if (data.length === 0) return <div className="mt-3 rounded-2xl border border-dashed p-4 text-center text-sm text-muted-foreground">ยังไม่มีผู้ลงทะเบียนรอบนี้</div>;
+  return (
+    <div className="mt-3 overflow-hidden rounded-2xl border">
+      <table className="w-full text-sm">
+        <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
+          <tr><th className="px-3 py-2">ชื่อ</th><th className="px-3 py-2">ฝ่าย / แผนก</th><th className="px-3 py-2">เช็คชื่อ</th></tr>
+        </thead>
+        <tbody>
+          {data.map((e) => {
+            const p = e.profile;
+            return (
+              <tr key={e.user_id} className="border-t">
+                <td className="px-3 py-2 font-medium">{p?.full_name || "—"}</td>
+                <td className="px-3 py-2 text-muted-foreground">{[p?.division, p?.department].filter(Boolean).join(" / ") || "—"}</td>
+                <td className="px-3 py-2">
+                  {e.checked_at
+                    ? <span className="text-mint">✓ {new Date(e.checked_at).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}</span>
+                    : <span className="text-muted-foreground">ยังไม่เช็คชื่อ</span>}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
