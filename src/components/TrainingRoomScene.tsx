@@ -232,7 +232,8 @@ function Room({ palette, reduced, ...props }: Props & { palette: Palette; reduce
 
   useEffect(() => {
     if (!(camera instanceof THREE.OrthographicCamera) || props.walk || props.kiosk) return;
-    const focusSeat = props.focus ? props.seats.find((s) => s.index === props.focus.index) : null;
+    const focusIndex = props.focus?.index;
+    const focusSeat = focusIndex == null ? null : props.seats.find((s) => s.index === focusIndex);
     if (focusSeat) {
       desired.current = { p: new THREE.Vector3(focusSeat.x * 0.5, 9, focusSeat.z + 7), l: new THREE.Vector3(focusSeat.x, 0.9, focusSeat.z), zoom: baseZoom * 2.1 };
     } else if (props.view === "top") {
