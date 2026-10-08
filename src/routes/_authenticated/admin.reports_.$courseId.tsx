@@ -142,6 +142,7 @@ function CourseReport() {
         <Stat label="หลังเรียนเฉลี่ย" value={`${postAvg}%`} note={`เกณฑ์ ${course.pass_score}%`} tone="mint" />
       </section>
       {rows.length === 0 && <div className="glass rounded-3xl p-10 text-center text-muted-foreground">ยังไม่มีผู้ลงทะเบียน</div>}
+      {data.hasRounds && <RoundReport rows={data.rows} />}
       <div className="space-y-6">
         {[...groups.entries()].map(([d, deps]) => {
           const all = [...deps.values()].flat();
@@ -176,5 +177,67 @@ function CourseReport() {
         })}
       </div>
     </div>
+  );
+}
+
+function RoundReport({ rows }: { rows: Row[] }) {
+  const rounds = [...new Set(rows.map((r) => r.round))].sort((a, b) => a.localeCompare(b, "th", { numeric: true }));
+  const stats = rounds.map((round) => {
+    const rs = rows.filter((r) => r.round === round);
+    const attended = rs.filter((r) => r.onsite).length;
+    const noTest = rs.filter((r) => r.onsite && r.post == null).length;
+    const passed = rs.filter((r) => r.passed).length;
+    const failed = rs.filter((r) => r.post != null && !r.passed).length;
+    return { round, enrolled: rs.length, attended, noTest, passed, failed };
+  });
+  const max = Math.max(1, ...stats.map((s) => s.enrolled));
+  const bars = [
+    { key: "attended", label: "เข้าอบรมจริง", cls: "bg-primary" },
+    { key: "noTest", label: "เข้าแต่ไม่สอบ", cls: "bg-amber-400" },
+    { key: "passed", label: "สอบผ่าน", cls: "bg-mint" },
+    { key: "failed", label: "สอบไม่ผ่าน", cls: "bg-destructive" },
+  ] as const;
+  return (
+    <section className="glass mb-6 break-inside-avoid rounded-3xl p-6">
+      <h2 className="text-lg font-bold">สรุปแยกตามรอบอบรม</h2>
+      <div className="mt-4 overflow-x-auto">
+        <table className="w-full min-w-[560px] text-sm">
+          <thead className="text-left text-xs text-muted-foreground">
+            <tr><th className="py-1">รอบ</th><th>ลงทะเบียน</th><th>เข้าอบรมจริง</th><th>เข้าแต่ไม่สอบ</th><th>สอบผ่าน</th><th>สอบไม่ผ่าน</th><th>อัตราผ่าน</th></tr>
+          </thead>
+          <tbody>
+            {stats.map((s) => (
+              <tr key={s.round} className="border-t border-glass-border">
+                <td className="py-2 font-semibold">{s.round}</td>
+                <td>{s.enrolled}</td><td>{s.attended}</td><td>{s.noTest}</td>
+                <td className="font-semibold text-primary">{s.passed}</td>
+                <td className={s.failed ? "text-destructive" : ""}>{s.failed}</td>
+                <td>{s.enrolled ? Math.round((s.passed / s.enrolled) * 100) : 0}%</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="mt-5 space-y-4">
+        <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+          {bars.map((b) => <span key={b.key} className="flex items-center gap-1.5"><span className={`inline-block size-3 rounded ${b.cls}`} />{b.label}</span>)}
+        </div>
+        {stats.map((s) => (
+          <div key={s.round}>
+            <div className="mb-1 text-xs font-semibold">{s.round} ({s.enrolled} คน)</div>
+            <div className="space-y-1">
+              {bars.map((b) => (
+                <div key={b.key} className="flex items-center gap-2">
+                  <div className="h-3 rounded-full bg-muted/40 flex-1 overflow-hidden">
+                    <div className={`h-full rounded-full ${b.cls}`} style={{ width: `${(s[b.key] / max) * 100}%` }} />
+                  </div>
+                  <span className="w-6 text-right text-xs text-muted-foreground">{s[b.key]}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
