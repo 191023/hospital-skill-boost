@@ -1,5 +1,5 @@
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
-import { Environment, Lightformer, useGLTF } from "@react-three/drei";
+import { Environment, Lightformer, OrbitControls, useGLTF } from "@react-three/drei";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
@@ -8,7 +8,14 @@ import chairAsset from "@/assets/training-chair.asset.json";
 import emojiAsset from "@/assets/room-emoji.asset.json";
 
 type Palette = { background: string; floor: string; line: string; checked: string; waiting: string; empty: string; selected: string; white: string };
-type Props = { seats: RoomSeat[]; selected: number | null; onSelect: (index: number) => void; highlighted: Set<string>; view: "angle" | "top"; zoom: number; roomName: string; date: string; round: string; courseTitle: string };
+export type RoomStats = { registered: number; checked: number; waiting: number; free: number | string };
+export type RoomFocus = { index: number; n: number } | null;
+type Props = {
+  seats: RoomSeat[]; selected: number | null; onSelect: (index: number) => void; highlighted: Set<string>;
+  view: "angle" | "top"; zoom: number; roomName: string; date: string; round: string; courseTitle: string;
+  kiosk: boolean; walk: boolean; focus: RoomFocus; pulseMap: Record<string, number>;
+  stats: RoomStats; updatedLabel: string;
+};
 
 function readPalette(): Palette {
   const css = getComputedStyle(document.documentElement);
@@ -64,6 +71,79 @@ function SessionSign({ palette, roomName, date, round, courseTitle }: Props & { 
   }, [palette, roomName, date, round, courseTitle]);
   useEffect(() => () => texture.dispose(), [texture]);
   return <sprite position={[0, 3.1, -3.2]} scale={[8.8, 2.2, 1]}><spriteMaterial map={texture} depthTest={false} toneMapped={false} /></sprite>;
+}
+
+function StatsBoard({ palette, stats, updatedLabel, z }: { palette: Palette; stats: RoomStats; updatedLabel: string; z: number }) {
+  const texture = useMemo(() => {
+    const canvas = document.createElement("canvas"); canvas.width = 512; canvas.height = 300;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.fillStyle = palette.white;
+      ctx.beginPath(); ctx.roundRect(0, 0, 512, 300, 26); ctx.fill();
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = palette.selected; ctx.font = 'bold 36px "IBM Plex Sans Thai", sans-serif'; ctx.textAlign = "left";
+      ctx.fillText("สรุปรอบนี้", 40, 54);
+      const rows: [string, string, string][] = [
+        ["ลงทะเบียน", String(stats.registered), palette.selected],
+        ["เช็คชื่อแล้ว", String(stats.checked), palette.checked],
+        ["รอเช็คชื่อ", String(stats.waiting), palette.waiting],
+        ["ที่นั่งว่าง", String(stats.free), palette.line],
+      ];
+      rows.forEach(([label, value, dot], i) => {
+        const y = 128 + i * 44;
+        ctx.fillStyle = dot; ctx.beginPath(); ctx.arc(52, y, 10, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = palette.selected; ctx.font = '30px "IBM Plex Sans Thai", sans-serif'; ctx.textAlign = "left";
+        ctx.fillText(label, 78, y, 280);
+        ctx.textAlign = "right"; ctx.font = 'bold 32px "IBM Plex Sans Thai", sans-serif';
+        ctx.fillText(value, 472, y, 140);
+      });
+      if (updatedLabel) {
+        ctx.fillStyle = palette.line; ctx.font = '24px "IBM Plex Sans Thai", sans-serif'; ctx.textAlign = "right";
+        ctx.fillText(updatedLabel, 472, 282, 420);
+      }
+    }
+    const t = new THREE.CanvasTexture(canvas); t.colorSpace = THREE.SRGBColorSpace; return t;
+  }, [palette, stats, updatedLabel]);
+  useEffect(() => () => texture.dispose(), [texture]);
+  return <sprite position={[8.6, 2.9, z]} scale={[3.4, 2.0, 1]}><spriteMaterial map={texture} depthTest={false} toneMapped={false} /></sprite>;
+}
+
+function PulseRing({ x, z, color, onDone }: { x: number; z: number; color: string; onDone: () => void }) {
+  const ref = useRef<THREE.Mesh>(null);
+  const t = useRef(0);
+  useFrame((_, rawDelta) => {
+    const mesh = ref.current;
+    if (!mesh) return;
+    t.current += Math.min(rawDelta, 0.05);
+    const p = t.current / 1.6;
+    if (p >= 1) { onDone(); return; }
+    const s = 0.4 + p * 1.9;
+    mesh.scale.set(s, s, s);
+    (mesh.material as THREE.MeshBasicMaterial).opacity = 0.85 * (1 - p);
+  });
+  return <mesh ref={ref} rotation-x={-Math.PI / 2} position={[x, 0.06, z]}>
+    <ringGeometry args={[0.52, 0.68, 40]} />
+    <meshBasicMaterial color={color} transparent depthWrite={false} />
+  </mesh>;
+}
+
+function Pulses({ seats, pulseMap, palette }: { seats: RoomSeat[]; pulseMap: Record<string, number>; palette: Palette }) {
+  const [active, setActive] = useState<{ key: string; x: number; z: number }[]>([]);
+  useEffect(() => {
+    const now = Date.now();
+    setActive((cur) => {
+      const keys = new Set(cur.map((a) => a.key));
+      const add = Object.entries(pulseMap)
+        .filter(([uid, ts]) => now - ts < 3000 && !keys.has(uid))
+        .map(([uid]) => {
+          const seat = seats.find((s) => s.attendee?.userId === uid);
+          return seat ? { key: uid, x: seat.x, z: seat.z } : null;
+        })
+        .filter((p): p is { key: string; x: number; z: number } => p !== null);
+      return add.length ? [...cur, ...add] : cur;
+    });
+  }, [pulseMap, seats]);
+  return <>{active.map((p) => <PulseRing key={p.key} x={p.x} z={p.z} color={palette.checked} onDone={() => setActive((cur) => cur.filter((a) => a.key !== p.key))} />)}</>;
 }
 
 function Seating({ seats, selected, onSelect, highlighted, palette, reduced }: Props & { palette: Palette; reduced: boolean }) {
@@ -141,17 +221,44 @@ function Seating({ seats, selected, onSelect, highlighted, palette, reduced }: P
   </>;
 }
 
-function Room({ palette, ...props }: Props & { palette: Palette; reduced: boolean }) {
+function Room({ palette, reduced, ...props }: Props & { palette: Palette; reduced: boolean }) {
   const { camera, size } = useThree();
   const depth = Math.max(3, ...props.seats.map((seat) => seat.z + 1.8));
   const center = depth / 2 - 2;
+  const orbit = useRef(0);
+  const look = useRef(new THREE.Vector3(0, 0, center));
+  const desired = useRef({ p: new THREE.Vector3(10, 14, center + 15), l: new THREE.Vector3(0, 0, center), zoom: 1 });
+  const baseZoom = Math.min(size.width / 17, size.height / (depth + 8)) * props.zoom;
+
   useEffect(() => {
-    if (!(camera instanceof THREE.OrthographicCamera)) return;
-    camera.position.set(props.view === "top" ? 0 : 10, props.view === "top" ? 20 : 14, props.view === "top" ? center + 0.01 : center + 15);
-    camera.lookAt(0, 0, center);
-    camera.zoom = Math.min(size.width / 17, size.height / (depth + 8)) * props.zoom;
+    if (!(camera instanceof THREE.OrthographicCamera) || props.walk || props.kiosk) return;
+    const focusSeat = props.focus ? props.seats.find((s) => s.index === props.focus.index) : null;
+    if (focusSeat) {
+      desired.current = { p: new THREE.Vector3(focusSeat.x * 0.5, 9, focusSeat.z + 7), l: new THREE.Vector3(focusSeat.x, 0.9, focusSeat.z), zoom: baseZoom * 2.1 };
+    } else if (props.view === "top") {
+      desired.current = { p: new THREE.Vector3(0, 20, center + 0.01), l: new THREE.Vector3(0, 0, center), zoom: baseZoom };
+    } else {
+      desired.current = { p: new THREE.Vector3(10, 14, center + 15), l: new THREE.Vector3(0, 0, center), zoom: baseZoom };
+    }
+  }, [camera, size, depth, center, props.view, props.zoom, props.focus, props.walk, props.kiosk, props.seats, baseZoom]);
+
+  useFrame((_, rawDelta) => {
+    if (props.walk || !(camera instanceof THREE.OrthographicCamera)) return;
+    const dt = Math.min(rawDelta, 0.05);
+    let target = desired.current;
+    if (props.kiosk && !reduced) {
+      orbit.current += dt * 0.22;
+      const a = orbit.current;
+      target = { p: new THREE.Vector3(Math.sin(a) * 15, 11, center + Math.cos(a) * 13), l: new THREE.Vector3(0, 0.6, center), zoom: baseZoom };
+    }
+    const k = 1 - Math.exp(-3.5 * dt);
+    camera.position.lerp(target.p, k);
+    look.current.lerp(target.l, k);
+    camera.lookAt(look.current);
+    camera.zoom = THREE.MathUtils.lerp(camera.zoom, target.zoom, k);
     camera.updateProjectionMatrix();
-  }, [camera, size, depth, center, props.view, props.zoom]);
+  });
+
   const texture = useMemo(() => {
     const c = document.createElement("canvas"); c.width = c.height = 128;
     const ctx = c.getContext("2d");
@@ -182,7 +289,10 @@ function Room({ palette, ...props }: Props & { palette: Palette; reduced: boolea
     <mesh position={[0, 0.16, -2.6]} receiveShadow castShadow><boxGeometry args={[9.8, 0.35, 1.8]} /><meshStandardMaterial color={palette.white} roughness={0.4} /></mesh>
     <mesh position={[0, 0.35, -1.72]}><boxGeometry args={[9.8, 0.08, 0.06]} /><meshStandardMaterial color={palette.selected} /></mesh>
     <SessionSign {...props} palette={palette} />
-    <Suspense fallback={null}><Seating {...props} palette={palette} /></Suspense>
+    <StatsBoard palette={palette} stats={props.stats} updatedLabel={props.updatedLabel} z={center} />
+    <Pulses seats={props.seats} pulseMap={props.pulseMap} palette={palette} />
+    <Suspense fallback={null}><Seating {...props} palette={palette} reduced={reduced} /></Suspense>
+    {props.walk && <OrbitControls target={[0, 0.6, center]} enableDamping dampingFactor={0.08} minZoom={Math.max(0.4, baseZoom * 0.5)} maxZoom={baseZoom * 3.5} />}
   </>;
 }
 
@@ -200,7 +310,7 @@ export default function TrainingRoomScene(props: Props) {
     query.addEventListener("change", update); return () => { cancelled = true; query.removeEventListener("change", update); };
   }, []);
   if (!palette) return null;
-  return <Canvas orthographic shadows dpr={1} camera={{ position: [10, 14, 15], near: 0.1, far: 200 }} gl={{ antialias: true }}>
+  return <Canvas orthographic shadows dpr={1} camera={{ position: [10, 14, 15], near: 0.1, far: 200 }} gl={{ antialias: true, preserveDrawingBuffer: true }}>
     <Room {...props} palette={palette} reduced={reduced} />
   </Canvas>;
 }
