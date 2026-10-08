@@ -19,6 +19,7 @@ export type Database = {
           checked_at: string
           course_id: string
           id: string
+          is_demo: boolean
           session_id: string | null
           user_id: string
         }
@@ -26,6 +27,7 @@ export type Database = {
           checked_at?: string
           course_id: string
           id?: string
+          is_demo?: boolean
           session_id?: string | null
           user_id: string
         }
@@ -33,6 +35,7 @@ export type Database = {
           checked_at?: string
           course_id?: string
           id?: string
+          is_demo?: boolean
           session_id?: string | null
           user_id?: string
         }
