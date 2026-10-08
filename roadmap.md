@@ -7,3 +7,7 @@
 - [x] Add physical seating, session room/date signage and profession emoji labels.
 - [x] Add clearly marked simulated check-ins for existing demo registrations in every round, preserving real records.
 - [x] Verify room selection, attendee details and populated session reports.
+## Room interactive features
+- [x] Kiosk display mode with auto-orbit and self refresh.
+- [x] Camera fly-to on roster click, division filter highlighting, new check-in pulse effect.
+- [x] Floating in-room stats board, PNG room capture and walk-around controls.
