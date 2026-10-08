@@ -77,6 +77,7 @@ function SessionRow({ s, onChange }: { s: Session & { taken: number }; onChange:
     const { error } = await supabase.from("course_sessions").delete().eq("id", s.id);
     if (error) toast.error(error.message); else onChange();
   }
+  const [open, setOpen] = useState(false);
   return (
     <div className="glass rounded-3xl p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
