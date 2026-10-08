@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { Component, lazy, Suspense, useState, type ReactNode } from "react";
-import { ArrowLeft, Armchair, CheckCircle2, Clock3, LayoutGrid, Minus, Plus, RefreshCw, Search, Users, X } from "lucide-react";
+import { Component, lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import { ArrowLeft, Armchair, Camera, CheckCircle2, Clock3, Footprints, LayoutGrid, Minus, Monitor, Plus, RefreshCw, Search, Users, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/lib/auth";
 import { sessionLabel } from "@/components/Sessions";
@@ -39,10 +39,16 @@ function RoomContent({ courseId }: { courseId: string }) {
   const [sessionId, setSessionId] = useState("");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
+  const [division, setDivision] = useState("all");
   const [selected, setSelected] = useState<number | null>(null);
+  const [focus, setFocus] = useState<{ index: number; n: number } | null>(null);
   const [page, setPage] = useState(0);
   const [view, setView] = useState<"angle" | "top">("angle");
   const [zoom, setZoom] = useState(1);
+  const [kiosk, setKiosk] = useState(false);
+  const [walk, setWalk] = useState(false);
+  const [pulseMap, setPulseMap] = useState<Record<string, number>>({});
+  const prevChecked = useRef<Map<string, string>>(new Map());
   const { data, refetch, isFetching, isRefetchError, dataUpdatedAt } = useSuspenseQuery({
     queryKey: ["training-room", courseId],
     refetchInterval: 10000,
@@ -61,6 +67,20 @@ function RoomContent({ courseId }: { courseId: string }) {
       return { course: c.data, sessions: s.data ?? [], enrollments: (e.data ?? []).map((row) => ({ ...row, profile: profiles.get(row.user_id) })), attendance: a.data ?? [] };
     },
   });
+  // เอฟเฟกต์เช็คชื่อใหม่: เทียบเวลาเช็คชื่อกับรอบก่อน แล้วส่งพัลส์ให้ที่นั่งของคนที่เพิ่งเช็ค (ข้ามข้อมูลจำลอง)
+  useEffect(() => {
+    if (!data) return;
+    const now = Date.now();
+    const fresh: Record<string, number> = {};
+    for (const a of data.attendance) {
+      if (!a.checked_at || a.is_demo) continue;
+      const key = `${a.user_id}:${a.session_id ?? "none"}`;
+      const prev = prevChecked.current.get(key);
+      prevChecked.current.set(key, a.checked_at);
+      if (prev && prev !== a.checked_at) fresh[a.user_id] = now;
+    }
+    if (Object.keys(fresh).length) setPulseMap((m) => ({ ...m, ...fresh }));
+  }, [data]);
   if (!data.course) return <p>ไม่พบหลักสูตร</p>;
   const activeId = sessionId || data.sessions[0]?.id || "unassigned";
   const session = data.sessions.find((s) => s.id === activeId);
@@ -73,14 +93,49 @@ function RoomContent({ courseId }: { courseId: string }) {
   const pages = Math.max(1, Math.ceil(count / ROOM_PAGE_SIZE));
   const safePage = Math.min(page, pages - 1);
   const seats = roomSeats(attendees, session?.capacity ?? null, safePage);
-  const filtered = attendees.filter((person) => matchesAttendee(person, search, status));
+  const divisions = [...new Set(attendees.map((p) => p.division).filter(Boolean))].sort((a, b) => a.localeCompare(b, "th"));
+  const filtered = attendees.filter((person) => matchesAttendee(person, search, status, division));
   const highlighted = new Set(filtered.map((person) => person.userId));
   const checked = attendees.filter((p) => p.checkedAt).length;
   const simulated = attendees.filter((p) => p.simulated).length;
   const location = session?.location || "ยังไม่ระบุห้องอบรม";
   const date = roomDate(session?.starts_at ?? null, session?.ends_at ?? null);
   const chosen = seats.find((s) => s.index === selected);
-  const changeSession = (id: string) => { setSessionId(id); setSelected(null); setPage(0); setSearch(""); setStatus("all"); };
+  const roundLabel = session ? `รอบที่ ${session.round_no}` : "ยังไม่เลือกรอบ";
+  const stats = { registered: attendees.length, checked, waiting: attendees.length - checked, free: session?.capacity == null ? "ไม่จำกัด" : Math.max(0, session.capacity - attendees.length) };
+  const updatedLabel = dataUpdatedAt ? `อัปเดต ${new Date(dataUpdatedAt).toLocaleTimeString("th-TH")}` : "";
+  const sceneProps = { seats, selected, onSelect: setSelected, highlighted, view, zoom, roomName: location, date, round: roundLabel, courseTitle: data.course.title, kiosk, walk, focus, pulseMap, stats, updatedLabel };
+  const changeSession = (id: string) => { setSessionId(id); setSelected(null); setPage(0); setSearch(""); setStatus("all"); setDivision("all"); setFocus(null); };
+  const toggleKiosk = () => { setKiosk((k) => !k); setWalk(false); setFocus(null); };
+  const toggleWalk = () => { setWalk((w) => !w); setKiosk(false); setFocus(null); };
+  const capture = () => {
+    const el = document.querySelector<HTMLCanvasElement>(".room-canvas canvas");
+    if (!el) return;
+    const link = document.createElement("a");
+    link.href = el.toDataURL("image/png");
+    link.download = `ห้องอบรม-${location.replace(/\s+/g, "-")}-${roundLabel}.png`;
+    link.click();
+  };
+  if (kiosk) return <div className="room-page">
+    <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+      <div className="min-w-0">
+        <div className="flex items-center gap-2 text-sm font-semibold text-primary"><Armchair />{roundLabel} <span className="text-muted-foreground">· {data.course.training_year}</span></div>
+        <h1 className="mt-1 truncate text-2xl font-bold">{data.course.title}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">📍 {location} · 📅 {date}</p>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm font-semibold">
+        <span>ลงทะเบียน <span className="text-primary">{attendees.length}</span></span>
+        <span>เช็คชื่อแล้ว <span className="text-mint">{checked}</span></span>
+        <span>รอเช็คชื่อ <span className="text-amber">{attendees.length - checked}</span></span>
+        <Button variant="outline" size="sm" onClick={toggleKiosk}><X />ปิดโหมดจอ</Button>
+      </div>
+    </div>
+    {simulated > 0 && <p className="mb-3 border-l-2 border-amber pl-3 text-sm text-muted-foreground">มีข้อมูลเช็คชื่อจำลอง {simulated} คน · สำหรับทดสอบ ไม่ใช่การเข้าอบรมจริง</p>}
+    <div className="room-canvas kiosk-canvas" aria-label="ภาพห้องอบรมสามมิติ">
+      {seats.length ? <SceneBoundary><Suspense fallback={<div className="grid h-full place-items-center text-muted-foreground">กำลังเตรียมห้องอบรม...</div>}><Scene {...sceneProps} /></Suspense></SceneBoundary> : <div className="grid h-full place-items-center text-muted-foreground">ยังไม่มีผู้ลงทะเบียนในรอบนี้</div>}
+    </div>
+    <p className="mt-2 text-center text-xs text-muted-foreground">โหมดจอแสดงหน้าห้อง · หมุนมุมมองอัตโนมัติ อัปเดตสถานะทุก 10 วินาที</p>
+  </div>;
   return <div className="room-page">
     <header className="mb-5 flex flex-wrap items-start justify-between gap-4">
       <div className="min-w-0 flex-1">
@@ -102,17 +157,24 @@ function RoomContent({ courseId }: { courseId: string }) {
     <div className="mb-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm"><span className="font-semibold">📍 {location}</span><span className="text-muted-foreground">📅 {date}</span></div>
     {simulated > 0 && <p className="mb-4 border-l-2 border-amber pl-3 text-sm text-muted-foreground">ข้อมูลเช็คชื่อจำลอง {simulated} คน · สำหรับทดสอบ ไม่ใช่การเข้าอบรมจริง</p>}
     <div className="room-stats mb-5 grid grid-cols-2 gap-4 border-y py-4 sm:grid-cols-4">
-      {[{ icon: Users, label: "ลงทะเบียน", value: attendees.length, tone: "text-primary" }, { icon: CheckCircle2, label: "เช็คชื่อแล้ว", value: checked, tone: "text-mint" }, { icon: Clock3, label: "รอเช็คชื่อ", value: attendees.length - checked, tone: "text-amber" }, { icon: Armchair, label: "ที่นั่งว่าง", value: session?.capacity == null ? "ไม่จำกัด" : Math.max(0, session.capacity - attendees.length), tone: "text-muted-foreground" }].map(({ icon: Icon, label, value, tone }) => <div key={label}><div className="flex items-center gap-2 text-xs text-muted-foreground"><Icon className={`size-4 ${tone}`} />{label}</div><div className={`mt-1 text-2xl font-bold ${tone}`}>{value}</div></div>)}
+      {[{ icon: Users, label: "ลงทะเบียน", value: attendees.length, tone: "text-primary" }, { icon: CheckCircle2, label: "เช็คชื่อแล้ว", value: checked, tone: "text-mint" }, { icon: Clock3, label: "รอเช็คชื่อ", value: attendees.length - checked, tone: "text-amber" }, { icon: Armchair, label: "ที่นั่งว่าง", value: stats.free, tone: "text-muted-foreground" }].map(({ icon: Icon, label, value, tone }) => <div key={label}><div className="flex items-center gap-2 text-xs text-muted-foreground"><Icon className={`size-4 ${tone}`} />{label}</div><div className={`mt-1 text-2xl font-bold ${tone}`}>{value}</div></div>)}
     </div>
     {session?.capacity != null && attendees.length > session.capacity && <p className="mb-3 text-sm text-coral">ผู้ลงทะเบียนเกินจำนวนที่นั่ง {attendees.length - session.capacity} คน</p>}
     <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
       <section className="min-w-0">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex gap-2"><Button size="sm" variant={view === "angle" ? "default" : "outline"} onClick={() => setView("angle")}><Armchair />มุมห้อง</Button><Button size="sm" variant={view === "top" ? "default" : "outline"} onClick={() => setView("top")}><LayoutGrid />มุมบน</Button></div>
-          <div className="flex gap-1"><Button size="icon" variant="ghost" title="ย่อ" aria-label="ย่อ" disabled={zoom <= 0.7} onClick={() => setZoom((z) => Math.max(0.7, z - 0.15))}><Minus /></Button><Button size="icon" variant="ghost" title="ขยาย" aria-label="ขยาย" disabled={zoom >= 1.6} onClick={() => setZoom((z) => Math.min(1.6, z + 0.15))}><Plus /></Button></div>
+          {walk
+            ? <span className="text-xs text-muted-foreground">โหมดเดินสำรวจ: ลากเพื่อหมุนมุมมอง · สกรอลล์เพื่อซูม · กดปุ่มอีกครั้งเพื่อออก</span>
+            : <div className="flex gap-2"><Button size="sm" variant={view === "angle" ? "default" : "outline"} onClick={() => { setView("angle"); setFocus(null); }}><Armchair />มุมห้อง</Button><Button size="sm" variant={view === "top" ? "default" : "outline"} onClick={() => { setView("top"); setFocus(null); }}><LayoutGrid />มุมบน</Button></div>}
+          <div className="flex flex-wrap items-center gap-1">
+            <Button size="icon" variant="ghost" title="จับภาพห้องเป็น PNG" aria-label="จับภาพห้องเป็น PNG" onClick={capture}><Camera /></Button>
+            <Button size="sm" variant={walk ? "default" : "outline"} onClick={toggleWalk}><Footprints />เดินสำรวจ</Button>
+            <Button size="sm" variant={kiosk ? "default" : "outline"} onClick={toggleKiosk}><Monitor />โหมดจอ</Button>
+            {!walk && <div className="flex gap-1"><Button size="icon" variant="ghost" title="ย่อ" aria-label="ย่อ" disabled={zoom <= 0.7} onClick={() => setZoom((z) => Math.max(0.7, z - 0.15))}><Minus /></Button><Button size="icon" variant="ghost" title="ขยาย" aria-label="ขยาย" disabled={zoom >= 1.6} onClick={() => setZoom((z) => Math.min(1.6, z + 0.15))}><Plus /></Button></div>}
+          </div>
         </div>
         <div className="room-canvas relative" aria-label="ภาพห้องอบรมสามมิติ">
-          {seats.length ? <SceneBoundary><Suspense fallback={<div className="grid h-full place-items-center text-muted-foreground">กำลังเตรียมห้องอบรม...</div>}><Scene seats={seats} selected={selected} onSelect={setSelected} highlighted={highlighted} view={view} zoom={zoom} roomName={location} date={date} round={session ? `รอบที่ ${session.round_no}` : "ยังไม่เลือกรอบ"} courseTitle={data.course.title} /></Suspense></SceneBoundary> : <div className="grid h-full place-items-center text-muted-foreground">ยังไม่มีผู้ลงทะเบียนในรอบนี้</div>}
+          {seats.length ? <SceneBoundary><Suspense fallback={<div className="grid h-full place-items-center text-muted-foreground">กำลังเตรียมห้องอบรม...</div>}><Scene {...sceneProps} /></Suspense></SceneBoundary> : <div className="grid h-full place-items-center text-muted-foreground">ยังไม่มีผู้ลงทะเบียนในรอบนี้</div>}
         </div>
         <div className="mt-3 flex flex-wrap justify-center gap-5 text-xs text-muted-foreground"><span className="flex items-center gap-2"><i className="size-2.5 rounded-full bg-mint" />เช็คชื่อแล้ว</span><span className="flex items-center gap-2"><i className="size-2.5 rounded-full bg-amber" />รอเช็คชื่อ</span><span className="flex items-center gap-2"><i className="size-2.5 rounded-full bg-room-empty" />ว่าง</span></div>
         {pages > 1 && <div className="mt-4 flex items-center justify-center gap-3"><Button variant="outline" size="sm" disabled={safePage === 0} onClick={() => { setPage(safePage - 1); setSelected(null); }}>ก่อนหน้า</Button><span className="text-xs">ส่วนที่ {safePage + 1} / {pages}</span><Button variant="outline" size="sm" disabled={safePage === pages - 1} onClick={() => { setPage(safePage + 1); setSelected(null); }}>ถัดไป</Button></div>}
@@ -126,9 +188,13 @@ function RoomContent({ courseId }: { courseId: string }) {
         </div>}
         <h2 className="text-base font-bold">ผู้ลงทะเบียน <span className="text-sm text-muted-foreground">{filtered.length} คน</span></h2>
         <div className="relative mt-3"><Search className="absolute left-3 top-3 size-4 text-muted-foreground" /><input aria-label="ค้นหาผู้ลงทะเบียน" placeholder="ค้นหาชื่อ ฝ่าย หรือแผนก" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full rounded-lg border bg-card py-2.5 pl-9 pr-3 text-sm" /></div>
+        <select aria-label="กรองตามฝ่าย" className="mt-2 w-full rounded-lg border bg-card p-2 text-sm" value={division} onChange={(e) => setDivision(e.target.value)}>
+          <option value="all">ทุกฝ่าย</option>
+          {divisions.map((d) => <option key={d} value={d}>{d}</option>)}
+        </select>
         <select aria-label="สถานะเช็คชื่อ" className="mt-2 w-full rounded-lg border bg-card p-2 text-sm" value={status} onChange={(e) => setStatus(e.target.value)}><option value="all">ทุกสถานะ</option><option value="checked">เช็คชื่อแล้ว</option><option value="waiting">รอเช็คชื่อ</option></select>
         <div className="mt-3 max-h-[430px] space-y-1 overflow-y-auto">
-          {filtered.map((person) => { const index = attendees.indexOf(person); const label = `${String.fromCharCode(65 + Math.floor(index / 8))}${String(index % 8 + 1).padStart(2, "0")}`; return <Button key={person.userId} variant="ghost" className="h-auto w-full justify-start whitespace-normal px-2 py-3 text-left" onClick={() => { setPage(Math.floor(index / ROOM_PAGE_SIZE)); setSelected(index); }}>
+          {filtered.map((person) => { const index = attendees.indexOf(person); const label = `${String.fromCharCode(65 + Math.floor(index / 8))}${String(index % 8 + 1).padStart(2, "0")}`; return <Button key={person.userId} variant="ghost" className="h-auto w-full justify-start whitespace-normal px-2 py-3 text-left" onClick={() => { setPage(Math.floor(index / ROOM_PAGE_SIZE)); setSelected(index); setFocus({ index, n: Date.now() }); }}>
             <span className={`grid size-10 shrink-0 place-items-center rounded-lg ${person.checkedAt ? "bg-mint/15 text-mint" : "bg-amber/15 text-amber"}`}><span className="text-xl" role="img" aria-label={attendeeSymbol(person).label}>{attendeeSymbol(person).emoji}</span><span className="text-[10px]">{label}</span></span><span className="min-w-0 flex-1"><span className="block text-sm font-medium">{person.name}</span><span className="block text-[11px] text-muted-foreground">{person.department || person.division || "—"}</span><span className={`block text-[11px] ${person.checkedAt ? "text-mint" : "text-amber"}`}>{person.checkedAt ? `✓ เช็คชื่อแล้ว${person.simulated ? " · จำลอง" : ""}` : "รอเช็คชื่อ"}</span></span>
           </Button>; })}
           {!filtered.length && <p className="py-6 text-center text-sm text-muted-foreground">ไม่พบผู้ลงทะเบียน</p>}
