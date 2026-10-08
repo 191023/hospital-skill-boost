@@ -49,8 +49,9 @@ export function roomSeats(attendees: RoomAttendee[], capacity: number | null, pa
   });
 }
 
-export function matchesAttendee(person: RoomAttendee, search: string, status: string) {
+export function matchesAttendee(person: RoomAttendee, search: string, status: string, division = "all") {
   const text = [person.name, person.division, person.department].join(" ").toLocaleLowerCase("th");
   return text.includes(search.trim().toLocaleLowerCase("th")) &&
-    (status === "all" || (status === "checked" ? !!person.checkedAt : !person.checkedAt));
+    (status === "all" || (status === "checked" ? !!person.checkedAt : !person.checkedAt)) &&
+    (division === "all" || person.division === division);
 }
