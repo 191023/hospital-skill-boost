@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { attendeeSymbol, type RoomSeat } from "@/lib/training-room";
 import chairAsset from "@/assets/training-chair.asset.json";
+import emojiAsset from "@/assets/room-emoji.asset.json";
 
 type Palette = { background: string; floor: string; line: string; checked: string; waiting: string; empty: string; selected: string; white: string };
 type Props = { seats: RoomSeat[]; selected: number | null; onSelect: (index: number) => void; highlighted: Set<string>; view: "angle" | "top"; zoom: number; roomName: string; date: string; round: string; courseTitle: string };
@@ -32,7 +33,7 @@ function SeatLabel({ seat, selected, palette, onSelect }: { seat: RoomSeat; sele
       ctx.fillStyle = selected ? palette.selected : palette.white; ctx.fillRect(0, 0, 256, 144);
       ctx.textAlign = "center"; ctx.textBaseline = "middle";
       ctx.fillStyle = selected ? palette.white : palette.selected;
-      ctx.font = '48px "Noto Color Emoji", "Apple Color Emoji", sans-serif';
+      ctx.font = '48px "Apple Color Emoji", "Segoe UI Emoji", "Room Emoji", sans-serif';
       ctx.fillText(seat.attendee ? attendeeSymbol(seat.attendee).emoji : "", 128, 37);
       ctx.font = 'bold 26px "IBM Plex Sans Thai", sans-serif';
       const name = seat.attendee?.name.split(" ")[0] || "ว่าง";
@@ -189,11 +190,14 @@ export default function TrainingRoomScene(props: Props) {
   const [palette, setPalette] = useState<Palette | null>(null);
   const [reduced, setReduced] = useState(false);
   useEffect(() => {
-    setPalette(readPalette());
+    let cancelled = false;
+    const font = new FontFace("Room Emoji", `url(${emojiAsset.url})`);
+    Promise.all([font.load().then((loaded) => document.fonts.add(loaded)), document.fonts.load('600 26px "IBM Plex Sans Thai"')])
+      .catch(() => undefined).then(() => { if (!cancelled) setPalette(readPalette()); });
     const query = window.matchMedia("(prefers-reduced-motion: reduce)");
     setReduced(query.matches);
     const update = () => setReduced(query.matches);
-    query.addEventListener("change", update); return () => query.removeEventListener("change", update);
+    query.addEventListener("change", update); return () => { cancelled = true; query.removeEventListener("change", update); };
   }, []);
   if (!palette) return null;
   return <Canvas orthographic shadows dpr={1} camera={{ position: [10, 14, 15], near: 0.1, far: 200 }} gl={{ antialias: true }}>
