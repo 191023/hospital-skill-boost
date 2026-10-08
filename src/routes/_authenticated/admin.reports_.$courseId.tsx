@@ -22,7 +22,7 @@ export const Route = createFileRoute("/_authenticated/admin/reports_/$courseId")
 type Row = {
   name: string; email: string; division: string; department: string; position: string;
   enrolledAt: string; lessons: number; totalLessons: number;
-  round: string; pre: number | null; post: number | null; passed: boolean; onsite: boolean; checkedAt: string; certNo: string; issuedAt: string;
+  round: string; pre: number | null; post: number | null; passed: boolean; onsite: boolean; simulated: boolean; checkedAt: string; certNo: string; issuedAt: string;
 };
 
 const avg = (xs: number[]) => (xs.length ? Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 10) / 10 : 0);
@@ -43,11 +43,11 @@ function CourseReport() {
         supabase.from("enrollments").select("user_id,created_at,session_id").eq("course_id", courseId),
         supabase.from("test_attempts").select("user_id,kind,percent").eq("course_id", courseId),
         supabase.from("certificates").select("user_id,cert_no,issued_at").eq("course_id", courseId),
-        supabase.from("attendance").select("user_id,checked_at").eq("course_id", courseId),
+        supabase.from("attendance").select("user_id,session_id,checked_at,is_demo").eq("course_id", courseId),
         supabase.from("course_sessions").select("id,round_no").eq("course_id", courseId),
       ]);
       const smap = new Map((sess ?? []).map((s) => [s.id, `รอบที่ ${s.round_no}`]));
-      const amap = new Map((atd ?? []).map((a) => [a.user_id, a.checked_at]));
+      const amap = new Map((atd ?? []).map((a) => [`${a.user_id}:${a.session_id ?? ""}`, a]));
       const lessonIds = (lessons ?? []).map((l) => l.id);
       const userIds = (enr ?? []).map((e) => e.user_id);
       const [{ data: profiles }, { data: prog }] = await Promise.all([
@@ -62,11 +62,12 @@ function CourseReport() {
         const post = a.filter((x) => x.kind === "post").map((x) => Number(x.percent));
         const cert = (certs ?? []).find((c) => c.user_id === e.user_id);
         const done = new Set((prog ?? []).filter((x: any) => x.user_id === e.user_id).map((x: any) => x.lesson_id)).size;
+        const checkin = amap.get(`${e.user_id}:${e.session_id ?? ""}`);
         return {
           name: p.full_name || "-", email: p.email || "", division: p.division || "ไม่ระบุ", department: p.department || "ไม่ระบุ", position: p.position || "",
           enrolledAt: e.created_at, round: (e.session_id && smap.get(e.session_id)) || "ไม่ระบุรอบ", lessons: done, totalLessons: lessonIds.length,
           pre: pre.length ? pre[0]! : null, post: post.length ? Math.max(...post) : null,
-          passed: !!cert, onsite: amap.has(e.user_id), checkedAt: amap.get(e.user_id) ?? "", certNo: cert?.cert_no ?? "", issuedAt: cert?.issued_at ?? "",
+          passed: !!cert, onsite: !!checkin, simulated: checkin?.is_demo ?? false, checkedAt: checkin?.checked_at ?? "", certNo: cert?.cert_no ?? "", issuedAt: cert?.issued_at ?? "",
         };
       }).sort((a, b) => a.division.localeCompare(b.division, "th") || a.department.localeCompare(b.department, "th") || a.name.localeCompare(b.name, "th"));
       return { course, rows, hasRounds: (sess ?? []).length > 0 };
@@ -81,7 +82,7 @@ function CourseReport() {
   const rows = data.rows.filter((r) => (division === "all" || r.division === division) && (mode === "all" || (mode === "onsite") === r.onsite) && (round === "all" || r.round === round));
   const rounds = [...new Set(data.rows.map((r) => r.round))].sort((a, b) => a.localeCompare(b, "th", { numeric: true }));
   const onsite = rows.filter((r) => r.onsite).length;
-  const modeLabel = (r: Row) => (r.onsite ? "อบรมสด" : "ออนไลน์");
+  const modeLabel = (r: Row) => (r.onsite ? (r.simulated ? "อบรมสด (จำลอง)" : "อบรมสด") : "ออนไลน์");
 
   const groups = new Map<string, Map<string, Row[]>>();
   for (const r of rows) {
@@ -98,6 +99,7 @@ function CourseReport() {
     const wb = XLSX.utils.book_new();
     const summary: (string | number)[][] = [
       ["รายงานสรุปผลการอบรม โรงพยาบาลโอเวอร์บรุ๊ค"],
+      ...(data?.rows.some((r) => r.simulated) ? [["หมายเหตุ", "รวมข้อมูลเช็คชื่อจำลองสำหรับทดสอบ ไม่ใช่การเข้าอบรมจริง"]] : []),
       ["หลักสูตร", course!.title], ["ปีที่อบรม (ค.ศ.)", course!.training_year], ["เกณฑ์ผ่าน (%)", course!.pass_score],
       ...(round !== "all" ? [["รอบอบรม", round]] : []), ["ผู้เข้าอบรม", rows.length], ["อบรมสด (on-site)", onsite], ["ออนไลน์", rows.length - onsite], ["ผ่านเกณฑ์", passed], ["อัตราผ่าน (%)", pct(passed, rows.length)],
       ["คะแนนก่อนเรียนเฉลี่ย", preAvg], ["คะแนนหลังเรียนเฉลี่ย", postAvg], [],
@@ -142,6 +144,7 @@ function CourseReport() {
         </div>
       } />
       <p className="mb-4 hidden text-sm print:block">โรงพยาบาลโอเวอร์บรุ๊ค · ศูนย์พัฒนาศักยภาพบุคลากร · เกณฑ์ผ่าน {course.pass_score}%{division !== "all" ? ` · ${division}` : ""}</p>
+      {data.rows.some((r) => r.simulated) && <p className="mb-4 border-l-2 border-amber pl-3 text-sm text-muted-foreground">รายงานนี้รวมข้อมูลเช็คชื่อจำลอง {data.rows.filter((r) => r.simulated).length} คน · สำหรับทดสอบ ไม่ใช่การเข้าอบรมจริง</p>}
       <section className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="ผู้เข้าอบรม" value={rows.length} note={`อบรมสด ${onsite} · ออนไลน์ ${rows.length - onsite}`} tone="primary" />
         <Stat label="ผ่านเกณฑ์" value={passed} note={`อัตราผ่าน ${pct(passed, rows.length)}%`} tone="mint" />
@@ -200,7 +203,7 @@ function RoundReport({ rows }: { rows: Row[] }) {
   const max = Math.max(1, ...stats.map((s) => s.enrolled));
   const bars = [
     { key: "attended", label: "เข้าอบรมจริง", cls: "bg-primary" },
-    { key: "noTest", label: "เข้าแต่ไม่สอบ", cls: "bg-amber-400" },
+    { key: "noTest", label: "เข้าแต่ไม่สอบ", cls: "bg-amber" },
     { key: "passed", label: "สอบผ่าน", cls: "bg-mint" },
     { key: "failed", label: "สอบไม่ผ่าน", cls: "bg-destructive" },
   ] as const;

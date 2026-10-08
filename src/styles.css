@@ -116,6 +116,7 @@
   box-shadow: var(--shadow-soft);
 }
 
+.room-page [role="img"] { font-family: "Apple Color Emoji", "Segoe UI Emoji", "Room Emoji", sans-serif; }
 .room-canvas { height: 510px; width: 100%; overflow: hidden; background: var(--room-background); }
 .room-seat-label { height: 22px; min-width: 32px; padding: 0 4px; border-radius: 4px; font-size: 10px; color: var(--foreground); background: color-mix(in oklab, var(--card) 85%, transparent); box-shadow: var(--shadow-soft); }
 .room-seat-selected { background: var(--primary); color: var(--primary-foreground); }

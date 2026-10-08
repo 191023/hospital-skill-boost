@@ -1,0 +1,2 @@
+ALTER TABLE public.attendance ADD COLUMN is_demo boolean NOT NULL DEFAULT false;
+COMMENT ON COLUMN public.attendance.is_demo IS 'Simulated check-in for demonstration accounts; not evidence of real attendance.';
