@@ -6,7 +6,14 @@ import { useMe } from "@/lib/auth";
 import { PageHeader } from "@/components/AppShell";
 
 export const Route = createFileRoute("/_authenticated/manage/")({
-  head: () => ({ meta: [{ title: "จัดการหลักสูตร — ระบบอบรมออนไลน์" }] }),
+  head: () => ({ meta: [
+    { title: "จัดการหลักสูตร — โรงพยาบาลโอเวอร์บรุ๊ค" },
+    { name: "description", content: "จัดการหลักสูตรสำหรับบุคลากรโรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:title", content: "จัดการหลักสูตร — โรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:description", content: "จัดการหลักสูตรสำหรับบุคลากรโรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: Manage,
 });
 

@@ -12,7 +12,14 @@ import { divisions, orgChart } from "@/lib/org";
 import { ImportMembers } from "@/components/ImportMembers";
 
 export const Route = createFileRoute("/_authenticated/admin/users")({
-  head: () => ({ meta: [{ title: "จัดการสมาชิก — ระบบอบรมออนไลน์" }] }),
+  head: () => ({ meta: [
+    { title: "จัดการสมาชิก — โรงพยาบาลโอเวอร์บรุ๊ค" },
+    { name: "description", content: "จัดการสมาชิกสำหรับบุคลากรโรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:title", content: "จัดการสมาชิก — โรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:description", content: "จัดการสมาชิกสำหรับบุคลากรโรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: Users,
 });
 

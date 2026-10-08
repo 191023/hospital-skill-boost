@@ -7,7 +7,14 @@ import { thaiDate } from "@/lib/data";
 import { PageHeader, Stat, Bar } from "@/components/AppShell";
 
 export const Route = createFileRoute("/_authenticated/admin/reports")({
-  head: () => ({ meta: [{ title: "สรุปผลการอบรม — ระบบอบรมออนไลน์" }] }),
+  head: () => ({ meta: [
+    { title: "สรุปผลการอบรม — โรงพยาบาลโอเวอร์บรุ๊ค" },
+    { name: "description", content: "สรุปผลการอบรมสำหรับบุคลากรโรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:title", content: "สรุปผลการอบรม — โรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:description", content: "สรุปผลการอบรมสำหรับบุคลากรโรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: Reports,
 });
 

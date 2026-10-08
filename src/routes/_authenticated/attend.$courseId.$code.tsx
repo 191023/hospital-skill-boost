@@ -3,7 +3,14 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/attend/$courseId/$code")({
-  head: () => ({ meta: [{ title: "เช็คชื่อเข้าอบรม — ระบบอบรมออนไลน์" }] }),
+  head: () => ({ meta: [
+    { title: "เช็คชื่อเข้าอบรม — โรงพยาบาลโอเวอร์บรุ๊ค" },
+    { name: "description", content: "เช็คชื่อเข้าอบรมสำหรับบุคลากรโรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:title", content: "เช็คชื่อเข้าอบรม — โรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:description", content: "เช็คชื่อเข้าอบรมสำหรับบุคลากรโรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: Attend,
 });
 

@@ -5,7 +5,14 @@ import { PageHeader, Stat, Bar } from "@/components/AppShell";
 import { coverFor, toneFor } from "@/components/Brand";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
-  head: () => ({ meta: [{ title: "แดชบอร์ด — ระบบอบรมออนไลน์" }] }),
+  head: () => ({ meta: [
+    { title: "แดชบอร์ด — โรงพยาบาลโอเวอร์บรุ๊ค" },
+    { name: "description", content: "แดชบอร์ดสำหรับบุคลากรโรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:title", content: "แดชบอร์ด — โรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:description", content: "แดชบอร์ดสำหรับบุคลากรโรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: Dashboard,
 });
 

@@ -6,7 +6,14 @@ import { fileUrl, useMe } from "@/lib/auth";
 import { kindLabel, youtubeEmbed } from "@/lib/data";
 
 export const Route = createFileRoute("/_authenticated/courses/$courseId/lesson/$lessonId")({
-  head: () => ({ meta: [{ title: "บทเรียน — ระบบอบรมออนไลน์" }] }),
+  head: () => ({ meta: [
+    { title: "บทเรียน — โรงพยาบาลโอเวอร์บรุ๊ค" },
+    { name: "description", content: "บทเรียนสำหรับบุคลากรโรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:title", content: "บทเรียน — โรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:description", content: "บทเรียนสำหรับบุคลากรโรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: LessonPage,
 });
 

@@ -8,7 +8,14 @@ import { QRImg, origin } from "@/components/QR";
 import { sessionLabel, type Session } from "@/components/Sessions";
 
 export const Route = createFileRoute("/_authenticated/admin/qr")({
-  head: () => ({ meta: [{ title: "QR Code ใบประกาศและหลักสูตร — ระบบอบรมออนไลน์" }] }),
+  head: () => ({ meta: [
+    { title: "QR Code ใบประกาศและหลักสูตร — โรงพยาบาลโอเวอร์บรุ๊ค" },
+    { name: "description", content: "QR Code ใบประกาศและหลักสูตรสำหรับบุคลากรโรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:title", content: "QR Code ใบประกาศและหลักสูตร — โรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:description", content: "QR Code ใบประกาศและหลักสูตรสำหรับบุคลากรโรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: QrPage,
 });
 

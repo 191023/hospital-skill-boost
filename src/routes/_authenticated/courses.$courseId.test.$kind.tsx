@@ -5,7 +5,14 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/courses/$courseId/test/$kind")({
-  head: () => ({ meta: [{ title: "แบบทดสอบ — ระบบอบรมออนไลน์" }] }),
+  head: () => ({ meta: [
+    { title: "แบบทดสอบ — โรงพยาบาลโอเวอร์บรุ๊ค" },
+    { name: "description", content: "แบบทดสอบสำหรับบุคลากรโรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:title", content: "แบบทดสอบ — โรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:description", content: "แบบทดสอบสำหรับบุคลากรโรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: TestPage,
 });
 

@@ -8,7 +8,14 @@ import { thaiDate } from "@/lib/data";
 import { PageHeader, Stat, Bar } from "@/components/AppShell";
 
 export const Route = createFileRoute("/_authenticated/admin/reports_/$courseId")({
-  head: () => ({ meta: [{ title: "รายงานรายหลักสูตร — ระบบอบรมออนไลน์" }] }),
+  head: () => ({ meta: [
+    { title: "รายงานรายหลักสูตร — โรงพยาบาลโอเวอร์บรุ๊ค" },
+    { name: "description", content: "รายงานรายหลักสูตรสำหรับบุคลากรโรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:title", content: "รายงานรายหลักสูตร — โรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:description", content: "รายงานรายหลักสูตรสำหรับบุคลากรโรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: CourseReport,
 });
 

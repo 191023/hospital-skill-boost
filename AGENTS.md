@@ -19,3 +19,4 @@
 - AI calls go through `src/lib/ai.server.ts` (Lovable AI Gateway, Responses API), invoked only from server functions — keeps the key server-side.
 - Certificate previews and issued certificates use the shared `CertificateDesign` component — keeps on-screen, print, and saved branding layouts consistent.
 - Course rounds live in `course_sessions` (one row per round with its own check-in code); enrollments/attendance carry an optional session_id, set via `choose_session` / `check_in` DB functions — keeps capacity checks server-side.
+- The staff training-room view lazy-loads React Three Fiber on a standalone authenticated route and visualizes ordered enrollments without persisting seats; attendance is read through existing RLS with polling — preserves enrollment rules and avoids exposing roster data to learners.
