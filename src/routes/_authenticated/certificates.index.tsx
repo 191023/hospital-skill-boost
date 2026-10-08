@@ -6,7 +6,14 @@ import { thaiDate } from "@/lib/data";
 import { PageHeader } from "@/components/AppShell";
 
 export const Route = createFileRoute("/_authenticated/certificates/")({
-  head: () => ({ meta: [{ title: "ใบประกาศของฉัน — ระบบอบรมออนไลน์" }] }),
+  head: () => ({ meta: [
+    { title: "ใบประกาศของฉัน — โรงพยาบาลโอเวอร์บรุ๊ค" },
+    { name: "description", content: "ใบประกาศของฉันสำหรับบุคลากรโรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:title", content: "ใบประกาศของฉัน — โรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:description", content: "ใบประกาศของฉันสำหรับบุคลากรโรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: Certs,
 });
 

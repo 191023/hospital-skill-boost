@@ -29,6 +29,7 @@ import { Route as CheckinCourseIdCodeRouteImport } from './routes/checkin.$cours
 import { Route as AuthenticatedAdminReportsCourseIdRouteImport } from './routes/_authenticated/admin.reports_.$courseId'
 import { Route as AuthenticatedAttendCourseIdCodeRouteImport } from './routes/_authenticated/attend.$courseId.$code'
 import { Route as AuthenticatedCoursesCourseIdIndexRouteImport } from './routes/_authenticated/courses.$courseId.index'
+import { Route as AuthenticatedManageCourseIdRoomRouteImport } from './routes/_authenticated/manage_.$courseId.room'
 import { Route as AuthenticatedCoursesCourseIdLessonLessonIdRouteImport } from './routes/_authenticated/courses.$courseId.lesson.$lessonId'
 import { Route as AuthenticatedCoursesCourseIdTestKindRouteImport } from './routes/_authenticated/courses.$courseId.test.$kind'
 
@@ -140,6 +141,12 @@ const AuthenticatedCoursesCourseIdIndexRoute =
     path: '/courses/$courseId/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedManageCourseIdRoomRoute =
+  AuthenticatedManageCourseIdRoomRouteImport.update({
+    id: '/manage_/$courseId/room',
+    path: '/manage/$courseId/room',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedCoursesCourseIdLessonLessonIdRoute =
   AuthenticatedCoursesCourseIdLessonLessonIdRouteImport.update({
     id: '/courses/$courseId/lesson/$lessonId',
@@ -172,6 +179,7 @@ export interface FileRoutesByFullPath {
   '/manage/': typeof AuthenticatedManageIndexRoute
   '/admin/reports/$courseId': typeof AuthenticatedAdminReportsCourseIdRoute
   '/attend/$courseId/$code': typeof AuthenticatedAttendCourseIdCodeRoute
+  '/manage/$courseId/room': typeof AuthenticatedManageCourseIdRoomRoute
   '/courses/$courseId/': typeof AuthenticatedCoursesCourseIdIndexRoute
   '/courses/$courseId/lesson/$lessonId': typeof AuthenticatedCoursesCourseIdLessonLessonIdRoute
   '/courses/$courseId/test/$kind': typeof AuthenticatedCoursesCourseIdTestKindRoute
@@ -195,6 +203,7 @@ export interface FileRoutesByTo {
   '/manage': typeof AuthenticatedManageIndexRoute
   '/admin/reports/$courseId': typeof AuthenticatedAdminReportsCourseIdRoute
   '/attend/$courseId/$code': typeof AuthenticatedAttendCourseIdCodeRoute
+  '/manage/$courseId/room': typeof AuthenticatedManageCourseIdRoomRoute
   '/courses/$courseId': typeof AuthenticatedCoursesCourseIdIndexRoute
   '/courses/$courseId/lesson/$lessonId': typeof AuthenticatedCoursesCourseIdLessonLessonIdRoute
   '/courses/$courseId/test/$kind': typeof AuthenticatedCoursesCourseIdTestKindRoute
@@ -220,6 +229,7 @@ export interface FileRoutesById {
   '/_authenticated/manage/': typeof AuthenticatedManageIndexRoute
   '/_authenticated/admin/reports_/$courseId': typeof AuthenticatedAdminReportsCourseIdRoute
   '/_authenticated/attend/$courseId/$code': typeof AuthenticatedAttendCourseIdCodeRoute
+  '/_authenticated/manage_/$courseId/room': typeof AuthenticatedManageCourseIdRoomRoute
   '/_authenticated/courses/$courseId/': typeof AuthenticatedCoursesCourseIdIndexRoute
   '/_authenticated/courses/$courseId/lesson/$lessonId': typeof AuthenticatedCoursesCourseIdLessonLessonIdRoute
   '/_authenticated/courses/$courseId/test/$kind': typeof AuthenticatedCoursesCourseIdTestKindRoute
@@ -245,6 +255,7 @@ export interface FileRouteTypes {
     | '/manage/'
     | '/admin/reports/$courseId'
     | '/attend/$courseId/$code'
+    | '/manage/$courseId/room'
     | '/courses/$courseId/'
     | '/courses/$courseId/lesson/$lessonId'
     | '/courses/$courseId/test/$kind'
@@ -268,6 +279,7 @@ export interface FileRouteTypes {
     | '/manage'
     | '/admin/reports/$courseId'
     | '/attend/$courseId/$code'
+    | '/manage/$courseId/room'
     | '/courses/$courseId'
     | '/courses/$courseId/lesson/$lessonId'
     | '/courses/$courseId/test/$kind'
@@ -292,6 +304,7 @@ export interface FileRouteTypes {
     | '/_authenticated/manage/'
     | '/_authenticated/admin/reports_/$courseId'
     | '/_authenticated/attend/$courseId/$code'
+    | '/_authenticated/manage_/$courseId/room'
     | '/_authenticated/courses/$courseId/'
     | '/_authenticated/courses/$courseId/lesson/$lessonId'
     | '/_authenticated/courses/$courseId/test/$kind'
@@ -448,6 +461,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCoursesCourseIdIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/manage_/$courseId/room': {
+      id: '/_authenticated/manage_/$courseId/room'
+      path: '/manage/$courseId/room'
+      fullPath: '/manage/$courseId/room'
+      preLoaderRoute: typeof AuthenticatedManageCourseIdRoomRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/courses/$courseId/lesson/$lessonId': {
       id: '/_authenticated/courses/$courseId/lesson/$lessonId'
       path: '/courses/$courseId/lesson/$lessonId'
@@ -479,6 +499,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedManageIndexRoute: typeof AuthenticatedManageIndexRoute
   AuthenticatedAdminReportsCourseIdRoute: typeof AuthenticatedAdminReportsCourseIdRoute
   AuthenticatedAttendCourseIdCodeRoute: typeof AuthenticatedAttendCourseIdCodeRoute
+  AuthenticatedManageCourseIdRoomRoute: typeof AuthenticatedManageCourseIdRoomRoute
   AuthenticatedCoursesCourseIdIndexRoute: typeof AuthenticatedCoursesCourseIdIndexRoute
   AuthenticatedCoursesCourseIdLessonLessonIdRoute: typeof AuthenticatedCoursesCourseIdLessonLessonIdRoute
   AuthenticatedCoursesCourseIdTestKindRoute: typeof AuthenticatedCoursesCourseIdTestKindRoute
@@ -499,6 +520,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminReportsCourseIdRoute:
     AuthenticatedAdminReportsCourseIdRoute,
   AuthenticatedAttendCourseIdCodeRoute: AuthenticatedAttendCourseIdCodeRoute,
+  AuthenticatedManageCourseIdRoomRoute: AuthenticatedManageCourseIdRoomRoute,
   AuthenticatedCoursesCourseIdIndexRoute:
     AuthenticatedCoursesCourseIdIndexRoute,
   AuthenticatedCoursesCourseIdLessonLessonIdRoute:

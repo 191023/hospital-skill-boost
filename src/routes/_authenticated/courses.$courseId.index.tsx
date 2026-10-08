@@ -11,7 +11,14 @@ import { SurveyForm } from "@/components/Survey";
 import { SessionPicker } from "@/components/Sessions";
 
 export const Route = createFileRoute("/_authenticated/courses/$courseId/")({
-  head: () => ({ meta: [{ title: "รายละเอียดหลักสูตร — ระบบอบรมออนไลน์" }] }),
+  head: () => ({ meta: [
+    { title: "รายละเอียดหลักสูตร — โรงพยาบาลโอเวอร์บรุ๊ค" },
+    { name: "description", content: "รายละเอียดหลักสูตรสำหรับบุคลากรโรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:title", content: "รายละเอียดหลักสูตร — โรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:description", content: "รายละเอียดหลักสูตรสำหรับบุคลากรโรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: CoursePage,
 });
 

@@ -5,7 +5,14 @@ import { PageHeader, Bar } from "@/components/AppShell";
 import { coverFor, toneFor } from "@/components/Brand";
 
 export const Route = createFileRoute("/_authenticated/my-courses")({
-  head: () => ({ meta: [{ title: "หลักสูตรของฉัน — ระบบอบรมออนไลน์" }] }),
+  head: () => ({ meta: [
+    { title: "หลักสูตรของฉัน — โรงพยาบาลโอเวอร์บรุ๊ค" },
+    { name: "description", content: "หลักสูตรของฉันสำหรับบุคลากรโรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:title", content: "หลักสูตรของฉัน — โรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:description", content: "หลักสูตรของฉันสำหรับบุคลากรโรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: MyCourses,
 });
 

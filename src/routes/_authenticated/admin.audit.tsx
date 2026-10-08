@@ -6,7 +6,14 @@ import { roleLabel, useMe, type Role } from "@/lib/auth";
 import { PageHeader } from "@/components/AppShell";
 
 export const Route = createFileRoute("/_authenticated/admin/audit")({
-  head: () => ({ meta: [{ title: "ประวัติการจัดการสมาชิก — ระบบอบรมออนไลน์" }] }),
+  head: () => ({ meta: [
+    { title: "ประวัติการจัดการสมาชิก — โรงพยาบาลโอเวอร์บรุ๊ค" },
+    { name: "description", content: "ประวัติการจัดการสมาชิกสำหรับบุคลากรโรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:title", content: "ประวัติการจัดการสมาชิก — โรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:description", content: "ประวัติการจัดการสมาชิกสำหรับบุคลากรโรงพยาบาลโอเวอร์บรุ๊ค" },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: Audit,
 });
 

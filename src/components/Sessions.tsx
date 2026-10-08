@@ -2,6 +2,9 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { Link } from "@tanstack/react-router";
+import { Armchair } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export type Session = {
   id: string; course_id: string; round_no: number; starts_at: string | null; ends_at: string | null;
@@ -55,7 +58,10 @@ export function SessionManager({ courseId }: { courseId: string }) {
           <h2 className="font-bold">รอบอบรม</h2>
           <p className="text-sm text-muted-foreground">ผู้เรียนเลือกรอบได้เอง แต่ละรอบมี QR เช็คชื่อของตัวเอง (พิมพ์ได้ที่หน้า QR Code)</p>
         </div>
-        <button onClick={add} className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-brand">+ เพิ่มรอบอบรม</button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" asChild><Link to="/manage/$courseId/room" params={{ courseId }}><Armchair />ดูห้องอบรม</Link></Button>
+          <Button onClick={add}>+ เพิ่มรอบอบรม</Button>
+        </div>
       </div>
       {data?.length === 0 && <div className="glass rounded-3xl p-8 text-center text-sm text-muted-foreground">ยังไม่มีรอบอบรม — หลักสูตรนี้จะใช้ QR เช็คชื่อรวมแบบเดิม</div>}
       {data?.map((s) => <SessionRow key={s.id} s={s} onChange={refresh} />)}
