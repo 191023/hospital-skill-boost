@@ -142,7 +142,7 @@ function Seating({ seats, selected, onSelect, highlighted, palette, reduced }: P
 
 function Room({ palette, ...props }: Props & { palette: Palette; reduced: boolean }) {
   const { camera, size } = useThree();
-  const depth = Math.max(2, Math.ceil(props.seats.length / 8)) * 1.5;
+  const depth = Math.max(3, ...props.seats.map((seat) => seat.z + 1.8));
   const center = depth / 2 - 2;
   useEffect(() => {
     if (!(camera instanceof THREE.OrthographicCamera)) return;

@@ -34,15 +34,16 @@ export function roomDate(startsAt: string | null, endsAt: string | null) {
 
 export function roomSeats(attendees: RoomAttendee[], capacity: number | null, page = 0): RoomSeat[] {
   const count = Math.max(attendees.length, capacity ?? attendees.length);
+  const columns = count <= 16 ? 4 : 8;
   const start = page * ROOM_PAGE_SIZE;
   return Array.from({ length: Math.min(ROOM_PAGE_SIZE, Math.max(0, count - start)) }, (_, i) => {
     const index = start + i;
-    const column = i % 8;
+    const column = i % columns;
     return {
       index,
       label: `${String.fromCharCode(65 + Math.floor(index / 8))}${String(index % 8 + 1).padStart(2, "0")}`,
-      x: (column - 3.5) * 1.2 + (column < 4 ? -0.45 : 0.45),
-      z: Math.floor(i / 8) * 1.5,
+      x: (column - (columns - 1) / 2) * 1.4 + (column < columns / 2 ? -0.6 : 0.6),
+      z: Math.floor(i / columns) * 1.8,
       attendee: attendees[index] ?? null,
     };
   });
