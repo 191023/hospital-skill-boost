@@ -142,6 +142,7 @@ function CourseReport() {
         <Stat label="หลังเรียนเฉลี่ย" value={`${postAvg}%`} note={`เกณฑ์ ${course.pass_score}%`} tone="mint" />
       </section>
       {rows.length === 0 && <div className="glass rounded-3xl p-10 text-center text-muted-foreground">ยังไม่มีผู้ลงทะเบียน</div>}
+      {data.hasRounds && <RoundReport rows={data.rows} />}
       <div className="space-y-6">
         {[...groups.entries()].map(([d, deps]) => {
           const all = [...deps.values()].flat();
