@@ -132,7 +132,7 @@ function SessionRoster({ sessionId }: { sessionId: string }) {
         </thead>
         <tbody>
           {data.map((e) => {
-            const p = e.profiles as { full_name: string; division: string; department: string } | null;
+            const p = e.profile;
             return (
               <tr key={e.user_id} className="border-t">
                 <td className="px-3 py-2 font-medium">{p?.full_name || "—"}</td>
