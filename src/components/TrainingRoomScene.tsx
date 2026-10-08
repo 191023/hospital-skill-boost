@@ -43,7 +43,7 @@ function SeatLabel({ seat, selected, palette, onSelect }: { seat: RoomSeat; sele
     const t = new THREE.CanvasTexture(canvas); t.colorSpace = THREE.SRGBColorSpace; return t;
   }, [seat.label, seat.attendee, selected, palette]);
   useEffect(() => () => texture.dispose(), [texture]);
-  return <sprite position={[seat.x, 1.85, seat.z]} scale={[1.08, 0.61, 1]} onClick={(e) => { e.stopPropagation(); onSelect(seat.index); }}><spriteMaterial map={texture} /></sprite>;
+  return <sprite position={[seat.x, 1.85, seat.z]} scale={[1.08, 0.61, 1]} onClick={(e) => { e.stopPropagation(); onSelect(seat.index); }}><spriteMaterial map={texture} depthTest={false} toneMapped={false} /></sprite>;
 }
 
 function SessionSign({ palette, roomName, date, round, courseTitle }: Props & { palette: Palette }) {
@@ -62,7 +62,7 @@ function SessionSign({ palette, roomName, date, round, courseTitle }: Props & { 
     const t = new THREE.CanvasTexture(canvas); t.colorSpace = THREE.SRGBColorSpace; return t;
   }, [palette, roomName, date, round, courseTitle]);
   useEffect(() => () => texture.dispose(), [texture]);
-  return <sprite position={[0, 3.1, -3.2]} scale={[8.8, 2.2, 1]}><spriteMaterial map={texture} /></sprite>;
+  return <sprite position={[0, 3.1, -3.2]} scale={[8.8, 2.2, 1]}><spriteMaterial map={texture} depthTest={false} toneMapped={false} /></sprite>;
 }
 
 function Seating({ seats, selected, onSelect, highlighted, palette, reduced }: Props & { palette: Palette; reduced: boolean }) {
