@@ -105,7 +105,7 @@ function StatsBoard({ palette, stats, updatedLabel, z }: { palette: Palette; sta
     const t = new THREE.CanvasTexture(canvas); t.colorSpace = THREE.SRGBColorSpace; return t;
   }, [palette, stats, updatedLabel]);
   useEffect(() => () => texture.dispose(), [texture]);
-  return <sprite position={[8.6, 2.9, z]} scale={[3.4, 2.0, 1]}><spriteMaterial map={texture} depthTest={false} toneMapped={false} /></sprite>;
+  return <sprite position={[6.9, 2.9, z]} scale={[3.2, 1.9, 1]}><spriteMaterial map={texture} depthTest={false} toneMapped={false} /></sprite>;
 }
 
 function PulseRing({ x, z, color, onDone }: { x: number; z: number; color: string; onDone: () => void }) {
@@ -228,7 +228,7 @@ function Room({ palette, reduced, ...props }: Props & { palette: Palette; reduce
   const orbit = useRef(0);
   const look = useRef(new THREE.Vector3(0, 0, center));
   const desired = useRef({ p: new THREE.Vector3(10, 14, center + 15), l: new THREE.Vector3(0, 0, center), zoom: 1 });
-  const baseZoom = Math.min(size.width / 17, size.height / (depth + 8)) * props.zoom;
+  const baseZoom = Math.min(size.width / 14.5, size.height / (depth + 8)) * props.zoom;
 
   useEffect(() => {
     if (!(camera instanceof THREE.OrthographicCamera) || props.walk || props.kiosk) return;
