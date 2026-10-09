@@ -26,6 +26,7 @@
 - Normalize registered room furniture in a dedicated scene module without mutating cached models — keeps furniture scale consistent across rooms.
 - Keep conference-room finishes in semantic CSS tokens and render repeated wall slats with instancing; clone recolored furniture materials — preserves theme consistency and cached assets within the mobile draw-call budget.
 - Fade camera-facing room walls and attached decorations through shared direction-based groups with owned material clones — keeps attendees visible without mutating cached GLBs or changing attendance.
+- Session signs are depth-tested planes fixed to the stage board and share front-wall fading; illustrative medical trainers reuse a baked standing pose of the registered adult character in a dedicated module — prevents rotating signage from covering learners and avoids changing personal data or cached models.
 - Room arrival detection compares attendance snapshots by user and session, skipping initial loads and demo rows; frame-driven aisle paths are presentation-only — preserves check-in rules and prevents replay on polling.
 - Prebundle the lazy 3D room dependencies alongside React in Vite optimizeDeps — prevents late discovery from replacing the React dependency graph on mounted preview pages.
 - Simulated check-ins are marked with attendance.is_demo and identified in the room and course report including exports — prevents demonstration data from being mistaken for real attendance.

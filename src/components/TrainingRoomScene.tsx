@@ -8,6 +8,7 @@ import chairAsset from "@/assets/training-chair.asset.json";
 import { RoomPeople } from "./RoomPeople";
 import { RoomFurniture, type RoomFinishes } from "./RoomFurniture";
 import { RoomWallFade } from "./RoomWallFade";
+import { RoomTrainers } from "./RoomTrainers";
 
 type Palette = { background: string; floor: string; line: string; checked: string; waiting: string; empty: string; selected: string; white: string; foreground: string; shirts: Record<string, string>; finishes: RoomFinishes };
 export type RoomStats = { registered: number; checked: number; waiting: number; free: number | string };
@@ -50,7 +51,10 @@ function SessionSign({ palette, roomName, date, round, courseTitle }: Props & { 
     const t = new THREE.CanvasTexture(canvas); t.colorSpace = THREE.SRGBColorSpace; return t;
   }, [palette, roomName, date, round, courseTitle]);
   useEffect(() => () => texture.dispose(), [texture]);
-  return <sprite position={[0, 2.5, -3.35]} scale={[7.2, 1.8, 1]}><spriteMaterial map={texture} depthTest={false} toneMapped={false} /></sprite>;
+  return <mesh name="fixed-session-board" position={[0, 2.35, -3.635]}>
+    <planeGeometry args={[7.9, 1.975]} />
+    <meshBasicMaterial map={texture} toneMapped={false} />
+  </mesh>;
 }
 
 function StatsBoard({ palette, stats, updatedLabel, z }: { palette: Palette; stats: RoomStats; updatedLabel: string; z: number }) {
@@ -279,11 +283,12 @@ function Room({ palette, reduced, ...props }: Props & { palette: Palette; reduce
     <mesh rotation-x={-Math.PI / 2} position={[0, 0.005, center + 1]}><planeGeometry args={[0.85, depth + 1]} /><meshStandardMaterial map={texture} color={palette.finishes.fabric} roughness={1} /></mesh>
     <mesh position={[0, 0.16, -2.6]} receiveShadow castShadow><boxGeometry args={[9.8, 0.35, 1.8]} /><meshStandardMaterial color={palette.finishes.wood} roughness={0.6} /></mesh>
     <mesh position={[0, 0.35, -1.72]}><boxGeometry args={[9.8, 0.08, 0.06]} /><meshStandardMaterial color={palette.selected} /></mesh>
-    {!props.focus && <SessionSign {...props} palette={palette} />}
+    <RoomWallFade side="front" reduced={reduced}><SessionSign {...props} palette={palette} /></RoomWallFade>
     {!props.focus && <StatsBoard palette={palette} stats={props.stats} updatedLabel={props.updatedLabel} z={center} />}
     {!reduced && <Pulses seats={props.seats} pulseMap={props.pulseMap} palette={palette} />}
     <Suspense fallback={null}>
       <RoomFurniture depth={depth} finishes={palette.finishes} reduced={reduced} />
+      <RoomTrainers white={palette.white} dark={palette.finishes.panel} doctor={palette.shirts["ฝ่ายการแพทย์"] ?? palette.selected} nurse={palette.checked} accent={palette.selected} />
       <Seating {...props} palette={palette} reduced={reduced} />
       <RoomPeople seats={props.seats} pulseMap={props.pulseMap} reduced={reduced} color={palette.selected} fadedColor={palette.empty} highlighted={props.highlighted} onSelect={props.onSelect} shirts={palette.shirts} labelBackground={palette.white} labelForeground={palette.foreground} />
     </Suspense>
