@@ -44,6 +44,6 @@
 - [x] Verify populated room rotation, restored walls and overhead view without changing attendance.
 
 ## Fixed board and medical trainers
-- [ ] Fix session signage onto the stage board with physical depth and shared wall fading.
-- [ ] Add illustrative doctor and nurse presenters standing on stage using the registered adult character.
-- [ ] Verify populated room, rotated views and trainer appearance without changing attendance.
+- [x] Fix session signage onto the stage board with physical depth and shared wall fading.
+- [x] Add illustrative doctor and nurse presenters standing on stage using the registered adult character.
+- [x] Verify populated room, rotated views and trainer appearance without changing attendance.
