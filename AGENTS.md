@@ -22,4 +22,5 @@
 - The staff training-room view lazy-loads React Three Fiber on a standalone authenticated route and visualizes ordered enrollments without persisting seats; attendance is read through existing RLS with polling — preserves enrollment rules and avoids exposing roster data to learners.
 - Training-room chairs use a registered CC0 model with instanced merged geometry, and attendees use a registered CC0 character with merged seated geometry and walk/sit clips; signage comes from the selected session — avoids runtime hotlinks and inferred personal demographics.
 - Room arrival detection compares attendance snapshots by user and session, skipping initial loads and demo rows; frame-driven aisle paths are presentation-only — preserves check-in rules and prevents replay on polling.
+- Prebundle the lazy 3D room dependencies alongside React in Vite optimizeDeps — prevents late discovery from replacing the React dependency graph on mounted preview pages.
 - Simulated check-ins are marked with attendance.is_demo and identified in the room and course report including exports — prevents demonstration data from being mistaken for real attendance.

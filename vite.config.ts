@@ -7,6 +7,18 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
 export default defineConfig({
+  vite: {
+    optimizeDeps: {
+      // Prebundle the lazy room renderer at startup so opening it cannot swap
+      // the React dependency graph underneath an already mounted page.
+      include: [
+        "react", "react-dom", "react-dom/client", "react/jsx-runtime", "react/jsx-dev-runtime",
+        "@react-three/fiber", "@react-three/drei", "three",
+        "three/examples/jsm/utils/SkeletonUtils.js",
+        "three/examples/jsm/utils/BufferGeometryUtils.js",
+      ],
+    },
+  },
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
