@@ -47,3 +47,6 @@
 - [x] Fix session signage onto the stage board with physical depth and shared wall fading.
 - [x] Add illustrative doctor and nurse presenters standing on stage using the registered adult character.
 - [x] Verify populated room, rotated views and trainer appearance without changing attendance.
+
+## Picker, full screen, dancing trainers
+- [x] Random no-repeat draw of real checked-in attendees per round, full-screen view, trainers dance on draw.

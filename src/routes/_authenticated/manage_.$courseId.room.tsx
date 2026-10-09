@@ -2,7 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Component, lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, Armchair, Camera, CheckCircle2, Clock3, Footprints, LayoutGrid, Minus, Monitor, Plus, RefreshCw, Search, Users, X } from "lucide-react";
+import { ArrowLeft, Armchair, Camera, CheckCircle2, Clock3, Footprints, LayoutGrid, Maximize, Minimize, Minus, Monitor, Plus, RefreshCw, RotateCcw, Search, Shuffle, Users, X } from "lucide-react";
+import { pickOne, pickPool } from "@/lib/room-picker";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/lib/auth";
 import { sessionLabel } from "@/components/Sessions";
@@ -50,6 +51,17 @@ function RoomContent({ courseId }: { courseId: string }) {
   const [walk, setWalk] = useState(false);
   const [pulseMap, setPulseMap] = useState<Record<string, number>>({});
   const prevChecked = useRef<Map<string, string> | null>(null);
+  const pageRef = useRef<HTMLDivElement>(null);
+  const [isFull, setIsFull] = useState(false);
+  const [drawn, setDrawn] = useState<Set<string>>(new Set());
+  const [pickDivision, setPickDivision] = useState("all");
+  const [rolling, setRolling] = useState(false);
+  const [winner, setWinner] = useState<RoomAttendee | null>(null);
+  const [celebrate, setCelebrate] = useState(0);
+  useEffect(() => {
+    const sync = () => setIsFull(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", sync); return () => document.removeEventListener("fullscreenchange", sync);
+  }, []);
   const { data, refetch, isFetching, isRefetchError, dataUpdatedAt } = useSuspenseQuery({
     queryKey: ["training-room", courseId],
     refetchInterval: 10000,
@@ -111,10 +123,45 @@ function RoomContent({ courseId }: { courseId: string }) {
   const stats = { registered: attendees.length, checked, waiting: attendees.length - checked, free: session?.capacity == null ? "ไม่จำกัด" : Math.max(0, session.capacity - attendees.length) };
   const updatedLabel = dataUpdatedAt ? `อัปเดต ${new Date(dataUpdatedAt).toLocaleTimeString("th-TH")}` : "";
   const sessionPulses = Object.fromEntries(attendees.map((a) => [a.userId, pulseMap[attendanceKey(a.userId, activeId === "unassigned" ? null : activeId)] ?? 0]));
-  const sceneProps = { seats, selected, onSelect: setSelected, highlighted, view, zoom, roomName: location, date, round: roundLabel, courseTitle: data.course.title, kiosk, walk, focus, pulseMap: sessionPulses, stats, updatedLabel };
-  const changeSession = (id: string) => { setSessionId(id); setSelected(null); setPage(0); setSearch(""); setStatus("all"); setDivision("all"); setFocus(null); };
+  const sceneProps = { seats, selected, onSelect: setSelected, highlighted, view, zoom, roomName: location, date, round: roundLabel, courseTitle: data.course.title, kiosk, walk, focus, pulseMap: sessionPulses, stats, updatedLabel, celebrate };
+  const changeSession = (id: string) => { setSessionId(id); setSelected(null); setPage(0); setSearch(""); setStatus("all"); setDivision("all"); setFocus(null); setDrawn(new Set()); setWinner(null); };
   const toggleKiosk = () => { setKiosk((k) => !k); setWalk(false); setFocus(null); };
   const toggleWalk = () => { setWalk((w) => !w); setKiosk(false); setFocus(null); };
+  const toggleFull = () => { if (document.fullscreenElement) void document.exitFullscreen(); else void pageRef.current?.requestFullscreen?.().catch(() => toast.error("เบราว์เซอร์นี้ไม่รองรับการแสดงเต็มหน้าจอ")); };
+  const pool = pickPool(attendees, pickDivision, drawn);
+  const eligible = pickPool(attendees, pickDivision, new Set()).length;
+  const seatOf = (userId: string) => attendees.findIndex((a) => a.userId === userId);
+  const draw = () => {
+    const final = pickOne(pool);
+    if (!final || rolling) return;
+    setRolling(true); setWinner(null);
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let ticks = reduce ? 0 : 10;
+    const step = () => {
+      if (ticks-- > 0) {
+        const p = pickOne(pool)!; const i = seatOf(p.userId);
+        setPage(Math.floor(i / ROOM_PAGE_SIZE)); setSelected(i); setWinner(p);
+        window.setTimeout(step, 90 + (10 - ticks) * 15);
+        return;
+      }
+      const i = seatOf(final.userId);
+      setPage(Math.floor(i / ROOM_PAGE_SIZE)); setSelected(i); setFocus({ index: i, n: Date.now() });
+      setWinner(final); setDrawn((d) => new Set(d).add(final.userId)); setCelebrate(Date.now()); setRolling(false);
+    };
+    step();
+  };
+  const picker = <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border bg-card p-3" aria-live="polite">
+    <Shuffle className="size-4 text-primary" /><span className="text-sm font-bold">สุ่มผู้เข้าอบรม</span>
+    <select aria-label="สุ่มจากฝ่าย" className="rounded-lg border bg-card px-2 py-1.5 text-sm" value={pickDivision} disabled={rolling} onChange={(e) => { setPickDivision(e.target.value); setDrawn(new Set()); setWinner(null); }}>
+      <option value="all">ทุกฝ่าย</option>{divisions.map((d) => <option key={d} value={d}>{d}</option>)}
+    </select>
+    <Button size="sm" disabled={rolling || !pool.length} onClick={draw}><Shuffle />{drawn.size ? "สุ่มคนถัดไป" : "สุ่ม"}</Button>
+    <Button size="sm" variant="outline" disabled={rolling || !drawn.size} onClick={() => { setDrawn(new Set()); setWinner(null); }}><RotateCcw />เริ่มรายชื่อใหม่</Button>
+    <span className="text-xs text-muted-foreground">เหลือ {pool.length}/{eligible} คน (เฉพาะผู้เช็คชื่อจริง)</span>
+    {winner && <span className={`ml-auto rounded-lg px-3 py-1.5 text-base font-bold ${rolling ? "text-muted-foreground" : "bg-primary text-primary-foreground"}`}>{rolling ? "…" : "🎉"} {winner.name}{!rolling && winner.division ? ` · ${winner.division}` : ""}</span>}
+    {!eligible && <span className="text-xs text-amber">ยังไม่มีผู้เช็คชื่อจริงในรอบนี้</span>}
+  </div>;
+  const fullButton = <Button size="sm" variant={isFull ? "default" : "outline"} onClick={toggleFull}>{isFull ? <Minimize /> : <Maximize />}{isFull ? "ออกเต็มจอ" : "เต็มหน้าจอ"}</Button>;
   const capture = () => {
     const el = document.querySelector<HTMLCanvasElement>(".room-canvas canvas");
     if (!el) return;
@@ -123,7 +170,7 @@ function RoomContent({ courseId }: { courseId: string }) {
     link.download = `ห้องอบรม-${location.replace(/\s+/g, "-")}-${roundLabel}.png`;
     link.click();
   };
-  if (kiosk) return <div className="room-page">
+  if (kiosk) return <div className="room-page" ref={pageRef}>
     <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0">
         <div className="flex items-center gap-2 text-sm font-semibold text-primary"><Armchair />{roundLabel} <span className="text-muted-foreground">· {data.course.training_year}</span></div>
@@ -134,16 +181,17 @@ function RoomContent({ courseId }: { courseId: string }) {
         <span>ลงทะเบียน <span className="text-primary">{attendees.length}</span></span>
         <span>เช็คชื่อแล้ว <span className="text-mint">{checked}</span></span>
         <span>รอเช็คชื่อ <span className="text-amber">{attendees.length - checked}</span></span>
-        <Button variant="outline" size="sm" onClick={toggleKiosk}><X />ปิดโหมดจอ</Button>
+        {fullButton}<Button variant="outline" size="sm" onClick={toggleKiosk}><X />ปิดโหมดจอ</Button>
       </div>
     </div>
     {simulated > 0 && <p className="mb-3 border-l-2 border-amber pl-3 text-sm text-muted-foreground">มีข้อมูลเช็คชื่อจำลอง {simulated} คน · สำหรับทดสอบ ไม่ใช่การเข้าอบรมจริง</p>}
+    {picker}
     <div className="room-canvas kiosk-canvas" aria-label="ภาพห้องอบรมสามมิติ">
       {seats.length ? <SceneBoundary><Suspense fallback={<div className="grid h-full place-items-center text-muted-foreground">กำลังเตรียมห้องอบรม...</div>}><Scene {...sceneProps} /></Suspense></SceneBoundary> : <div className="grid h-full place-items-center text-muted-foreground">ยังไม่มีผู้ลงทะเบียนในรอบนี้</div>}
     </div>
     <p className="mt-2 text-center text-xs text-muted-foreground">โหมดจอแสดงหน้าห้อง · หมุนมุมมองอัตโนมัติ อัปเดตสถานะทุก 10 วินาที</p>
   </div>;
-  return <div className="room-page">
+  return <div className="room-page" ref={pageRef}>
     <header className="mb-5 flex flex-wrap items-start justify-between gap-4">
       <div className="min-w-0 flex-1">
         <Button variant="link" asChild className="h-auto p-0"><Link to="/manage/$courseId" params={{ courseId }}><ArrowLeft />จัดการหลักสูตร</Link></Button>
@@ -177,9 +225,11 @@ function RoomContent({ courseId }: { courseId: string }) {
             <Button size="icon" variant="ghost" title="จับภาพห้องเป็น PNG" aria-label="จับภาพห้องเป็น PNG" onClick={capture}><Camera /></Button>
             <Button size="sm" variant={walk ? "default" : "outline"} onClick={toggleWalk}><Footprints />เดินสำรวจ</Button>
             <Button size="sm" variant={kiosk ? "default" : "outline"} onClick={toggleKiosk}><Monitor />โหมดจอ</Button>
+            {fullButton}
             {!walk && <div className="flex gap-1"><Button size="icon" variant="ghost" title="ย่อ" aria-label="ย่อ" disabled={zoom <= 0.7} onClick={() => setZoom((z) => Math.max(0.7, z - 0.15))}><Minus /></Button><Button size="icon" variant="ghost" title="ขยาย" aria-label="ขยาย" disabled={zoom >= 1.6} onClick={() => setZoom((z) => Math.min(1.6, z + 0.15))}><Plus /></Button></div>}
           </div>
         </div>
+        {picker}
         <div className="room-canvas relative" aria-label="ภาพห้องอบรมสามมิติ">
           {seats.length ? <SceneBoundary><Suspense fallback={<div className="grid h-full place-items-center text-muted-foreground">กำลังเตรียมห้องอบรม...</div>}><Scene {...sceneProps} /></Suspense></SceneBoundary> : <div className="grid h-full place-items-center text-muted-foreground">ยังไม่มีผู้ลงทะเบียนในรอบนี้</div>}
         </div>

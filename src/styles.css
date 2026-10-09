@@ -137,6 +137,8 @@
 .room-page [role="img"] { font-family: "Apple Color Emoji", "Segoe UI Emoji", "Room Emoji", sans-serif; }
 .room-canvas { height: 510px; width: 100%; overflow: hidden; background: var(--room-background); }
 .room-canvas.kiosk-canvas { height: calc(100vh - 150px); min-height: 420px; }
+.room-page:fullscreen { background: var(--background); padding: 1.25rem; overflow-y: auto; }
+.room-page:fullscreen .room-canvas { height: calc(100vh - 190px); }
 .room-seat-label { height: 22px; min-width: 32px; padding: 0 4px; border-radius: 4px; font-size: 10px; color: var(--foreground); background: color-mix(in oklab, var(--card) 85%, transparent); box-shadow: var(--shadow-soft); }
 .room-seat-selected { background: var(--primary); color: var(--primary-foreground); }
 @media (max-width: 640px) { .room-canvas { height: 370px; } .room-canvas.kiosk-canvas { height: calc(100vh - 210px); } }

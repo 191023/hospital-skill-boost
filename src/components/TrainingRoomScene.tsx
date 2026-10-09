@@ -17,7 +17,7 @@ type Props = {
   seats: RoomSeat[]; selected: number | null; onSelect: (index: number) => void; highlighted: Set<string>;
   view: "angle" | "top"; zoom: number; roomName: string; date: string; round: string; courseTitle: string;
   kiosk: boolean; walk: boolean; focus: RoomFocus; pulseMap: Record<string, number>;
-  stats: RoomStats; updatedLabel: string;
+  stats: RoomStats; updatedLabel: string; celebrate?: number;
 };
 
 function readPalette(): Palette {
@@ -288,7 +288,7 @@ function Room({ palette, reduced, ...props }: Props & { palette: Palette; reduce
     {!reduced && <Pulses seats={props.seats} pulseMap={props.pulseMap} palette={palette} />}
     <Suspense fallback={null}>
       <RoomFurniture depth={depth} finishes={palette.finishes} reduced={reduced} />
-      <RoomTrainers white={palette.white} dark={palette.finishes.panel} doctor={palette.shirts["ฝ่ายการแพทย์"] ?? palette.selected} nurse={palette.checked} accent={palette.selected} />
+      <RoomTrainers white={palette.white} dark={palette.finishes.panel} doctor={palette.shirts["ฝ่ายการแพทย์"] ?? palette.selected} nurse={palette.checked} accent={palette.selected} celebrate={props.celebrate ?? 0} reduced={reduced} />
       <Seating {...props} palette={palette} reduced={reduced} />
       <RoomPeople seats={props.seats} pulseMap={props.pulseMap} reduced={reduced} color={palette.selected} fadedColor={palette.empty} highlighted={props.highlighted} onSelect={props.onSelect} shirts={palette.shirts} labelBackground={palette.white} labelForeground={palette.foreground} />
     </Suspense>
