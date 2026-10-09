@@ -2,7 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Component, lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, Armchair, Camera, CheckCircle2, Clock3, Footprints, LayoutGrid, Minus, Monitor, Plus, RefreshCw, Search, Users, X } from "lucide-react";
+import { ArrowLeft, Armchair, Camera, CheckCircle2, Clock3, Footprints, LayoutGrid, Maximize, Minimize, Minus, Monitor, Plus, RefreshCw, RotateCcw, Search, Shuffle, Users, X } from "lucide-react";
+import { pickOne, pickPool } from "@/lib/room-picker";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/lib/auth";
 import { sessionLabel } from "@/components/Sessions";
@@ -50,6 +51,17 @@ function RoomContent({ courseId }: { courseId: string }) {
   const [walk, setWalk] = useState(false);
   const [pulseMap, setPulseMap] = useState<Record<string, number>>({});
   const prevChecked = useRef<Map<string, string> | null>(null);
+  const pageRef = useRef<HTMLDivElement>(null);
+  const [isFull, setIsFull] = useState(false);
+  const [drawn, setDrawn] = useState<Set<string>>(new Set());
+  const [pickDivision, setPickDivision] = useState("all");
+  const [rolling, setRolling] = useState(false);
+  const [winner, setWinner] = useState<RoomAttendee | null>(null);
+  const [celebrate, setCelebrate] = useState(0);
+  useEffect(() => {
+    const sync = () => setIsFull(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", sync); return () => document.removeEventListener("fullscreenchange", sync);
+  }, []);
   const { data, refetch, isFetching, isRefetchError, dataUpdatedAt } = useSuspenseQuery({
     queryKey: ["training-room", courseId],
     refetchInterval: 10000,
@@ -169,16 +181,17 @@ function RoomContent({ courseId }: { courseId: string }) {
         <span>ลงทะเบียน <span className="text-primary">{attendees.length}</span></span>
         <span>เช็คชื่อแล้ว <span className="text-mint">{checked}</span></span>
         <span>รอเช็คชื่อ <span className="text-amber">{attendees.length - checked}</span></span>
-        <Button variant="outline" size="sm" onClick={toggleKiosk}><X />ปิดโหมดจอ</Button>
+        {fullButton}<Button variant="outline" size="sm" onClick={toggleKiosk}><X />ปิดโหมดจอ</Button>
       </div>
     </div>
     {simulated > 0 && <p className="mb-3 border-l-2 border-amber pl-3 text-sm text-muted-foreground">มีข้อมูลเช็คชื่อจำลอง {simulated} คน · สำหรับทดสอบ ไม่ใช่การเข้าอบรมจริง</p>}
+    {picker}
     <div className="room-canvas kiosk-canvas" aria-label="ภาพห้องอบรมสามมิติ">
       {seats.length ? <SceneBoundary><Suspense fallback={<div className="grid h-full place-items-center text-muted-foreground">กำลังเตรียมห้องอบรม...</div>}><Scene {...sceneProps} /></Suspense></SceneBoundary> : <div className="grid h-full place-items-center text-muted-foreground">ยังไม่มีผู้ลงทะเบียนในรอบนี้</div>}
     </div>
     <p className="mt-2 text-center text-xs text-muted-foreground">โหมดจอแสดงหน้าห้อง · หมุนมุมมองอัตโนมัติ อัปเดตสถานะทุก 10 วินาที</p>
   </div>;
-  return <div className="room-page">
+  return <div className="room-page" ref={pageRef}>
     <header className="mb-5 flex flex-wrap items-start justify-between gap-4">
       <div className="min-w-0 flex-1">
         <Button variant="link" asChild className="h-auto p-0"><Link to="/manage/$courseId" params={{ courseId }}><ArrowLeft />จัดการหลักสูตร</Link></Button>
@@ -212,9 +225,11 @@ function RoomContent({ courseId }: { courseId: string }) {
             <Button size="icon" variant="ghost" title="จับภาพห้องเป็น PNG" aria-label="จับภาพห้องเป็น PNG" onClick={capture}><Camera /></Button>
             <Button size="sm" variant={walk ? "default" : "outline"} onClick={toggleWalk}><Footprints />เดินสำรวจ</Button>
             <Button size="sm" variant={kiosk ? "default" : "outline"} onClick={toggleKiosk}><Monitor />โหมดจอ</Button>
+            {fullButton}
             {!walk && <div className="flex gap-1"><Button size="icon" variant="ghost" title="ย่อ" aria-label="ย่อ" disabled={zoom <= 0.7} onClick={() => setZoom((z) => Math.max(0.7, z - 0.15))}><Minus /></Button><Button size="icon" variant="ghost" title="ขยาย" aria-label="ขยาย" disabled={zoom >= 1.6} onClick={() => setZoom((z) => Math.min(1.6, z + 0.15))}><Plus /></Button></div>}
           </div>
         </div>
+        {picker}
         <div className="room-canvas relative" aria-label="ภาพห้องอบรมสามมิติ">
           {seats.length ? <SceneBoundary><Suspense fallback={<div className="grid h-full place-items-center text-muted-foreground">กำลังเตรียมห้องอบรม...</div>}><Scene {...sceneProps} /></Suspense></SceneBoundary> : <div className="grid h-full place-items-center text-muted-foreground">ยังไม่มีผู้ลงทะเบียนในรอบนี้</div>}
         </div>
