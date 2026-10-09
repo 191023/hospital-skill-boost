@@ -38,3 +38,7 @@
 - [x] Remove unused character files and update outdated server function calls.
 - [x] Compute report totals on the server and export all rows.
 - [x] Add tests for grading, check-in, file access and report rules.
+
+## Unobstructed rotating room
+- [x] Fade camera-facing walls, glazing and attached decorations together and restore them automatically.
+- [ ] Verify populated room rotation, restored walls and overhead view without changing attendance.
