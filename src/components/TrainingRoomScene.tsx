@@ -215,7 +215,7 @@ function Room({ palette, reduced, ...props }: Props & { palette: Palette; reduce
   const center = depth / 2 - 2;
   const orbit = useRef(0);
   const look = useRef(new THREE.Vector3(0, 0, center));
-  const desired = useRef({ p: new THREE.Vector3(10, 14, center + 15), l: new THREE.Vector3(0, 0, center), zoom: 1 });
+  const desired = useRef({ p: new THREE.Vector3(14, 14, center + 14), l: new THREE.Vector3(0, 0, center), zoom: 1 });
   const baseZoom = Math.min(size.width / 14.5, size.height / (depth + 8)) * props.zoom;
 
   useEffect(() => {
@@ -227,7 +227,7 @@ function Room({ palette, reduced, ...props }: Props & { palette: Palette; reduce
     } else if (props.view === "top") {
       desired.current = { p: new THREE.Vector3(0, 20, center + 0.01), l: new THREE.Vector3(0, 0, center), zoom: baseZoom };
     } else {
-      desired.current = { p: new THREE.Vector3(10, 14, center + 15), l: new THREE.Vector3(0, 0, center), zoom: baseZoom };
+      desired.current = { p: new THREE.Vector3(14, 14, center + 14), l: new THREE.Vector3(0, 0, center), zoom: baseZoom };
     }
   }, [camera, size, depth, center, props.view, props.zoom, props.focus, props.walk, props.kiosk, props.seats, baseZoom]);
 
@@ -302,7 +302,7 @@ export default function TrainingRoomScene(props: Props) {
     query.addEventListener("change", update); return () => { cancelled = true; query.removeEventListener("change", update); };
   }, []);
   if (!palette) return null;
-  return <Canvas orthographic shadows dpr={1} camera={{ position: [10, 14, 15], near: 0.1, far: 200 }} gl={{ antialias: true, preserveDrawingBuffer: true }}>
+  return <Canvas orthographic shadows dpr={1} camera={{ position: [14, 14, 14], near: 0.1, far: 200 }} gl={{ antialias: true, preserveDrawingBuffer: true }}>
     <Room {...props} palette={palette} reduced={reduced} />
   </Canvas>;
 }
