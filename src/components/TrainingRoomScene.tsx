@@ -8,6 +8,7 @@ import chairAsset from "@/assets/training-chair.asset.json";
 import { RoomPeople } from "./RoomPeople";
 import { RoomFurniture, type RoomFinishes } from "./RoomFurniture";
 import { RoomWallFade } from "./RoomWallFade";
+import { RoomTrainers } from "./RoomTrainers";
 
 type Palette = { background: string; floor: string; line: string; checked: string; waiting: string; empty: string; selected: string; white: string; foreground: string; shirts: Record<string, string>; finishes: RoomFinishes };
 export type RoomStats = { registered: number; checked: number; waiting: number; free: number | string };
@@ -287,6 +288,7 @@ function Room({ palette, reduced, ...props }: Props & { palette: Palette; reduce
     {!reduced && <Pulses seats={props.seats} pulseMap={props.pulseMap} palette={palette} />}
     <Suspense fallback={null}>
       <RoomFurniture depth={depth} finishes={palette.finishes} reduced={reduced} />
+      <RoomTrainers white={palette.white} dark={palette.finishes.panel} doctor={palette.shirts["ฝ่ายการแพทย์"] ?? palette.selected} nurse={palette.checked} accent={palette.selected} />
       <Seating {...props} palette={palette} reduced={reduced} />
       <RoomPeople seats={props.seats} pulseMap={props.pulseMap} reduced={reduced} color={palette.selected} fadedColor={palette.empty} highlighted={props.highlighted} onSelect={props.onSelect} shirts={palette.shirts} labelBackground={palette.white} labelForeground={palette.foreground} />
     </Suspense>
