@@ -12,6 +12,6 @@
 - [x] Camera fly-to on roster click, division filter highlighting, new check-in pulse effect.
 - [x] Floating in-room stats board, PNG room capture and walk-around controls.
 ## Seated attendees and arrivals
-- [ ] Replace floating emoji labels with seated CC0 human figures and selection details.
-- [ ] Animate first-time check-ins once with a chair ring/bounce and aisle walk-to-sit, respecting reduced motion.
-- [ ] Verify populated rooms, arrival animation, filtering and existing controls.
+- [x] Replace floating emoji labels with seated CC0 human figures and selection details.
+- [x] Animate first-time check-ins once with a chair ring/bounce and aisle walk-to-sit, respecting reduced motion.
+- [x] Verify populated rooms, arrival animation, selection, kiosk and top view; check reduced-motion mobile layout and attendance detection tests.
