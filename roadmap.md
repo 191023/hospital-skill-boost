@@ -29,6 +29,6 @@
 - [x] Verify populated room, close-up selection, moving arrival with a read-only attendance response, and mobile framing; training-room tests pass.
 
 ## Manual room check-in
-- [ ] Add a permission-checked action to record attendance for a selected registered learner, without changing QR behavior.
-- [ ] Add the check-in button with pending/success states and refresh the room animation and counts.
-- [ ] Verify a real check-in persists after reload and repeated clicks do not duplicate attendance.
+- [x] Add a permission-checked action to record attendance for a selected registered learner, without changing QR behavior.
+- [x] Add the check-in button with pending/success states and refresh the room animation and counts.
+- [x] Verify a real check-in persists after reload and repeated clicks do not duplicate attendance; unauthorized learners are rejected, matching QR rules.
