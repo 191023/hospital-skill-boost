@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import humanAsset from "@/assets/cartoon-attendee-final.glb.asset.json";
+import humanAsset from "@/assets/rounded-attendee.glb.asset.json";
 import { arrivalPath, roomFirstName, type RoomSeat } from "@/lib/training-room";
 
 type PersonProps = { seat: RoomSeat; geometry: THREE.BufferGeometry; shirtGroups: number[]; scene: THREE.Group; animations: THREE.AnimationClip[]; color: string; faded: boolean; pulse: number; delay: number; back: number; reduced: boolean; onSelect: (index: number) => void };
@@ -30,7 +30,7 @@ function NameLabel({ seat, background, foreground, accent, faded, onSelect }: { 
     const t = new THREE.CanvasTexture(canvas); t.colorSpace = THREE.SRGBColorSpace; return t;
   }, [name, background, foreground, accent]);
   useEffect(() => () => texture.dispose(), [texture]);
-  return <sprite position={[seat.x, 1.72, seat.z]} scale={[1.22, 0.305, 1]} onClick={(e) => { e.stopPropagation(); onSelect(seat.index); }}>
+  return <sprite position={[seat.x, 1.94, seat.z]} scale={[1.22, 0.305, 1]} onClick={(e) => { e.stopPropagation(); onSelect(seat.index); }}>
     <spriteMaterial map={texture} transparent opacity={faded ? 0.3 : 1} depthWrite={false} toneMapped={false} />
   </sprite>;
 }
