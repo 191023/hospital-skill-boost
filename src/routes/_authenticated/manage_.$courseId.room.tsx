@@ -136,12 +136,12 @@ function RoomContent({ courseId }: { courseId: string }) {
     if (!final || rolling) return;
     setRolling(true); setWinner(null);
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    let ticks = reduce ? 0 : 14;
+    let ticks = reduce ? 0 : 10;
     const step = () => {
       if (ticks-- > 0) {
         const p = pickOne(pool)!; const i = seatOf(p.userId);
         setPage(Math.floor(i / ROOM_PAGE_SIZE)); setSelected(i); setWinner(p);
-        window.setTimeout(step, 90 + (14 - ticks) * 18);
+        window.setTimeout(step, 90 + (10 - ticks) * 15);
         return;
       }
       const i = seatOf(final.userId);
