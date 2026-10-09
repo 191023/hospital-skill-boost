@@ -13,6 +13,8 @@ export const Route = createFileRoute("/auth")({
       { name: "description", content: "เข้าสู่ระบบหรือสมัครสมาชิกเพื่อเริ่มเรียน" },
       { property: "og:title", content: "เข้าสู่ระบบ — ระบบอบรมออนไลน์" },
       { property: "og:description", content: "เข้าสู่ระบบหรือสมัครสมาชิกเพื่อเริ่มเรียน" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: AuthPage,
