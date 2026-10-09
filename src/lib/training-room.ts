@@ -12,6 +12,26 @@ export type RoomAttendee = {
 export type RoomSeat = { index: number; label: string; x: number; z: number; attendee: RoomAttendee | null };
 export const ROOM_PAGE_SIZE = 48;
 
+export type RoomAttendanceSnapshot = { user_id: string; session_id: string | null; checked_at: string | null; is_demo: boolean };
+export const attendanceKey = (userId: string, sessionId: string | null) => `${userId}:${sessionId ?? "none"}`;
+
+export function detectRoomArrivals(rows: RoomAttendanceSnapshot[], previous: Map<string, string> | null, now: number) {
+  const snapshot = new Map<string, string>();
+  const arrivals: Record<string, number> = {};
+  for (const row of rows) {
+    if (!row.checked_at) continue;
+    const key = attendanceKey(row.user_id, row.session_id);
+    snapshot.set(key, row.checked_at);
+    if (previous && !row.is_demo && previous.get(key) !== row.checked_at) arrivals[key] = now;
+  }
+  return { snapshot, arrivals };
+}
+
+// Travel down the center aisle, across the gap in front of the row, then back to the chair.
+export function arrivalPath(seat: Pick<RoomSeat, "x" | "z">, back: number): [number, number][] {
+  return [[0, back + 1.8], [0, seat.z - 0.9], [seat.x, seat.z - 0.9], [seat.x, seat.z - 0.22]];
+}
+
 export function attendeeSymbol(person: Pick<RoomAttendee, "division" | "department" | "position">) {
   const role = [person.position, person.department, person.division].join(" ");
   if (/แพทย์|พยาบาล|ผู้ป่วย|ICU|OPD/i.test(role) && !/เครื่องมือ/.test(role)) return { emoji: "🧑‍⚕️", label: "บุคลากรทางการแพทย์" };

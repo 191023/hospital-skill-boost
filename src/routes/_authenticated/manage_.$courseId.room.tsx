@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/lib/auth";
 import { sessionLabel } from "@/components/Sessions";
 import { Button } from "@/components/ui/button";
-import { attendeeSymbol, roomDate, matchesAttendee, roomSeats, ROOM_PAGE_SIZE, type RoomAttendee } from "@/lib/training-room";
+import { attendeeSymbol, attendanceKey, detectRoomArrivals, roomDate, matchesAttendee, roomSeats, ROOM_PAGE_SIZE, type RoomAttendee } from "@/lib/training-room";
 
 const Scene = lazy(() => import("@/components/TrainingRoomScene"));
 export const Route = createFileRoute("/_authenticated/manage_/$courseId/room")({
@@ -48,7 +48,7 @@ function RoomContent({ courseId }: { courseId: string }) {
   const [kiosk, setKiosk] = useState(false);
   const [walk, setWalk] = useState(false);
   const [pulseMap, setPulseMap] = useState<Record<string, number>>({});
-  const prevChecked = useRef<Map<string, string>>(new Map());
+  const prevChecked = useRef<Map<string, string> | null>(null);
   const { data, refetch, isFetching, isRefetchError, dataUpdatedAt } = useSuspenseQuery({
     queryKey: ["training-room", courseId],
     refetchInterval: 10000,
@@ -70,16 +70,9 @@ function RoomContent({ courseId }: { courseId: string }) {
   // เอฟเฟกต์เช็คชื่อใหม่: เทียบเวลาเช็คชื่อกับรอบก่อน แล้วส่งพัลส์ให้ที่นั่งของคนที่เพิ่งเช็ค (ข้ามข้อมูลจำลอง)
   useEffect(() => {
     if (!data) return;
-    const now = Date.now();
-    const fresh: Record<string, number> = {};
-    for (const a of data.attendance) {
-      if (!a.checked_at || a.is_demo) continue;
-      const key = `${a.user_id}:${a.session_id ?? "none"}`;
-      const prev = prevChecked.current.get(key);
-      prevChecked.current.set(key, a.checked_at);
-      if (prev && prev !== a.checked_at) fresh[a.user_id] = now;
-    }
-    if (Object.keys(fresh).length) setPulseMap((m) => ({ ...m, ...fresh }));
+    const { snapshot, arrivals } = detectRoomArrivals(data.attendance, prevChecked.current, Date.now());
+    prevChecked.current = snapshot;
+    if (Object.keys(arrivals).length) setPulseMap(arrivals);
   }, [data]);
   if (!data.course) return <p>ไม่พบหลักสูตร</p>;
   const activeId = sessionId || data.sessions[0]?.id || "unassigned";
@@ -104,7 +97,8 @@ function RoomContent({ courseId }: { courseId: string }) {
   const roundLabel = session ? `รอบที่ ${session.round_no}` : "ยังไม่เลือกรอบ";
   const stats = { registered: attendees.length, checked, waiting: attendees.length - checked, free: session?.capacity == null ? "ไม่จำกัด" : Math.max(0, session.capacity - attendees.length) };
   const updatedLabel = dataUpdatedAt ? `อัปเดต ${new Date(dataUpdatedAt).toLocaleTimeString("th-TH")}` : "";
-  const sceneProps = { seats, selected, onSelect: setSelected, highlighted, view, zoom, roomName: location, date, round: roundLabel, courseTitle: data.course.title, kiosk, walk, focus, pulseMap, stats, updatedLabel };
+  const sessionPulses = Object.fromEntries(attendees.map((a) => [a.userId, pulseMap[attendanceKey(a.userId, activeId === "unassigned" ? null : activeId)] ?? 0]));
+  const sceneProps = { seats, selected, onSelect: setSelected, highlighted, view, zoom, roomName: location, date, round: roundLabel, courseTitle: data.course.title, kiosk, walk, focus, pulseMap: sessionPulses, stats, updatedLabel };
   const changeSession = (id: string) => { setSessionId(id); setSelected(null); setPage(0); setSearch(""); setStatus("all"); setDivision("all"); setFocus(null); };
   const toggleKiosk = () => { setKiosk((k) => !k); setWalk(false); setFocus(null); };
   const toggleWalk = () => { setWalk((w) => !w); setKiosk(false); setFocus(null); };
