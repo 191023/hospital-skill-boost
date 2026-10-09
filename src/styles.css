@@ -61,6 +61,11 @@
   --room-floor: oklch(0.955 0.013 195);
   --room-grid: oklch(0.89 0.026 195);
   --room-empty: oklch(0.81 0.025 245);
+  --room-wall: oklch(0.96 0.008 220);
+  --room-trim: oklch(0.62 0.025 235);
+  --room-window: oklch(0.9 0.04 230);
+  --room-wood: oklch(0.78 0.06 75);
+  --room-fabric: oklch(0.53 0.08 220);
   --background: oklch(0.955 0.013 255);
   --foreground: oklch(0.25 0.04 265);
   --card: oklch(1 0 0);
