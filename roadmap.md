@@ -32,3 +32,9 @@
 - [x] Add a permission-checked action to record attendance for a selected registered learner, without changing QR behavior.
 - [x] Add the check-in button with pending/success states and refresh the room animation and counts.
 - [x] Verify a real check-in persists after reload and repeated clicks do not duplicate attendance; unauthorized learners are rejected, matching QR rules.
+
+## System review fixes
+- [x] Restrict course files to staff and learners of that course; warn when a restricted course has no groups.
+- [x] Remove unused character files and update outdated server function calls.
+- [x] Compute report totals on the server and export all rows.
+- [x] Add tests for grading, check-in, file access and report rules.

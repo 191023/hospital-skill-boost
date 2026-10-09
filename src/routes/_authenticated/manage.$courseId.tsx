@@ -271,6 +271,11 @@ function Access({ courseId, audience: initial }: { courseId: string; audience: s
         <label className="flex items-center gap-2 text-sm"><input type="radio" checked={audience === "all"} onChange={() => setMode("all")} /> บุคลากรทุกคน</label>
         <label className="flex items-center gap-2 text-sm"><input type="radio" checked={audience === "restricted"} onChange={() => setMode("restricted")} /> เฉพาะฝ่าย / แผนก / บุคคลที่เลือก</label>
         {audience === "restricted" && <p className="text-xs text-muted-foreground">ผู้ที่ตรงกับเงื่อนไขข้อใดข้อหนึ่งด้านล่างจะเห็นและลงทะเบียนเรียนได้ ({rules.length} เงื่อนไข)</p>}
+        {audience === "restricted" && rules.length === 0 && (
+          <p role="alert" className="rounded-2xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+            ⚠ ยังไม่ได้เลือกฝ่าย แผนก หรือบุคคล — ตอนนี้จะไม่มีผู้เรียนคนใดเห็นหลักสูตร หรือสแกน QR เช็คชื่อได้ กรุณาเพิ่มเงื่อนไข หรือเปลี่ยนเป็น "บุคลากรทุกคน"
+          </p>
+        )}
       </div>
       {audience === "restricted" && (
         <>
