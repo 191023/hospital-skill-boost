@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import humanAsset from "@/assets/training-attendee.glb.asset.json";
+import humanAsset from "@/assets/neutral-attendee.glb.asset.json";
 import { arrivalPath, type RoomSeat } from "@/lib/training-room";
 
 type PersonProps = { seat: RoomSeat; geometry: THREE.BufferGeometry; scene: THREE.Group; animations: THREE.AnimationClip[]; color: string; pulse: number; delay: number; back: number; reduced: boolean; onSelect: (index: number) => void };
