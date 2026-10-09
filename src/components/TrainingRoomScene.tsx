@@ -6,6 +6,7 @@ import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js
 import { roomDivisionTokens, type RoomSeat } from "@/lib/training-room";
 import chairAsset from "@/assets/training-chair.asset.json";
 import { RoomPeople } from "./RoomPeople";
+import { RoomFurniture } from "./RoomFurniture";
 
 type Palette = { background: string; floor: string; line: string; checked: string; waiting: string; empty: string; selected: string; white: string; foreground: string; shirts: Record<string, string> };
 export type RoomStats = { registered: number; checked: number; waiting: number; free: number | string };
@@ -280,6 +281,7 @@ function Room({ palette, reduced, ...props }: Props & { palette: Palette; reduce
     <StatsBoard palette={palette} stats={props.stats} updatedLabel={props.updatedLabel} z={center} />
     {!reduced && <Pulses seats={props.seats} pulseMap={props.pulseMap} palette={palette} />}
     <Suspense fallback={null}>
+      <RoomFurniture depth={depth} />
       <Seating {...props} palette={palette} reduced={reduced} />
       <RoomPeople seats={props.seats} pulseMap={props.pulseMap} reduced={reduced} color={palette.selected} fadedColor={palette.empty} highlighted={props.highlighted} onSelect={props.onSelect} shirts={palette.shirts} labelBackground={palette.white} labelForeground={palette.foreground} />
     </Suspense>
