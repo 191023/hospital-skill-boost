@@ -1,5 +1,6 @@
 import { useGLTF } from "@react-three/drei";
-import { useEffect, useMemo } from "react";
+import { useFrame } from "@react-three/fiber";
+import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
@@ -9,7 +10,7 @@ type TrainerColors = { uniform: string; white: string; dark: string; accent: str
 
 // Bake the registered character's initial sit-entry pose into a standing figure.
 // All cloned materials and baked geometry belong to this presentation only.
-function Trainer({ role, x, colors }: { role: "doctor" | "nurse"; x: number; colors: TrainerColors }) {
+function Trainer({ role, x, colors, celebrate, reduced }: { role: "doctor" | "nurse"; x: number; colors: TrainerColors; celebrate: number; reduced: boolean }) {
   const { scene, animations } = useGLTF(learner.url);
   const geometry = useMemo(() => {
     const model = clone(scene);
@@ -55,26 +56,47 @@ function Trainer({ role, x, colors }: { role: "doctor" | "nurse"; x: number; col
     new THREE.Vector3(-0.08, 1.17, 0.185), new THREE.Vector3(0.06, 1.19, 0.185),
     new THREE.Vector3(0.115, 1.32, 0.17), new THREE.Vector3(0.085, 1.49, 0.13),
   ]), []);
-  return <group name={`stage-${role}`} position={[x, 0.335, -2.45]} scale={1.05}>
+  const ref = useRef<THREE.Group>(null);
+  const phase = role === "doctor" ? 0 : Math.PI / 2;
+  useFrame(({ clock }) => {
+    const g = ref.current; if (!g) return;
+    const t = clock.getElapsedTime();
+    const dancing = !reduced && celebrate > 0 && Date.now() - celebrate < 4500;
+    if (reduced) { g.position.y = 0.335; g.rotation.set(0, 0, 0); return; }
+    if (dancing) {
+      g.position.y = 0.335 + Math.abs(Math.sin(t * 7 + phase)) * 0.16;
+      g.rotation.y = Math.sin(t * 3.5 + phase) * 0.6;
+      g.rotation.z = Math.sin(t * 7 + phase) * 0.1;
+    } else {
+      // Gentle continuous groove while presenting.
+      g.position.y = 0.335 + Math.abs(Math.sin(t * 2.2 + phase)) * 0.035;
+      g.rotation.y = Math.sin(t * 1.1 + phase) * 0.18;
+      g.rotation.z = Math.sin(t * 2.2 + phase) * 0.035;
+    }
+  });
+  return <group ref={ref} name={`stage-${role}`} position={[x, 0.335, -2.45]} scale={1.05}>
     <mesh geometry={geometry} castShadow receiveShadow><meshStandardMaterial vertexColors roughness={0.8} /></mesh>
     {role === "doctor" ? <>
-      {/* Coat hem, lapels and stethoscope identify an illustrative doctor. */}
+      {/* Coat hem, lapels and stethoscope identify an illustrative male doctor. */}
       <mesh position={[0, 0.99, 0]} castShadow><cylinderGeometry args={[0.195, 0.235, 0.35, 12]} /><meshStandardMaterial color={colors.white} roughness={0.85} /></mesh>
       {[-1, 1].map((side) => <mesh key={side} position={[side * 0.065, 1.38, 0.147]} rotation-z={side * -0.24}><boxGeometry args={[0.065, 0.24, 0.018]} /><meshStandardMaterial color={colors.white} /></mesh>)}
       <mesh><tubeGeometry args={[stethoscope, 20, 0.012, 6, false]} /><meshStandardMaterial color={colors.dark} roughness={0.5} /></mesh>
       <mesh position={[0.06, 1.19, 0.2]} rotation-x={Math.PI / 2}><cylinderGeometry args={[0.034, 0.034, 0.018, 12]} /><meshStandardMaterial color={colors.accent} metalness={0.55} roughness={0.3} /></mesh>
     </> : <>
+      {/* Illustrative female nurse: cap, uniform dress and knee-length skirt. */}
       <mesh position={[0, 1.92, 0]} castShadow><cylinderGeometry args={[0.125, 0.15, 0.1, 16]} /><meshStandardMaterial color={colors.white} roughness={0.85} /></mesh>
       <mesh position={[0, 1.92, 0.14]}><boxGeometry args={[0.12, 0.028, 0.012]} /><meshStandardMaterial color={colors.uniform} /></mesh>
       <mesh position={[0, 1.45, 0.133]} rotation-z={Math.PI / 4}><boxGeometry args={[0.08, 0.08, 0.016]} /><meshStandardMaterial color={colors.dark} /></mesh>
+      <mesh position={[0, 0.83, 0]} castShadow><cylinderGeometry args={[0.2, 0.3, 0.42, 18, 1, true]} /><meshStandardMaterial color={colors.uniform} roughness={0.8} side={THREE.DoubleSide} /></mesh>
+      <mesh position={[0, 0.62, 0]}><torusGeometry args={[0.3, 0.012, 6, 24]} /><meshStandardMaterial color={colors.white} /></mesh>
     </>}
     <mesh position={[-0.105, 1.31, 0.165]}><boxGeometry args={[0.07, 0.1, 0.012]} /><meshStandardMaterial color={colors.white} /></mesh>
     <mesh position={[-0.105, 1.325, 0.174]}><boxGeometry args={[0.045, 0.025, 0.008]} /><meshStandardMaterial color={colors.accent} /></mesh>
   </group>;
 }
 
-export function RoomTrainers({ white, dark, doctor, nurse, accent }: { white: string; dark: string; doctor: string; nurse: string; accent: string }) {
+export function RoomTrainers({ white, dark, doctor, nurse, accent, celebrate = 0, reduced = false }: { white: string; dark: string; doctor: string; nurse: string; accent: string; celebrate?: number; reduced?: boolean }) {
   const doctorColors = useMemo(() => ({ white, dark, uniform: doctor, accent }), [white, dark, doctor, accent]);
   const nurseColors = useMemo(() => ({ white, dark, uniform: nurse, accent }), [white, dark, nurse, accent]);
-  return <><Trainer role="doctor" x={-0.95} colors={doctorColors} /><Trainer role="nurse" x={0.95} colors={nurseColors} /></>;
+  return <><Trainer role="doctor" x={-0.95} colors={doctorColors} celebrate={celebrate} reduced={reduced} /><Trainer role="nurse" x={0.95} colors={nurseColors} celebrate={celebrate} reduced={reduced} /></>;
 }
