@@ -26,7 +26,7 @@ function Person({ seat, geometry, scene, animations, color, pulse, delay, back, 
   useEffect(() => { material.color.set(color); }, [material, color]);
   useEffect(() => () => { mixer.stopAllAction(); mixer.uncacheRoot(model); material.dispose(); }, [mixer, model, material]);
   const path = useMemo(() => arrivalPath(seat, back).map(([x, z]) => new THREE.Vector3(x, 0, z)), [seat.x, seat.z, back]);
-  const lengths = useMemo(() => path.slice(1).map((p, i) => p.distanceTo(path[i])), [path]);
+  const lengths = useMemo(() => path.slice(1).map((p, i) => { const from = path[i]; return from ? p.distanceTo(from) : 0; }), [path]);
   const travelTime = lengths.reduce((a, b) => a + b, 0) / 2.6;
   useEffect(() => {
     if (!pulse || reduced || Date.now() - pulse > 4000) return;
@@ -48,12 +48,14 @@ function Person({ seat, geometry, scene, animations, color, pulse, delay, back, 
     if (t < travelTime) {
       let distance = t * 2.6;
       for (let i = 0; i < lengths.length; i++) {
-        if (distance <= lengths[i] || i === lengths.length - 1) {
-          g.position.copy(path[i]).lerp(path[i + 1], Math.min(1, distance / (lengths[i] || 1)));
-          g.rotation.y = Math.atan2(path[i + 1].x - path[i].x, path[i + 1].z - path[i].z);
+        const length = lengths[i]; const from = path[i]; const to = path[i + 1];
+        if (length == null || !from || !to) continue;
+        if (distance <= length || i === lengths.length - 1) {
+          g.position.copy(from).lerp(to, Math.min(1, distance / (length || 1)));
+          g.rotation.y = Math.atan2(to.x - from.x, to.z - from.z);
           break;
         }
-        distance -= lengths[i];
+        distance -= length;
       }
     } else {
       if (sit && !sit.isRunning()) { sit.reset().play(); walk?.crossFadeTo(sit, 0.5, false); }
@@ -91,6 +93,6 @@ export function RoomPeople({ seats, pulseMap, reduced, color, fadedColor, highli
   }, [scene, animations]);
   useEffect(() => () => geometry.dispose(), [geometry]);
   const back = Math.max(0, ...seats.map((s) => s.z));
-  const arrivals = seats.filter((s) => s.attendee && pulseMap[s.attendee.userId] > 0);
+  const arrivals = seats.filter((s) => s.attendee && (pulseMap[s.attendee.userId] ?? 0) > 0);
   return <>{seats.filter((s) => s.attendee?.checkedAt).map((seat) => <Person key={seat.attendee?.userId} seat={seat} geometry={geometry} scene={scene} animations={animations} color={seat.attendee && highlighted.has(seat.attendee.userId) ? color : fadedColor} pulse={seat.attendee ? pulseMap[seat.attendee.userId] ?? 0 : 0} delay={Math.max(0, arrivals.indexOf(seat)) * 0.35} back={back} reduced={reduced} onSelect={onSelect} />)}</>;
 }
