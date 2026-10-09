@@ -23,3 +23,7 @@
 ## Rounded isometric attendees
 - [x] Replace the old face with a rounded, friendly cartoon head without facial hair, preserving seated and walking poses.
 - [x] Use an isometric room view and verify populated seating and close-up faces.
+## Adult learners and modern conference room
+- [x] Refine head proportions, facial details and walking/sitting transitions without changing attendance rules.
+- [x] Add contemporary wall panels, glazing, carpet and stage finishes; preserve room signage and selection.
+- [x] Verify populated room, close-up selection, moving arrival with a read-only attendance response, and mobile framing; training-room tests pass.

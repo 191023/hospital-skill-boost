@@ -24,6 +24,7 @@
 - Preserve character material groups when baking seated geometry; map shirt materials to stable division tokens and share seated/arrival transforms — keeps skin colors unchanged and avoids placement jumps.
 - Replace facial geometry on the existing rig rather than layering faces over it; retain head-bone attachment and shared baked/animated source — avoids old facial details reappearing in walking poses.
 - Normalize registered room furniture in a dedicated scene module without mutating cached models — keeps furniture scale consistent across rooms.
+- Keep conference-room finishes in semantic CSS tokens and render repeated wall slats with instancing; clone recolored furniture materials — preserves theme consistency and cached assets within the mobile draw-call budget.
 - Room arrival detection compares attendance snapshots by user and session, skipping initial loads and demo rows; frame-driven aisle paths are presentation-only — preserves check-in rules and prevents replay on polling.
 - Prebundle the lazy 3D room dependencies alongside React in Vite optimizeDeps — prevents late discovery from replacing the React dependency graph on mounted preview pages.
 - Simulated check-ins are marked with attendance.is_demo and identified in the room and course report including exports — prevents demonstration data from being mistaken for real attendance.

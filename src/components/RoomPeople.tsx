@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import humanAsset from "@/assets/rounded-attendee.glb.asset.json";
+import humanAsset from "@/assets/adult-learner.glb.asset.json";
 import { arrivalPath, roomFirstName, type RoomSeat } from "@/lib/training-room";
 
 type PersonProps = { seat: RoomSeat; geometry: THREE.BufferGeometry; shirtGroups: number[]; scene: THREE.Group; animations: THREE.AnimationClip[]; color: string; faded: boolean; pulse: number; delay: number; back: number; reduced: boolean; onSelect: (index: number) => void };
@@ -40,7 +40,7 @@ function Person({ seat, geometry, shirtGroups, scene, animations, color, faded, 
   const seated = useRef<THREE.Mesh>(null);
   const elapsed = useRef(1000);
   const moving = useRef(false);
-  const { model, mixer, walk, sit, material } = useMemo(() => {
+  const { model, mixer, walk, sit, enter, material } = useMemo(() => {
     const model = clone(scene);
     const base = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 });
     const shirt = new THREE.MeshStandardMaterial({ roughness: 0.85 });
@@ -49,7 +49,10 @@ function Person({ seat, geometry, shirtGroups, scene, animations, color, faded, 
     const mixer = new THREE.AnimationMixer(model);
     const walkClip = animations.find((a) => a.name === "Walk_Loop");
     const sitClip = animations.find((a) => a.name === "Sitting_Idle_Loop");
-    return { model, material, mixer, walk: walkClip ? mixer.clipAction(walkClip) : null, sit: sitClip ? mixer.clipAction(sitClip) : null };
+    const enterClip = animations.find((a) => a.name === "Sitting_Enter");
+    const enter = enterClip ? mixer.clipAction(enterClip) : null;
+    if (enter) { enter.setLoop(THREE.LoopOnce, 1); enter.clampWhenFinished = true; }
+    return { model, material, mixer, enter, walk: walkClip ? mixer.clipAction(walkClip) : null, sit: sitClip ? mixer.clipAction(sitClip) : null };
   }, [scene, animations, geometry, shirtGroups]);
   useEffect(() => {
     material.forEach((m) => { if (!m.vertexColors) m.color.set(color); m.transparent = faded; m.opacity = faded ? 0.3 : 1; });
@@ -59,15 +62,16 @@ function Person({ seat, geometry, shirtGroups, scene, animations, color, faded, 
   useEffect(() => () => { mixer.stopAllAction(); new Set(material).forEach((m) => m.dispose()); model.traverse((o) => { if (o instanceof THREE.Mesh) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose()); }); }, [mixer, material, model]);
   const path = useMemo(() => arrivalPath(seat, back).map(([x, z]) => new THREE.Vector3(x, 0, z)), [seat.x, seat.z, back]);
   const lengths = useMemo(() => path.slice(1).map((p, i) => { const from = path[i]; return from ? p.distanceTo(from) : 0; }), [path]);
-  const speed = 1.65;
-  const travelTime = lengths.reduce((a, b) => a + b, 0) / speed;
+  const speed = 1.15;
+  const distanceTotal = lengths.reduce((a, b) => a + b, 0);
+  const travelTime = distanceTotal / speed + 0.5;
   useEffect(() => {
     if (!pulse || reduced || Date.now() - pulse > 4000) return;
     elapsed.current = -delay - 0.9;
     moving.current = true;
-    sit?.stop(); walk?.reset().fadeIn(0.35).play();
-    if (walk) walk.timeScale = 0.9;
-  }, [pulse, reduced, delay, sit, walk]);
+    sit?.stop(); enter?.stop(); walk?.reset().fadeIn(0.45).play();
+    if (walk) walk.timeScale = 1;
+  }, [pulse, reduced, delay, sit, walk, enter]);
   useFrame((_, rawDelta) => {
     const g = group.current; const still = seated.current;
     if (!g || !still) return;
@@ -80,7 +84,11 @@ function Person({ seat, geometry, shirtGroups, scene, animations, color, faded, 
     if (t < 0) return;
     mixer.update(Math.min(rawDelta, 0.05));
     if (t < travelTime) {
-      let distance = t * speed;
+      // Half-second acceleration/deceleration keeps footfalls matched to travel.
+      const ramp = 0.5;
+      const remaining = travelTime - t;
+      let distance = t < ramp ? speed * t * t / (2 * ramp) : remaining < ramp ? distanceTotal - speed * remaining * remaining / (2 * ramp) : speed * (t - ramp / 2);
+      if (walk) walk.timeScale = Math.max(0.12, Math.min(1, t / ramp, remaining / ramp));
       for (let i = 0; i < lengths.length; i++) {
         const length = lengths[i]; const from = path[i]; const to = path[i + 1];
         if (length == null || !from || !to) continue;
@@ -94,9 +102,12 @@ function Person({ seat, geometry, shirtGroups, scene, animations, color, faded, 
         distance -= length;
       }
     } else {
-      if (sit && !sit.isRunning()) { sit.reset().play(); walk?.crossFadeTo(sit, 0.5, false); }
-      const p = Math.min(1, (t - travelTime) / 0.95);
-      g.position.set(seat.x, SEATED_HEIGHT * p, seat.z - 0.22 * (1 - p) + SEATED_FORWARD * p);
+      const transition = enter ?? sit;
+      if (transition && !transition.isRunning() && t - travelTime < 0.2) { transition.reset().play(); walk?.crossFadeTo(transition, 0.25, false); }
+      const duration = enter?.getClip().duration ?? 1.3;
+      const p = Math.min(1, (t - travelTime) / duration);
+      const eased = p * p * (3 - 2 * p);
+      g.position.set(seat.x, SEATED_HEIGHT * eased, seat.z - 0.22 * (1 - eased) + SEATED_FORWARD * eased);
       const diff = Math.atan2(Math.sin(Math.PI - g.rotation.y), Math.cos(Math.PI - g.rotation.y));
       g.rotation.y += diff * (1 - Math.exp(-9 * Math.min(rawDelta, 0.05)));
       if (p === 1) { moving.current = false; still.visible = true; g.visible = false; }
