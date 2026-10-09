@@ -66,6 +66,16 @@
   --room-window: oklch(0.9 0.04 230);
   --room-wood: oklch(0.78 0.06 75);
   --room-fabric: oklch(0.53 0.08 220);
+  --room-shirt-finance: oklch(0.68 0.17 75);
+  --room-shirt-nursing: oklch(0.64 0.14 175);
+  --room-shirt-it: oklch(0.58 0.18 260);
+  --room-shirt-accounting: oklch(0.61 0.15 310);
+  --room-shirt-quality: oklch(0.7 0.18 125);
+  --room-shirt-relations: oklch(0.64 0.19 10);
+  --room-shirt-engineering: oklch(0.66 0.18 45);
+  --room-shirt-chaplaincy: oklch(0.55 0.13 290);
+  --room-shirt-medical: oklch(0.67 0.13 220);
+  --room-shirt-office: oklch(0.58 0.09 150);
   --background: oklch(0.955 0.013 255);
   --foreground: oklch(0.25 0.04 265);
   --card: oklch(1 0 0);

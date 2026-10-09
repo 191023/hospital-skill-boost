@@ -3,11 +3,11 @@ import { Environment, Lightformer, OrbitControls, useGLTF } from "@react-three/d
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { type RoomSeat } from "@/lib/training-room";
+import { roomDivisionTokens, type RoomSeat } from "@/lib/training-room";
 import chairAsset from "@/assets/training-chair.asset.json";
 import { RoomPeople } from "./RoomPeople";
 
-type Palette = { background: string; floor: string; line: string; checked: string; waiting: string; empty: string; selected: string; white: string };
+type Palette = { background: string; floor: string; line: string; checked: string; waiting: string; empty: string; selected: string; white: string; foreground: string; shirts: Record<string, string> };
 export type RoomStats = { registered: number; checked: number; waiting: number; free: number | string };
 export type RoomFocus = { index: number; n: number } | null;
 type Props = {
@@ -29,7 +29,7 @@ function readPalette(): Palette {
     const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
     return `rgb(${r},${g},${b})`;
   };
-  return { background: color("--room-background"), floor: color("--room-floor"), line: color("--room-grid"), checked: color("--mint"), waiting: color("--amber"), empty: color("--room-empty"), selected: color("--primary"), white: color("--card") };
+  return { background: color("--room-background"), floor: color("--room-floor"), line: color("--room-grid"), checked: color("--mint"), waiting: color("--amber"), empty: color("--room-empty"), selected: color("--primary"), white: color("--card"), foreground: color("--foreground"), shirts: Object.fromEntries(Object.entries(roomDivisionTokens).map(([division, token]) => [division, color(token)])) };
 }
 
 function SessionSign({ palette, roomName, date, round, courseTitle }: Props & { palette: Palette }) {
@@ -281,7 +281,7 @@ function Room({ palette, reduced, ...props }: Props & { palette: Palette; reduce
     {!reduced && <Pulses seats={props.seats} pulseMap={props.pulseMap} palette={palette} />}
     <Suspense fallback={null}>
       <Seating {...props} palette={palette} reduced={reduced} />
-      <RoomPeople seats={props.seats} pulseMap={props.pulseMap} reduced={reduced} color={palette.selected} fadedColor={palette.empty} highlighted={props.highlighted} onSelect={props.onSelect} />
+      <RoomPeople seats={props.seats} pulseMap={props.pulseMap} reduced={reduced} color={palette.selected} fadedColor={palette.empty} highlighted={props.highlighted} onSelect={props.onSelect} shirts={palette.shirts} labelBackground={palette.white} labelForeground={palette.foreground} />
     </Suspense>
     {props.walk && <OrbitControls target={[0, 0.6, center]} enableDamping dampingFactor={0.08} minZoom={Math.max(0.4, baseZoom * 0.5)} maxZoom={baseZoom * 3.5} />}
   </>;
