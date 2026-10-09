@@ -16,6 +16,7 @@
 - [x] Animate first-time check-ins once with a chair ring/bounce and aisle walk-to-sit, respecting reduced motion.
 - [x] Verify populated rooms, arrival animation, selection, kiosk and top view; check reduced-motion mobile layout and attendance detection tests.
 ## Natural characters and furnished room
+- [ ] Align seated hips and feet with chairs, color shirts by division, and show first-name-only floating labels.
 - [ ] Replace blocky figures with rounded cartoon people, simple faces and smooth arrival motion.
 - [ ] Furnish a cutaway room with walls, windows, desks and realistic chairs.
 - [ ] Verify populated room, selection, arrival animation and small-screen layout.
