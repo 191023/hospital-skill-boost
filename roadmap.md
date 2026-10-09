@@ -41,4 +41,4 @@
 
 ## Unobstructed rotating room
 - [x] Fade camera-facing walls, glazing and attached decorations together and restore them automatically.
-- [ ] Verify populated room rotation, restored walls and overhead view without changing attendance.
+- [x] Verify populated room rotation, restored walls and overhead view without changing attendance.
