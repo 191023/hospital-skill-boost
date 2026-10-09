@@ -24,7 +24,8 @@ function Person({ seat, geometry, scene, animations, color, pulse, delay, back, 
     return { model, material, mixer, walk: walkClip ? mixer.clipAction(walkClip) : null, sit: sitClip ? mixer.clipAction(sitClip) : null };
   }, [scene, animations]);
   useEffect(() => { material.color.set(color); }, [material, color]);
-  useEffect(() => () => { mixer.stopAllAction(); mixer.uncacheRoot(model); material.dispose(); }, [mixer, model, material]);
+  // Strict Mode replays effects using the same memoized actions; uncacheRoot would invalidate them.
+  useEffect(() => () => { mixer.stopAllAction(); material.dispose(); }, [mixer, material]);
   const path = useMemo(() => arrivalPath(seat, back).map(([x, z]) => new THREE.Vector3(x, 0, z)), [seat.x, seat.z, back]);
   const lengths = useMemo(() => path.slice(1).map((p, i) => { const from = path[i]; return from ? p.distanceTo(from) : 0; }), [path]);
   const travelTime = lengths.reduce((a, b) => a + b, 0) / 2.6;

@@ -239,7 +239,7 @@ function Room({ palette, reduced, ...props }: Props & { palette: Palette; reduce
       const a = orbit.current;
       target = { p: new THREE.Vector3(Math.sin(a) * 15, 11, center + Math.cos(a) * 13), l: new THREE.Vector3(0, 0.6, center), zoom: baseZoom };
     }
-    const k = 1 - Math.exp(-3.5 * dt);
+    const k = reduced ? 1 : 1 - Math.exp(-3.5 * dt);
     camera.position.lerp(target.p, k);
     look.current.lerp(target.l, k);
     camera.lookAt(look.current);
