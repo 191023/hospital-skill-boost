@@ -66,6 +66,9 @@
   --room-window: oklch(0.9 0.04 230);
   --room-wood: oklch(0.78 0.06 75);
   --room-fabric: oklch(0.53 0.08 220);
+  --room-carpet: oklch(0.79 0.025 220);
+  --room-panel: oklch(0.42 0.04 220);
+  --room-light: oklch(0.97 0.015 90);
   --room-shirt-finance: oklch(0.68 0.17 75);
   --room-shirt-nursing: oklch(0.64 0.14 175);
   --room-shirt-it: oklch(0.58 0.18 260);

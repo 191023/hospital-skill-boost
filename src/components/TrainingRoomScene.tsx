@@ -6,9 +6,9 @@ import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js
 import { roomDivisionTokens, type RoomSeat } from "@/lib/training-room";
 import chairAsset from "@/assets/training-chair.asset.json";
 import { RoomPeople } from "./RoomPeople";
-import { RoomFurniture } from "./RoomFurniture";
+import { RoomFurniture, type RoomFinishes } from "./RoomFurniture";
 
-type Palette = { background: string; floor: string; line: string; checked: string; waiting: string; empty: string; selected: string; white: string; foreground: string; shirts: Record<string, string> };
+type Palette = { background: string; floor: string; line: string; checked: string; waiting: string; empty: string; selected: string; white: string; foreground: string; shirts: Record<string, string>; finishes: RoomFinishes };
 export type RoomStats = { registered: number; checked: number; waiting: number; free: number | string };
 export type RoomFocus = { index: number; n: number } | null;
 type Props = {
@@ -30,7 +30,7 @@ function readPalette(): Palette {
     const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
     return `rgb(${r},${g},${b})`;
   };
-  return { background: color("--room-background"), floor: color("--room-floor"), line: color("--room-grid"), checked: color("--mint"), waiting: color("--amber"), empty: color("--room-empty"), selected: color("--primary"), white: color("--card"), foreground: color("--foreground"), shirts: Object.fromEntries(Object.entries(roomDivisionTokens).map(([division, token]) => [division, color(token)])) };
+  return { background: color("--room-background"), floor: color("--room-floor"), line: color("--room-grid"), checked: color("--mint"), waiting: color("--amber"), empty: color("--room-empty"), selected: color("--primary"), white: color("--card"), foreground: color("--foreground"), shirts: Object.fromEntries(Object.entries(roomDivisionTokens).map(([division, token]) => [division, color(token)])), finishes: { wall: color("--room-wall"), trim: color("--room-trim"), window: color("--room-window"), wood: color("--room-wood"), fabric: color("--room-fabric"), carpet: color("--room-carpet"), panel: color("--room-panel"), light: color("--room-light") } };
 }
 
 function SessionSign({ palette, roomName, date, round, courseTitle }: Props & { palette: Palette }) {
@@ -49,7 +49,7 @@ function SessionSign({ palette, roomName, date, round, courseTitle }: Props & { 
     const t = new THREE.CanvasTexture(canvas); t.colorSpace = THREE.SRGBColorSpace; return t;
   }, [palette, roomName, date, round, courseTitle]);
   useEffect(() => () => texture.dispose(), [texture]);
-  return <sprite position={[0, 3.1, -3.2]} scale={[8.8, 2.2, 1]}><spriteMaterial map={texture} depthTest={false} toneMapped={false} /></sprite>;
+  return <sprite position={[0, 2.5, -3.35]} scale={[7.2, 1.8, 1]}><spriteMaterial map={texture} depthTest={false} toneMapped={false} /></sprite>;
 }
 
 function StatsBoard({ palette, stats, updatedLabel, z }: { palette: Palette; stats: RoomStats; updatedLabel: string; z: number }) {
@@ -84,7 +84,7 @@ function StatsBoard({ palette, stats, updatedLabel, z }: { palette: Palette; sta
     const t = new THREE.CanvasTexture(canvas); t.colorSpace = THREE.SRGBColorSpace; return t;
   }, [palette, stats, updatedLabel]);
   useEffect(() => () => texture.dispose(), [texture]);
-  return <sprite position={[6.9, 2.9, z]} scale={[3.2, 1.9, 1]}><spriteMaterial map={texture} depthTest={false} toneMapped={false} /></sprite>;
+  return <sprite position={[5.6, 2.4, z]} scale={[2.7, 1.6, 1]}><spriteMaterial map={texture} depthTest={false} toneMapped={false} /></sprite>;
 }
 
 function PulseRing({ x, z, color, onDone }: { x: number; z: number; color: string; onDone: () => void }) {
@@ -216,14 +216,14 @@ function Room({ palette, reduced, ...props }: Props & { palette: Palette; reduce
   const orbit = useRef(0);
   const look = useRef(new THREE.Vector3(0, 0, center));
   const desired = useRef({ p: new THREE.Vector3(14, 14, center + 14), l: new THREE.Vector3(0, 0, center), zoom: 1 });
-  const baseZoom = Math.min(size.width / 14.5, size.height / (depth + 8)) * props.zoom;
+  const baseZoom = Math.min(size.width / 20.5, size.height / (depth + 9)) * props.zoom;
 
   useEffect(() => {
     if (!(camera instanceof THREE.OrthographicCamera) || props.walk || props.kiosk) return;
     const focusIndex = props.focus?.index;
     const focusSeat = focusIndex == null ? null : props.seats.find((s) => s.index === focusIndex);
     if (focusSeat) {
-      desired.current = { p: new THREE.Vector3(focusSeat.x * 0.5, 9, focusSeat.z + 7), l: new THREE.Vector3(focusSeat.x, 0.9, focusSeat.z), zoom: baseZoom * 2.1 };
+      desired.current = { p: new THREE.Vector3(focusSeat.x + 2, 3.2, focusSeat.z - 2.7), l: new THREE.Vector3(focusSeat.x, 0.9, focusSeat.z), zoom: baseZoom * 3.3 };
     } else if (props.view === "top") {
       desired.current = { p: new THREE.Vector3(0, 20, center + 0.01), l: new THREE.Vector3(0, 0, center), zoom: baseZoom };
     } else {
@@ -263,25 +263,26 @@ function Room({ palette, reduced, ...props }: Props & { palette: Palette; reduce
   useEffect(() => () => texture.dispose(), [texture]);
   return <>
     <color attach="background" args={[palette.background]} />
-    <ambientLight intensity={0.9} />
-    <directionalLight position={[-5, 14, 8]} intensity={2.5} castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024}
+    <ambientLight intensity={0.6} />
+    <directionalLight position={[-5, 14, 8]} intensity={1.6} castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024}
       shadow-camera-left={-14} shadow-camera-right={14} shadow-camera-top={14} shadow-camera-bottom={-14} shadow-bias={-0.001} />
     <Environment resolution={64}>
       <Lightformer intensity={2} position={[0, 8, 0]} rotation-x={-Math.PI / 2} scale={[15, 15, 1]} />
-      <Lightformer intensity={1} color={palette.checked} position={[-10, 4, 0]} rotation-y={Math.PI / 2} scale={[10, 5, 1]} />
+      <Lightformer intensity={1} color={palette.finishes.light} position={[-10, 4, 0]} rotation-y={Math.PI / 2} scale={[10, 5, 1]} />
     </Environment>
-    <mesh rotation-x={-Math.PI / 2} position={[0, -0.02, center]} receiveShadow><planeGeometry args={[80, 80]} /><meshStandardMaterial map={texture} roughness={0.8} /></mesh>
+    <mesh rotation-x={-Math.PI / 2} position={[0, -0.04, center]} receiveShadow><planeGeometry args={[80, 80]} /><meshStandardMaterial color={palette.background} roughness={0.8} /></mesh>
+    <mesh rotation-x={-Math.PI / 2} position={[0, 0, center]} receiveShadow><planeGeometry args={[13.5, depth + 6.8]} /><meshStandardMaterial map={texture} color={palette.finishes.carpet} roughness={1} /></mesh>
     <mesh position={[0, -0.12, center]} receiveShadow><boxGeometry args={[13.8, 0.2, depth + 7]} /><meshStandardMaterial color={palette.line} roughness={0.7} /></mesh>
-    <mesh position={[0, 1.9, -4]} receiveShadow><boxGeometry args={[13.8, 3.8, 0.18]} /><meshStandardMaterial map={texture} color={palette.white} roughness={0.85} /></mesh>
-    <mesh position={[-6.8, 0.45, center]} receiveShadow><boxGeometry args={[0.15, 0.9, depth + 7]} /><meshStandardMaterial color={palette.white} roughness={0.7} /></mesh>
-    <mesh rotation-x={-Math.PI / 2} position={[0, 0.005, center + 1]}><planeGeometry args={[0.75, depth + 1]} /><meshStandardMaterial color={palette.selected} roughness={0.9} /></mesh>
-    <mesh position={[0, 0.16, -2.6]} receiveShadow castShadow><boxGeometry args={[9.8, 0.35, 1.8]} /><meshStandardMaterial color={palette.white} roughness={0.4} /></mesh>
+    <mesh position={[0, 1.9, -4]} receiveShadow><boxGeometry args={[13.8, 3.8, 0.18]} /><meshStandardMaterial color={palette.finishes.wall} roughness={0.85} /></mesh>
+    <mesh position={[-6.8, 0.25, center]} receiveShadow><boxGeometry args={[0.15, 0.5, depth + 7]} /><meshStandardMaterial color={palette.finishes.wall} roughness={0.7} /></mesh>
+    <mesh rotation-x={-Math.PI / 2} position={[0, 0.005, center + 1]}><planeGeometry args={[0.85, depth + 1]} /><meshStandardMaterial map={texture} color={palette.finishes.fabric} roughness={1} /></mesh>
+    <mesh position={[0, 0.16, -2.6]} receiveShadow castShadow><boxGeometry args={[9.8, 0.35, 1.8]} /><meshStandardMaterial color={palette.finishes.wood} roughness={0.6} /></mesh>
     <mesh position={[0, 0.35, -1.72]}><boxGeometry args={[9.8, 0.08, 0.06]} /><meshStandardMaterial color={palette.selected} /></mesh>
-    <SessionSign {...props} palette={palette} />
-    <StatsBoard palette={palette} stats={props.stats} updatedLabel={props.updatedLabel} z={center} />
+    {!props.focus && <SessionSign {...props} palette={palette} />}
+    {!props.focus && <StatsBoard palette={palette} stats={props.stats} updatedLabel={props.updatedLabel} z={center} />}
     {!reduced && <Pulses seats={props.seats} pulseMap={props.pulseMap} palette={palette} />}
     <Suspense fallback={null}>
-      <RoomFurniture depth={depth} />
+      <RoomFurniture depth={depth} finishes={palette.finishes} />
       <Seating {...props} palette={palette} reduced={reduced} />
       <RoomPeople seats={props.seats} pulseMap={props.pulseMap} reduced={reduced} color={palette.selected} fadedColor={palette.empty} highlighted={props.highlighted} onSelect={props.onSelect} shirts={palette.shirts} labelBackground={palette.white} labelForeground={palette.foreground} />
     </Suspense>
