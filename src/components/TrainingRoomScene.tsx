@@ -7,6 +7,7 @@ import { roomDivisionTokens, type RoomSeat } from "@/lib/training-room";
 import chairAsset from "@/assets/training-chair.asset.json";
 import { RoomPeople } from "./RoomPeople";
 import { RoomFurniture, type RoomFinishes } from "./RoomFurniture";
+import { RoomWallFade } from "./RoomWallFade";
 
 type Palette = { background: string; floor: string; line: string; checked: string; waiting: string; empty: string; selected: string; white: string; foreground: string; shirts: Record<string, string>; finishes: RoomFinishes };
 export type RoomStats = { registered: number; checked: number; waiting: number; free: number | string };
@@ -273,8 +274,8 @@ function Room({ palette, reduced, ...props }: Props & { palette: Palette; reduce
     <mesh rotation-x={-Math.PI / 2} position={[0, -0.04, center]} receiveShadow><planeGeometry args={[80, 80]} /><meshStandardMaterial color={palette.background} roughness={0.8} /></mesh>
     <mesh rotation-x={-Math.PI / 2} position={[0, 0, center]} receiveShadow><planeGeometry args={[13.5, depth + 6.8]} /><meshStandardMaterial map={texture} color={palette.finishes.carpet} roughness={1} /></mesh>
     <mesh position={[0, -0.12, center]} receiveShadow><boxGeometry args={[13.8, 0.2, depth + 7]} /><meshStandardMaterial color={palette.line} roughness={0.7} /></mesh>
-    <mesh position={[0, 1.9, -4]} receiveShadow><boxGeometry args={[13.8, 3.8, 0.18]} /><meshStandardMaterial color={palette.finishes.wall} roughness={0.85} /></mesh>
-    <mesh position={[-6.8, 0.25, center]} receiveShadow><boxGeometry args={[0.15, 0.5, depth + 7]} /><meshStandardMaterial color={palette.finishes.wall} roughness={0.7} /></mesh>
+    <RoomWallFade side="front" reduced={reduced}><mesh position={[0, 1.9, -4]} receiveShadow><boxGeometry args={[13.8, 3.8, 0.18]} /><meshStandardMaterial color={palette.finishes.wall} roughness={0.85} /></mesh></RoomWallFade>
+    <RoomWallFade side="left" reduced={reduced}><mesh position={[-6.8, 0.25, center]} receiveShadow><boxGeometry args={[0.15, 0.5, depth + 7]} /><meshStandardMaterial color={palette.finishes.wall} roughness={0.7} /></mesh></RoomWallFade>
     <mesh rotation-x={-Math.PI / 2} position={[0, 0.005, center + 1]}><planeGeometry args={[0.85, depth + 1]} /><meshStandardMaterial map={texture} color={palette.finishes.fabric} roughness={1} /></mesh>
     <mesh position={[0, 0.16, -2.6]} receiveShadow castShadow><boxGeometry args={[9.8, 0.35, 1.8]} /><meshStandardMaterial color={palette.finishes.wood} roughness={0.6} /></mesh>
     <mesh position={[0, 0.35, -1.72]}><boxGeometry args={[9.8, 0.08, 0.06]} /><meshStandardMaterial color={palette.selected} /></mesh>
@@ -282,7 +283,7 @@ function Room({ palette, reduced, ...props }: Props & { palette: Palette; reduce
     {!props.focus && <StatsBoard palette={palette} stats={props.stats} updatedLabel={props.updatedLabel} z={center} />}
     {!reduced && <Pulses seats={props.seats} pulseMap={props.pulseMap} palette={palette} />}
     <Suspense fallback={null}>
-      <RoomFurniture depth={depth} finishes={palette.finishes} />
+      <RoomFurniture depth={depth} finishes={palette.finishes} reduced={reduced} />
       <Seating {...props} palette={palette} reduced={reduced} />
       <RoomPeople seats={props.seats} pulseMap={props.pulseMap} reduced={reduced} color={palette.selected} fadedColor={palette.empty} highlighted={props.highlighted} onSelect={props.onSelect} shirts={palette.shirts} labelBackground={palette.white} labelForeground={palette.foreground} />
     </Suspense>
