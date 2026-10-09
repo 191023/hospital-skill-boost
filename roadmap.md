@@ -42,3 +42,8 @@
 ## Unobstructed rotating room
 - [x] Fade camera-facing walls, glazing and attached decorations together and restore them automatically.
 - [x] Verify populated room rotation, restored walls and overhead view without changing attendance.
+
+## Fixed board and medical trainers
+- [ ] Fix session signage onto the stage board with physical depth and shared wall fading.
+- [ ] Add illustrative doctor and nurse presenters standing on stage using the registered adult character.
+- [ ] Verify populated room, rotated views and trainer appearance without changing attendance.
