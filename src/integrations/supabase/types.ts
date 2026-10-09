@@ -633,6 +633,21 @@ export type Database = {
       }
       is_approved: { Args: { _user_id: string }; Returns: boolean }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
+      report_overview: { Args: { _year?: number }; Returns: Json }
+      report_rows: {
+        Args: { _year?: number }
+        Returns: {
+          cert_no: string
+          course_title: string
+          department: string
+          division: string
+          full_name: string
+          issued_at: string
+          post: number
+          pre: number
+          training_year: number
+        }[]
+      }
       session_seats: {
         Args: { _course: string }
         Returns: {
