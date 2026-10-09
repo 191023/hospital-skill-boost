@@ -111,10 +111,45 @@ function RoomContent({ courseId }: { courseId: string }) {
   const stats = { registered: attendees.length, checked, waiting: attendees.length - checked, free: session?.capacity == null ? "ไม่จำกัด" : Math.max(0, session.capacity - attendees.length) };
   const updatedLabel = dataUpdatedAt ? `อัปเดต ${new Date(dataUpdatedAt).toLocaleTimeString("th-TH")}` : "";
   const sessionPulses = Object.fromEntries(attendees.map((a) => [a.userId, pulseMap[attendanceKey(a.userId, activeId === "unassigned" ? null : activeId)] ?? 0]));
-  const sceneProps = { seats, selected, onSelect: setSelected, highlighted, view, zoom, roomName: location, date, round: roundLabel, courseTitle: data.course.title, kiosk, walk, focus, pulseMap: sessionPulses, stats, updatedLabel };
-  const changeSession = (id: string) => { setSessionId(id); setSelected(null); setPage(0); setSearch(""); setStatus("all"); setDivision("all"); setFocus(null); };
+  const sceneProps = { seats, selected, onSelect: setSelected, highlighted, view, zoom, roomName: location, date, round: roundLabel, courseTitle: data.course.title, kiosk, walk, focus, pulseMap: sessionPulses, stats, updatedLabel, celebrate };
+  const changeSession = (id: string) => { setSessionId(id); setSelected(null); setPage(0); setSearch(""); setStatus("all"); setDivision("all"); setFocus(null); setDrawn(new Set()); setWinner(null); };
   const toggleKiosk = () => { setKiosk((k) => !k); setWalk(false); setFocus(null); };
   const toggleWalk = () => { setWalk((w) => !w); setKiosk(false); setFocus(null); };
+  const toggleFull = () => { if (document.fullscreenElement) void document.exitFullscreen(); else void pageRef.current?.requestFullscreen?.().catch(() => toast.error("เบราว์เซอร์นี้ไม่รองรับการแสดงเต็มหน้าจอ")); };
+  const pool = pickPool(attendees, pickDivision, drawn);
+  const eligible = pickPool(attendees, pickDivision, new Set()).length;
+  const seatOf = (userId: string) => attendees.findIndex((a) => a.userId === userId);
+  const draw = () => {
+    const final = pickOne(pool);
+    if (!final || rolling) return;
+    setRolling(true); setWinner(null);
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let ticks = reduce ? 0 : 14;
+    const step = () => {
+      if (ticks-- > 0) {
+        const p = pickOne(pool)!; const i = seatOf(p.userId);
+        setPage(Math.floor(i / ROOM_PAGE_SIZE)); setSelected(i); setWinner(p);
+        window.setTimeout(step, 90 + (14 - ticks) * 18);
+        return;
+      }
+      const i = seatOf(final.userId);
+      setPage(Math.floor(i / ROOM_PAGE_SIZE)); setSelected(i); setFocus({ index: i, n: Date.now() });
+      setWinner(final); setDrawn((d) => new Set(d).add(final.userId)); setCelebrate(Date.now()); setRolling(false);
+    };
+    step();
+  };
+  const picker = <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border bg-card p-3" aria-live="polite">
+    <Shuffle className="size-4 text-primary" /><span className="text-sm font-bold">สุ่มผู้เข้าอบรม</span>
+    <select aria-label="สุ่มจากฝ่าย" className="rounded-lg border bg-card px-2 py-1.5 text-sm" value={pickDivision} disabled={rolling} onChange={(e) => { setPickDivision(e.target.value); setDrawn(new Set()); setWinner(null); }}>
+      <option value="all">ทุกฝ่าย</option>{divisions.map((d) => <option key={d} value={d}>{d}</option>)}
+    </select>
+    <Button size="sm" disabled={rolling || !pool.length} onClick={draw}><Shuffle />{drawn.size ? "สุ่มคนถัดไป" : "สุ่ม"}</Button>
+    <Button size="sm" variant="outline" disabled={rolling || !drawn.size} onClick={() => { setDrawn(new Set()); setWinner(null); }}><RotateCcw />เริ่มรายชื่อใหม่</Button>
+    <span className="text-xs text-muted-foreground">เหลือ {pool.length}/{eligible} คน (เฉพาะผู้เช็คชื่อจริง)</span>
+    {winner && <span className={`ml-auto rounded-lg px-3 py-1.5 text-base font-bold ${rolling ? "text-muted-foreground" : "bg-primary text-primary-foreground"}`}>{rolling ? "…" : "🎉"} {winner.name}{!rolling && winner.division ? ` · ${winner.division}` : ""}</span>}
+    {!eligible && <span className="text-xs text-amber">ยังไม่มีผู้เช็คชื่อจริงในรอบนี้</span>}
+  </div>;
+  const fullButton = <Button size="sm" variant={isFull ? "default" : "outline"} onClick={toggleFull}>{isFull ? <Minimize /> : <Maximize />}{isFull ? "ออกเต็มจอ" : "เต็มหน้าจอ"}</Button>;
   const capture = () => {
     const el = document.querySelector<HTMLCanvasElement>(".room-canvas canvas");
     if (!el) return;
@@ -123,7 +158,7 @@ function RoomContent({ courseId }: { courseId: string }) {
     link.download = `ห้องอบรม-${location.replace(/\s+/g, "-")}-${roundLabel}.png`;
     link.click();
   };
-  if (kiosk) return <div className="room-page">
+  if (kiosk) return <div className="room-page" ref={pageRef}>
     <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0">
         <div className="flex items-center gap-2 text-sm font-semibold text-primary"><Armchair />{roundLabel} <span className="text-muted-foreground">· {data.course.training_year}</span></div>
