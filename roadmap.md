@@ -27,3 +27,8 @@
 - [x] Refine head proportions, facial details and walking/sitting transitions without changing attendance rules.
 - [x] Add contemporary wall panels, glazing, carpet and stage finishes; preserve room signage and selection.
 - [x] Verify populated room, close-up selection, moving arrival with a read-only attendance response, and mobile framing; training-room tests pass.
+
+## Manual room check-in
+- [ ] Add a permission-checked action to record attendance for a selected registered learner, without changing QR behavior.
+- [ ] Add the check-in button with pending/success states and refresh the room animation and counts.
+- [ ] Verify a real check-in persists after reload and repeated clicks do not duplicate attendance.
