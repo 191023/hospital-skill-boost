@@ -1,7 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { arrivalPath, detectRoomArrivals, attendeeSymbol, roomDate, matchesAttendee, roomSeats, type RoomAttendee } from "@/lib/training-room";
+import { arrivalPath, detectRoomArrivals, attendeeSymbol, roomDate, roomFirstName, roomDivisionTokens, matchesAttendee, roomSeats, type RoomAttendee } from "@/lib/training-room";
 const person: RoomAttendee = { userId: "1", name: "สมชาย", division: "ฝ่ายการพยาบาล", department: "หอผู้ป่วย", registeredAt: "2026-10-08", checkedAt: null };
 describe("training room", () => {
+  it("shows only first names without titles or surnames", () => {
+    expect(roomFirstName("  นายสมชาย ใจดี ")).toBe("สมชาย");
+    expect(roomFirstName("นางสาว สมหญิง สุขใจ")).toBe("สมหญิง");
+    expect(roomFirstName("นพ. ภานุวัฒน์ เรืองมูล")).toBe("ภานุวัฒน์");
+    expect(roomFirstName("ภานุวัฒน์ เรืองมูล")).toBe("ภานุวัฒน์");
+    expect(roomFirstName("")).toBe("ไม่ระบุชื่อ");
+  });
+  it("assigns different stable shirt tokens to every division", () => {
+    const tokens = Object.values(roomDivisionTokens);
+    expect(new Set(tokens).size).toBe(tokens.length);
+    expect(roomDivisionTokens["ฝ่ายการพยาบาล"]).toBe("--room-shirt-nursing");
+  });
   it("animates first check-ins but not initial load, demos or repeat polls", () => {
     const real = { user_id: "1", session_id: "s", checked_at: "2026-10-09", is_demo: false };
     const initial = detectRoomArrivals([], null, 1);

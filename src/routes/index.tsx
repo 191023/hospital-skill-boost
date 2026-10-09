@@ -9,6 +9,8 @@ export const Route = createFileRoute("/")({
       { name: "description", content: "เรียนบทเรียน ทดสอบก่อน-หลังเรียน และรับใบประกาศนียบัตรออนไลน์สำหรับบุคลากรโรงพยาบาล" },
       { property: "og:title", content: "โรงพยาบาลโอเวอร์บรุ๊ค — ระบบอบรมออนไลน์บุคลากร" },
       { property: "og:description", content: "เรียนบทเรียน ทดสอบก่อน-หลังเรียน และรับใบประกาศนียบัตรออนไลน์" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Landing,

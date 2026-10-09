@@ -12,6 +12,24 @@ export type RoomAttendee = {
 export type RoomSeat = { index: number; label: string; x: number; z: number; attendee: RoomAttendee | null };
 export const ROOM_PAGE_SIZE = 48;
 
+// Keep division colors stable across rounds, pagination, and filtering.
+export const roomDivisionTokens: Record<string, string> = {
+  "ฝ่ายการเงิน": "--room-shirt-finance",
+  "ฝ่ายการพยาบาล": "--room-shirt-nursing",
+  "ฝ่ายเทคโนโลยีสารสนเทศ": "--room-shirt-it",
+  "ฝ่ายบัญชี": "--room-shirt-accounting",
+  "ฝ่ายพัฒนาคุณภาพ": "--room-shirt-quality",
+  "ฝ่ายลูกค้าสัมพันธ์": "--room-shirt-relations",
+  "ฝ่ายวิศวกรรมและสิ่งแวดล้อม": "--room-shirt-engineering",
+  "ฝ่ายศาสนกิจ": "--room-shirt-chaplaincy",
+  "ฝ่ายสนับสนุนการแพทย์": "--room-shirt-medical",
+  "ฝ่ายสำนักงาน": "--room-shirt-office",
+};
+
+export function roomFirstName(fullName: string) {
+  return fullName.trim().replace(/^(?:(?:นาย|นางสาว|นาง|น\.ส\.|นพ\.|พญ\.|ดร\.|Mr\.|Mrs\.|Ms\.)\s*)+/i, "").split(/\s+/)[0] || "ไม่ระบุชื่อ";
+}
+
 export type RoomAttendanceSnapshot = { user_id: string; session_id: string | null; checked_at: string | null; is_demo: boolean };
 export const attendanceKey = (userId: string, sessionId: string | null) => `${userId}:${sessionId ?? "none"}`;
 
