@@ -1,0 +1,6 @@
+Blocky Characters (2.0), created and distributed by Kenney (www.kenney.nl).
+Source: https://kenney.nl/assets/blocky-characters
+License: Creative Commons Zero (CC0).
+https://creativecommons.org/publicdomain/zero/1.0/
+May be used for personal, educational and commercial purposes.
+The registered neutral-attendee asset is character-a with external texture references removed; original walk and sit animations are retained.
