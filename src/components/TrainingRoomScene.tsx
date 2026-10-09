@@ -171,9 +171,9 @@ function Seating({ seats, selected, onSelect, highlighted, palette, reduced, pul
     seats.forEach((seat, i) => {
       const active = selected === seat.index || hovered === seat.index;
       const visible = !seat.attendee || highlighted.has(seat.attendee.userId);
-      const target = active ? 1.09 : 1;
+      const target = 1;
       scales.current[i] = reduced ? target : THREE.MathUtils.lerp(scales.current[i] ?? 0.01, target, 1 - Math.exp(-7 * dt));
-      heights.current[i] = reduced ? (active ? 0.16 : 0) : THREE.MathUtils.lerp(heights.current[i] ?? 0, active ? 0.16 : 0, 1 - Math.exp(-10 * dt));
+      heights.current[i] = 0;
       const uid = seat.attendee?.userId;
       const pulse = uid ? pulseMap[uid] : 0;
       let bounce = uid ? bounces.current.get(uid) : undefined;

@@ -10,7 +10,8 @@ import { arrivalPath, roomFirstName, type RoomSeat } from "@/lib/training-room";
 type PersonProps = { seat: RoomSeat; geometry: THREE.BufferGeometry; shirtGroups: number[]; scene: THREE.Group; animations: THREE.AnimationClip[]; color: string; faded: boolean; pulse: number; delay: number; back: number; reduced: boolean; onSelect: (index: number) => void };
 
 // The front of the room is -Z. Use the same landing position for both poses.
-const SEATED_FORWARD = -0.18;
+const PERSON_SCALE = 0.8955;
+const SEATED_FORWARD = -0.2906;
 const SEATED_HEIGHT = 0;
 
 function NameLabel({ seat, background, foreground, accent, faded, onSelect }: { seat: RoomSeat; background: string; foreground: string; accent: string; faded: boolean; onSelect: (index: number) => void }) {
@@ -103,7 +104,7 @@ function Person({ seat, geometry, shirtGroups, scene, animations, color, faded, 
   });
   return <group onClick={(e) => { e.stopPropagation(); onSelect(seat.index); }}>
     <mesh ref={seated} geometry={geometry} position={[seat.x, SEATED_HEIGHT, seat.z + SEATED_FORWARD]} material={material} castShadow />
-    <group ref={group} visible={false} scale={0.92}><primitive object={model} /></group>
+    <group ref={group} visible={false} scale={PERSON_SCALE}><primitive object={model} /></group>
   </group>;
 }
 
@@ -133,7 +134,7 @@ export function RoomPeople({ seats, pulseMap, reduced, color, highlighted, onSel
       const colors = new Float32Array(positions.count * 3);
       const materials = Array.isArray(o.material) ? o.material : [o.material];
       for (let i = 0; i < positions.count; i++) {
-        const part = o.geometry.groups.find((group) => i >= group.start && i < group.start + group.count);
+        const part = o.geometry.groups.find((group: { start: number; count: number; materialIndex?: number }) => i >= group.start && i < group.start + group.count);
         const m = materials[part?.materialIndex ?? 0];
         const c = m instanceof THREE.MeshStandardMaterial ? m.color : new THREE.Color(1, 1, 1);
         colors.set([c.r, c.g, c.b], i * 3);
@@ -146,7 +147,7 @@ export function RoomPeople({ seats, pulseMap, reduced, color, highlighted, onSel
     });
     const merged = mergeGeometries(parts, true) ?? new THREE.BufferGeometry();
     parts.forEach((g) => g.dispose()); mixer.stopAllAction(); mixer.uncacheRoot(model);
-    merged.scale(0.92, 0.92, 0.92); merged.rotateY(Math.PI);
+    merged.scale(PERSON_SCALE, PERSON_SCALE, PERSON_SCALE); merged.rotateY(Math.PI);
     return { geometry: merged, shirtGroups };
   }, [scene, animations]);
   useEffect(() => () => geometry.dispose(), [geometry]);
