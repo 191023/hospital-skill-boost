@@ -21,5 +21,5 @@
 - [x] Furnish a cutaway room with walls, windows, desks and realistic chairs.
 - [x] Verify populated room, selection, arrival animation and small-screen layout.
 ## Rounded isometric attendees
-- [ ] Replace the old face with a rounded, friendly cartoon head without facial hair, preserving seated and walking poses.
-- [ ] Use an isometric room view and verify populated seating and close-up faces.
+- [x] Replace the old face with a rounded, friendly cartoon head without facial hair, preserving seated and walking poses.
+- [x] Use an isometric room view and verify populated seating and close-up faces.
