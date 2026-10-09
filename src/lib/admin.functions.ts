@@ -36,7 +36,7 @@ async function assertAdmin(context: { supabase: any; userId: string }) {
 
 export const createMember = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => member.parse(d))
+  .validator((d) => member.parse(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     return { id: await createOne(context.userId, data) };
@@ -44,7 +44,7 @@ export const createMember = createServerFn({ method: "POST" })
 
 export const importMembers = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ rows: z.array(member).min(1).max(500) }).parse(d))
+  .validator((d) => z.object({ rows: z.array(member).min(1).max(500) }).parse(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     const results: { email: string; ok: boolean; error?: string }[] = [];

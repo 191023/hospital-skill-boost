@@ -29,6 +29,13 @@
       "when": 1791549540274,
       "tag": "0003_staff_check_in_enrolled",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791563060577,
+      "tag": "0004_harden_files_and_report_totals",
+      "breakpoints": true
     }
   ]
 }

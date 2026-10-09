@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 
 // Public lookup by unguessable certificate number; returns only display-safe fields.
 export const verifyCert = createServerFn({ method: "GET" })
-  .inputValidator((d: { certNo: string }) => ({ certNo: String(d.certNo ?? "").slice(0, 64) }))
+  .validator((d: { certNo: string }) => ({ certNo: String(d.certNo ?? "").slice(0, 64) }))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: c } = await supabaseAdmin
