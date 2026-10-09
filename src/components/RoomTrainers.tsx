@@ -7,15 +7,15 @@ import learner from "@/assets/adult-learner.glb.asset.json";
 
 type TrainerColors = { uniform: string; white: string; dark: string; accent: string };
 
-// Bake the registered character's relaxed walking pose into a standing figure.
+// Bake the registered character's initial sit-entry pose into a standing figure.
 // All cloned materials and baked geometry belong to this presentation only.
 function Trainer({ role, x, colors }: { role: "doctor" | "nurse"; x: number; colors: TrainerColors }) {
   const { scene, animations } = useGLTF(learner.url);
   const geometry = useMemo(() => {
     const model = clone(scene);
     const mixer = new THREE.AnimationMixer(model);
-    const pose = animations.find((clip) => clip.name === "Walk_Loop");
-    if (pose) { mixer.clipAction(pose).play(); mixer.update(0.04); }
+    const pose = animations.find((clip) => clip.name === "Sitting_Enter");
+    if (pose) { mixer.clipAction(pose).play(); mixer.update(0); }
     model.updateMatrixWorld(true);
     const parts: THREE.BufferGeometry[] = [];
     model.traverse((object) => {
@@ -32,7 +32,7 @@ function Trainer({ role, x, colors }: { role: "doctor" | "nurse"; x: number; col
         if (object instanceof THREE.SkinnedMesh) object.applyBoneTransform(index, vertex);
         vertex.applyMatrix4(object.matrixWorld);
         positions.setXYZ(i, vertex.x, vertex.y, vertex.z);
-        const group = object.geometry.groups.find((g) => i >= g.start && i < g.start + g.count);
+        const group = object.geometry.groups.find((g: { start: number; count: number; materialIndex?: number }) => i >= g.start && i < g.start + g.count);
         const material = materials[group?.materialIndex ?? 0];
         let color = material instanceof THREE.MeshStandardMaterial ? material.color : new THREE.Color(colors.white);
         if (material?.name === "shirt") color = new THREE.Color(role === "doctor" ? colors.white : colors.uniform);
