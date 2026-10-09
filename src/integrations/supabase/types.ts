@@ -640,6 +640,10 @@ export type Database = {
           taken: number
         }[]
       }
+      staff_check_in: {
+        Args: { _course: string; _session?: string; _user: string }
+        Returns: Json
+      }
       submit_test: {
         Args: { _answers: Json; _course: string; _kind: string }
         Returns: Json

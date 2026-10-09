@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { Component, lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, Armchair, Camera, CheckCircle2, Clock3, Footprints, LayoutGrid, Minus, Monitor, Plus, RefreshCw, Search, Users, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -53,19 +54,31 @@ function RoomContent({ courseId }: { courseId: string }) {
     queryKey: ["training-room", courseId],
     refetchInterval: 10000,
     queryFn: async () => {
-      const [c, s, e, a] = await Promise.all([
+      const [c, s, e, a, permission] = await Promise.all([
         supabase.from("courses").select("id,title,training_year").eq("id", courseId).maybeSingle(),
         supabase.from("course_sessions").select("id,round_no,starts_at,ends_at,location,capacity").eq("course_id", courseId).order("round_no"),
         supabase.from("enrollments").select("user_id,session_id,created_at").eq("course_id", courseId).order("created_at").order("user_id"),
         supabase.from("attendance").select("user_id,session_id,checked_at,is_demo").eq("course_id", courseId),
+        supabase.rpc("can_edit_course", { _course: courseId }),
       ]);
-      for (const result of [c, s, e, a]) if (result.error) throw result.error;
+      for (const result of [c, s, e, a, permission]) if (result.error) throw result.error;
       const ids = [...new Set((e.data ?? []).map((row) => row.user_id))];
       const p = ids.length ? await supabase.from("profiles").select("id,full_name,division,department,position").in("id", ids) : { data: [], error: null };
       if (p.error) throw p.error;
       const profiles = new Map((p.data ?? []).map((row) => [row.id, row]));
-      return { course: c.data, sessions: s.data ?? [], enrollments: (e.data ?? []).map((row) => ({ ...row, profile: profiles.get(row.user_id) })), attendance: a.data ?? [] };
+      return { course: c.data, canCheckIn: permission.data === true, sessions: s.data ?? [], enrollments: (e.data ?? []).map((row) => ({ ...row, profile: profiles.get(row.user_id) })), attendance: a.data ?? [] };
     },
+  });
+  const checkIn = useMutation({
+    mutationFn: async ({ userId, roundId }: { userId: string; roundId: string | null }) => {
+      const { error } = await supabase.rpc("staff_check_in", { _course: courseId, _user: userId, ...(roundId ? { _session: roundId } : {}) });
+      if (error) throw error;
+    },
+    onSuccess: async () => {
+      toast.success("เช็คชื่อเข้าอบรมแล้ว");
+      await refetch();
+    },
+    onError: (error) => toast.error(error.message || "เช็คชื่อไม่สำเร็จ กรุณาลองอีกครั้ง"),
   });
   // เอฟเฟกต์เช็คชื่อใหม่: เทียบเวลาเช็คชื่อกับรอบก่อน แล้วส่งพัลส์ให้ที่นั่งของคนที่เพิ่งเช็ค (ข้ามข้อมูลจำลอง)
   useEffect(() => {
@@ -179,6 +192,10 @@ function RoomContent({ courseId }: { courseId: string }) {
           <h2 className="mt-1 font-bold">{chosen.attendee && <span role="img" aria-label={attendeeSymbol(chosen.attendee).label}>{attendeeSymbol(chosen.attendee).emoji} </span>}{chosen.attendee?.name ?? "ที่นั่งว่าง"}</h2>
           {chosen.attendee?.simulated && <p className="mt-1 text-xs text-amber">เช็คชื่อจำลอง</p>}
           {chosen.attendee && <><p className="mt-1 text-xs text-muted-foreground">{[chosen.attendee.division, chosen.attendee.department].filter(Boolean).join(" / ")}</p><p className={`mt-3 text-sm font-semibold ${chosen.attendee.checkedAt ? "text-mint" : "text-amber"}`}>{chosen.attendee.checkedAt ? "✓ เช็คชื่อแล้ว" : "รอเช็คชื่อ"}</p>{chosen.attendee.checkedAt && <p className="mt-1 text-xs text-muted-foreground">{new Date(chosen.attendee.checkedAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}</p>}</>}
+          {chosen.attendee && data.canCheckIn && <Button className="mt-3 w-full" disabled={checkIn.isPending || Boolean(chosen.attendee.checkedAt && !chosen.attendee.simulated)} onClick={() => {
+            if (!chosen.attendee || checkIn.isPending) return;
+            checkIn.mutate({ userId: chosen.attendee.userId, roundId: activeId === "unassigned" ? null : activeId });
+          }}><CheckCircle2 />{checkIn.isPending ? "กำลังเช็คชื่อ..." : chosen.attendee.checkedAt && !chosen.attendee.simulated ? "เช็คชื่อแล้ว" : "เช็คชื่อ"}</Button>}
         </div>}
         <h2 className="text-base font-bold">ผู้ลงทะเบียน <span className="text-sm text-muted-foreground">{filtered.length} คน</span></h2>
         <div className="relative mt-3"><Search className="absolute left-3 top-3 size-4 text-muted-foreground" /><input aria-label="ค้นหาผู้ลงทะเบียน" placeholder="ค้นหาชื่อ ฝ่าย หรือแผนก" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full rounded-lg border bg-card py-2.5 pl-9 pr-3 text-sm" /></div>

@@ -28,3 +28,4 @@
 - Room arrival detection compares attendance snapshots by user and session, skipping initial loads and demo rows; frame-driven aisle paths are presentation-only — preserves check-in rules and prevents replay on polling.
 - Prebundle the lazy 3D room dependencies alongside React in Vite optimizeDeps — prevents late discovery from replacing the React dependency graph on mounted preview pages.
 - Simulated check-ins are marked with attendance.is_demo and identified in the room and course report including exports — prevents demonstration data from being mistaken for real attendance.
+- Manual room attendance uses the `staff_check_in` DB function with `can_edit_course` authorization and enrollment/session validation; repeated check-ins retain the original timestamp — keeps staff actions secure and attendance idempotent without changing QR behavior.
