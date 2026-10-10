@@ -50,3 +50,10 @@
 
 ## Picker, full screen, dancing trainers
 - [x] Random no-repeat draw of real checked-in attendees per round, full-screen view, trainers dance on draw.
+
+## Pre-launch review fixes
+- [x] Per-course switches for pre-test, post-test, survey and certificate.
+- [x] Member history loads in pages instead of cutting off at 1,000.
+- [x] Split course editor, remove unchecked type casts.
+- [ ] Clear demo data and personal-data export before go-live (waiting on user).
+- [ ] Rerun security scan (user, from Security tab).

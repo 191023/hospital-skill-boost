@@ -27,4 +27,8 @@ describe("server-side training rules", () => {
     expect(sql).toMatch(/report_overview[\s\S]*is_staff\(auth\.uid\(\)\)/);
     expect(sql).toMatch(/report_rows[\s\S]*is_staff\(auth\.uid\(\)\)/);
   });
+  it("issues certificates only through the server-side requirement check", () => {
+    expect(sql).toMatch(/try_issue_certificate[\s\S]*issue_certificate[\s\S]*require_posttest[\s\S]*require_survey/);
+    expect(sql).toMatch(/test disabled for this course/);
+  });
 });
