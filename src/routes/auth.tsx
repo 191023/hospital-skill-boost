@@ -61,6 +61,15 @@ function AuthPage() {
     }
   }
 
+  async function forgot() {
+    if (!f.email) { toast.error("กรุณากรอกอีเมลก่อน แล้วกด ลืมรหัสผ่าน อีกครั้ง"); return; }
+    setBusy(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(f.email, { redirectTo: `${window.location.origin}/reset-password` });
+    setBusy(false);
+    if (error) toast.error(error.message);
+    else toast.success("ส่งลิงก์ตั้งรหัสผ่านใหม่ไปที่อีเมลแล้ว");
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -108,6 +117,11 @@ function AuthPage() {
           <button disabled={busy} className="w-full rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground shadow-brand disabled:opacity-60">
             {busy ? "กำลังดำเนินการ..." : mode === "in" ? "เข้าสู่ระบบ" : "สมัครสมาชิก"}
           </button>
+          {mode === "in" && (
+            <button type="button" onClick={forgot} disabled={busy} className="w-full text-center text-xs text-muted-foreground hover:text-primary">
+              ลืมรหัสผ่าน?
+            </button>
+          )}
         </form>
         <div className="mt-4 flex items-center gap-3 text-xs text-muted-foreground">
           <div className="h-px flex-1 bg-border" />

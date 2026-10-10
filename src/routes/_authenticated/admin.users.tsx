@@ -78,6 +78,12 @@ function Users() {
     );
   }
 
+  async function sendReset(email: string) {
+    if (!confirm(`ส่งลิงก์ตั้งรหัสผ่านใหม่ไปที่ ${email} ?`)) return;
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/reset-password` });
+    if (error) { toast.error(error.message); return; }
+    toast.success(`ส่งลิงก์รีเซ็ตไปที่ ${email} แล้ว`);
+  }
   async function setApproved(id: string, v: boolean) {
     const { error } = await supabase.from("profiles").update({ approved: v }).eq("id", id);
     if (error) { toast.error(error.message); return; }
@@ -168,6 +174,9 @@ function Users() {
                     <button onClick={() => setApproved(u.id, false)} className="rounded-full bg-mint/15 px-2 py-0.5 text-[11px] font-semibold text-mint">อนุมัติแล้ว</button>
                   ) : (
                     <button onClick={() => setApproved(u.id, true)} className="rounded-full bg-amber px-3 py-1 text-[11px] font-semibold text-primary-foreground">อนุมัติ</button>
+                  )}
+                  {u.email && (
+                    <button onClick={() => sendReset(u.email!)} className="mt-1 block text-[11px] font-semibold text-primary hover:underline">ส่งลิงก์รีเซ็ตรหัส</button>
                   )}
                 </td>
               </tr>
