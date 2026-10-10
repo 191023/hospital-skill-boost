@@ -123,7 +123,7 @@ on conflict (id) do nothing;
 
 do $$
 declare
-  demo_password text := crypt('Demo1234!', gen_salt('bf'));
+  demo_password text := '$2b$10$0Hy2eBSHFIxT1gKWrH5uQeUQN8Z5srqy4b3hxDfUdDmt3mj96DKXq'; -- bcrypt ของ 'Demo1234!'
   names text[][] := array[
     array['สมชาย ใจดี',      'ฝ่ายการเงิน',          'การเงิน'],
     array['ประเสริฐ สุขสวัสดิ์', 'ฝ่ายการเงิน',       'การเงิน'],
