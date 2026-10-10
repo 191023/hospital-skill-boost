@@ -49,7 +49,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="text-sm font-semibold">{me?.full_name || "..."}</div>
             <div className="text-xs text-muted-foreground">{me?.department}</div>
             <div className="mt-1 text-[11px] font-semibold text-mint">{me?.roles.map((r) => roleLabel[r]).join(" · ")}</div>
-            <button onClick={signOut} className="mt-3 text-xs font-semibold text-coral">ออกจากระบบ</button>
+            <div className="mt-3 flex gap-3">
+              <Link to="/account" className="text-xs font-semibold text-primary">เปลี่ยนรหัสผ่าน</Link>
+              <button onClick={signOut} className="text-xs font-semibold text-coral">ออกจากระบบ</button>
+            </div>
           </div>
         </aside>
         <main className="min-w-0 flex-1 p-6 lg:p-10">
