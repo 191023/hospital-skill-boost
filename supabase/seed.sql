@@ -119,7 +119,7 @@ on conflict (id) do nothing;
 -- ---------- สมาชิกตัวอย่าง + การลงทะเบียน + การเช็คชื่อจำลอง ----------
 -- สร้างบัญชีตัวอย่าง 12 บัญชี (อีเมลสมมติ @overbrook.example.com ไม่มีอยู่จริง)
 -- รหัสผ่านตัวอย่างทุกบัญชี: Demo1234!  (เปลี่ยน/ลบได้หลังทดสอบ)
--- การเช็คชื่อทั้งหมดถูก标记เป็น is_demo = true เพื่อไม่ปนกับข้อมูลจริง
+-- การเช็คชื่อทั้งหมดถูกทำเครื่องหมายเป็น is_demo = true เพื่อไม่ปนกับข้อมูลจริง
 
 do $$
 declare
@@ -220,3 +220,6 @@ commit;
 --   select count(*) from public.questions;    -- 10
 --   select count(*) from public.survey_questions; -- 6
 --   select count(*) from public.course_sessions;  -- 3
+--   select count(*) from public.enrollments;  -- 15
+--   select count(*) from public.attendance where is_demo; -- 11
+--   select count(*) from public.profiles where email like '%@overbrook.example.com'; -- 12
