@@ -124,6 +124,7 @@ export function SurveyForm({ courseId, userId }: { courseId: string; userId: str
     if (error) { toast.error(error.message); return; }
     toast.success("ส่งแบบประเมินแล้ว");
     qc.invalidateQueries({ queryKey: ["survey-mine", courseId, userId] });
+    qc.invalidateQueries({ queryKey: ["course", courseId] });
   }
   return (
     <div className="glass rounded-3xl p-5">
