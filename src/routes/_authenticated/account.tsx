@@ -39,7 +39,7 @@ function Account() {
 
   return (
     <div className="max-w-md">
-      <PageHeader title="เปลี่ยนรหัสผ่าน" />
+      <PageHeader eyebrow="บัญชีของฉัน" title="เปลี่ยนรหัสผ่าน" />
       <form onSubmit={submit} className="glass space-y-3 rounded-3xl p-6">
         <input className={input} type="password" placeholder="รหัสผ่านเดิม" required value={f.current} onChange={(e) => setF({ ...f, current: e.target.value })} />
         <input className={input} type="password" placeholder="รหัสผ่านใหม่ (อย่างน้อย 6 ตัว)" minLength={6} required value={f.next} onChange={(e) => setF({ ...f, next: e.target.value })} />

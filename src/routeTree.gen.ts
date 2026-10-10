@@ -12,6 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedMyCoursesRouteImport } from './routes/_authenticated/my-courses'
 import { Route as JoinCourseIdRouteImport } from './routes/join.$courseId'
@@ -46,6 +48,16 @@ const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedAccountRoute = AuthenticatedAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
@@ -163,6 +175,8 @@ const AuthenticatedCoursesCourseIdTestKindRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/account': typeof AuthenticatedAccountRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/my-courses': typeof AuthenticatedMyCoursesRoute
   '/join/$courseId': typeof JoinCourseIdRoute
@@ -187,6 +201,8 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/account': typeof AuthenticatedAccountRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/my-courses': typeof AuthenticatedMyCoursesRoute
   '/join/$courseId': typeof JoinCourseIdRoute
@@ -213,6 +229,8 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/_authenticated/account': typeof AuthenticatedAccountRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/my-courses': typeof AuthenticatedMyCoursesRoute
   '/join/$courseId': typeof JoinCourseIdRoute
@@ -239,6 +257,8 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/reset-password'
+    | '/account'
     | '/dashboard'
     | '/my-courses'
     | '/join/$courseId'
@@ -263,6 +283,8 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/reset-password'
+    | '/account'
     | '/dashboard'
     | '/my-courses'
     | '/join/$courseId'
@@ -288,6 +310,8 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/reset-password'
+    | '/_authenticated/account'
     | '/_authenticated/dashboard'
     | '/_authenticated/my-courses'
     | '/join/$courseId'
@@ -314,6 +338,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   JoinCourseIdRoute: typeof JoinCourseIdRoute
   VerifyCertNoRoute: typeof VerifyCertNoRoute
   CheckinCourseIdCodeRoute: typeof CheckinCourseIdCodeRoute
@@ -341,6 +366,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/account': {
+      id: '/_authenticated/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof AuthenticatedAccountRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
@@ -486,6 +525,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAccountRoute: typeof AuthenticatedAccountRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedMyCoursesRoute: typeof AuthenticatedMyCoursesRoute
   AuthenticatedAdminAuditRoute: typeof AuthenticatedAdminAuditRoute
@@ -506,6 +546,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAccountRoute: AuthenticatedAccountRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedMyCoursesRoute: AuthenticatedMyCoursesRoute,
   AuthenticatedAdminAuditRoute: AuthenticatedAdminAuditRoute,
@@ -536,6 +577,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   JoinCourseIdRoute: JoinCourseIdRoute,
   VerifyCertNoRoute: VerifyCertNoRoute,
   CheckinCourseIdCodeRoute: CheckinCourseIdCodeRoute,
