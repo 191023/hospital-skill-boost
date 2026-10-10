@@ -6,8 +6,9 @@
 --
 -- หมายเหตุ:
 -- - ข้อมูลทั้งหมดเป็นข้อมูลสมมติ ไม่มีข้อมูลส่วนบุคคลจริง
--- - ไม่สร้างบัญชีผู้ใช้ (auth.users) — ให้สมัครสมาชิกผ่านหน้าเว็บ
---   แล้วผู้ดูแลคนแรกสามารถตั้งสิทธิ์ admin ด้วย SQL:
+-- - สร้างบัญชีสมาชิกตัวอย่าง 12 บัญชี (อีเมล @overbrook.example.com ไม่มีอยู่จริง)
+--   ต้องรันด้วยผู้ใช้ postgres (เจ้าของฐานข้อมูล)
+--   ผู้ดูแลคนแรกสมัครผ่านหน้าเว็บ แล้วตั้งสิทธิ์ admin ด้วย SQL:
 --     insert into public.user_roles (user_id, role)
 --     values ('<user-uuid>', 'admin');
 -- - สคริปต์นี้ idempotent: รันซ้ำได้โดยไม่เกิดข้อมูลซ้ำ
@@ -116,6 +117,102 @@ values
   ('44444444-4444-4444-8444-444444444403', 'e7b233f4-b927-4859-bc6e-e50ce9d81e5c', 1, '2026-11-12 09:00:00+07', '2026-11-12 11:00:00+07', 'ห้องอบรมฝ่ายเทคนิค', 20, 'CHEM-AM1')
 on conflict (id) do nothing;
 
+-- ---------- สมาชิกตัวอย่าง + การลงทะเบียน + การเช็คชื่อจำลอง ----------
+-- สร้างบัญชีตัวอย่าง 12 บัญชี (อีเมลสมมติ @overbrook.example.com ไม่มีอยู่จริง)
+-- รหัสผ่านตัวอย่างทุกบัญชี: Demo1234!  (เปลี่ยน/ลบได้หลังทดสอบ)
+-- การเช็คชื่อทั้งหมดถูกทำเครื่องหมายเป็น is_demo = true เพื่อไม่ปนกับข้อมูลจริง
+
+do $$
+declare
+  demo_password text := '$2b$10$0Hy2eBSHFIxT1gKWrH5uQeUQN8Z5srqy4b3hxDfUdDmt3mj96DKXq'; -- bcrypt ของ 'Demo1234!'
+  names text[][] := array[
+    array['สมชาย ใจดี',      'ฝ่ายการเงิน',          'การเงิน'],
+    array['ประเสริฐ สุขสวัสดิ์', 'ฝ่ายการเงิน',       'การเงิน'],
+    array['กมลรัตน์ แก้วใส',   'ฝ่ายการเงิน',          'การเงิน'],
+    array['ธนพล ชนะชัย',     'ฝ่ายการพยาบาล',        'ICU'],
+    array['วรากร ศรีสุข',     'ฝ่ายการพยาบาล',        'บริการเคลื่อนย้ายผู้ป่วย'],
+    array['จันทร์เพ็ญ วงศ์ใหญ่', 'ฝ่ายการพยาบาล',      'ผู้ป่วยนอก OPD B'],
+    array['ณัฐวุฒิ เพ็ชรดี',   'ฝ่ายเทคโนโลยีสารสนเทศ', 'วิศวกรรมคอมพิวเตอร์'],
+    array['สุภาพร มั่งมี',     'ฝ่ายเทคโนโลยีสารสนเทศ', 'เวชสถิติ'],
+    array['บุญญา ใจดี',       'ฝ่ายบัญชี',            'บัญชี'],
+    array['อรุณี สุขสวัสดิ์',  'ฝ่ายบัญชี',            'บัญชี'],
+    array['สายฟ้า ชนะชัย',    'ฝ่ายพัฒนาคุณภาพ',      'พัฒนาคุณภาพ'],
+    array['จิราภรณ์ ศรีสุข',   'ฝ่ายพัฒนาคุณภาพ',      'พัฒนาคุณภาพ']
+  ];
+  uid uuid;
+  i int;
+  demo_email text;
+begin
+  for i in 1..array_length(names, 1) loop
+    uid := ('d0000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid;
+    demo_email := 'demo.staff' || i || '@overbrook.example.com';
+
+    insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+      email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+    values (uid, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+      demo_email, demo_password, now(),
+      '{"provider":"email","providers":["email"]}'::jsonb,
+      jsonb_build_object('full_name', names[i][1]), now(), now())
+    on conflict (id) do nothing;
+
+    insert into auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+    values (uid, uid, demo_email,
+      jsonb_build_object('sub', uid::text, 'email', demo_email), 'email', now(), now(), now())
+    on conflict (id) do nothing;
+
+    insert into public.profiles (id, full_name, email, division, department, approved)
+    values (uid, names[i][1], demo_email, names[i][2], names[i][3], true)
+    on conflict (id) do nothing;
+
+    insert into public.user_roles (user_id, role)
+    values (uid, 'learner')
+    on conflict do nothing;
+  end loop;
+
+  -- ลงทะเบียน: คนที่ 1-6 เข้ารอบเช้าดับเพลิง, คนที่ 7-12 เข้ารอบบ่ายดับเพลิง
+  -- คนที่ 4-6 (พยาบาล) ลงทะเบียนหลักสูตรสารเคมีรอบ 1 เพิ่ม
+  for i in 1..12 loop
+    uid := ('d0000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid;
+    insert into public.enrollments (user_id, course_id, session_id)
+    values (uid, 'c319aeb6-c2da-4660-b5cd-35a9257ebab9',
+      case when i <= 6 then '44444444-4444-4444-8444-444444444401'
+           else '44444444-4444-4444-8444-444444444402' end)
+    on conflict do nothing;
+  end loop;
+
+  for i in 4..6 loop
+    uid := ('d0000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid;
+    insert into public.enrollments (user_id, course_id, session_id)
+    values (uid, 'e7b233f4-b927-4859-bc6e-e50ce9d81e5c', '44444444-4444-4444-8444-444444444403')
+    on conflict do nothing;
+  end loop;
+
+  -- เช็คชื่อจำลอง (is_demo = true): รอบเช้ามา 5 จาก 6 คน, รอบบ่ายมา 4 จาก 6 คน, สารเคมีมา 2 จาก 3 คน
+  for i in 1..5 loop
+    uid := ('d0000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid;
+    insert into public.attendance (user_id, course_id, session_id, checked_at, is_demo)
+    values (uid, 'c319aeb6-c2da-4660-b5cd-35a9257ebab9', '44444444-4444-4444-8444-444444444401',
+      '2026-11-05 09:00:00+07' + (i * interval '3 minutes'), true)
+    on conflict do nothing;
+  end loop;
+
+  for i in 7..10 loop
+    uid := ('d0000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid;
+    insert into public.attendance (user_id, course_id, session_id, checked_at, is_demo)
+    values (uid, 'c319aeb6-c2da-4660-b5cd-35a9257ebab9', '44444444-4444-4444-8444-444444444402',
+      '2026-11-05 13:00:00+07' + (i * interval '2 minutes'), true)
+    on conflict do nothing;
+  end loop;
+
+  for i in 4..5 loop
+    uid := ('d0000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid;
+    insert into public.attendance (user_id, course_id, session_id, checked_at, is_demo)
+    values (uid, 'e7b233f4-b927-4859-bc6e-e50ce9d81e5c', '44444444-4444-4444-8444-444444444403',
+      '2026-11-12 09:00:00+07' + (i * interval '4 minutes'), true)
+    on conflict do nothing;
+  end loop;
+end $$;
+
 commit;
 
 -- ตรวจผลหลังรัน:
@@ -124,3 +221,6 @@ commit;
 --   select count(*) from public.questions;    -- 10
 --   select count(*) from public.survey_questions; -- 6
 --   select count(*) from public.course_sessions;  -- 3
+--   select count(*) from public.enrollments;  -- 15
+--   select count(*) from public.attendance where is_demo; -- 11
+--   select count(*) from public.profiles where email like '%@overbrook.example.com'; -- 12
