@@ -77,10 +77,25 @@ function CoursePage() {
     });
   }, [data, me, courseId, qc]);
 
+  // Server re-checks every requirement; this only asks it to issue when the learner may be done.
+  const tried = useRef("");
+  useEffect(() => {
+    if (!data?.course || !data.enrolled || data.cert || !data.course.issue_certificate) return;
+    if (data.lessons.length && !data.allDone) return;
+    const key = `${data.done.size}-${data.posts.length}`;
+    if (tried.current === key) return;
+    tried.current = key;
+    supabase.rpc("try_issue_certificate", { _course: courseId }).then(({ data: id }) => {
+      if (id) { toast.success("ได้รับใบประกาศนียบัตรแล้ว 🎉"); qc.invalidateQueries({ queryKey: ["course", courseId] }); }
+    });
+  }, [data, courseId, qc]);
+
   if (isLoading || !data) return <div className="text-muted-foreground">กำลังโหลด...</div>;
   const { course, lessons, done, enrolled, pre, posts, cert, hasQuestions, allDone } = data;
   if (!course) return <div className="glass rounded-3xl p-10 text-center">ไม่พบหลักสูตร</div>;
-  const needPre = hasQuestions && !pre;
+  const usePre = hasQuestions && course.require_pretest;
+  const usePost = hasQuestions && course.require_posttest;
+  const needPre = usePre && !pre;
   const bestPost = posts.length ? Math.max(...posts.map((p) => Number(p.percent))) : undefined;
   const pct = lessons.length ? Math.round((lessons.filter((l) => done.has(l.id)).length / lessons.length) * 100) : 0;
 
@@ -107,7 +122,7 @@ function CoursePage() {
         <div className="glass rounded-3xl p-6">
           <h2 className="text-lg font-bold">เนื้อหาหลักสูตร</h2>
           <div className="mt-4 space-y-3">
-            {hasQuestions && (
+            {usePre && (
               <Step n="ก" title="แบบทดสอบก่อนเรียน (Pre-test)" sub={pre ? `ทำแล้ว · ${pre.score}/${pre.total} (${pre.percent}%)` : "วัดความรู้ก่อนเริ่มเรียน"}
                 badge={pre ? "เสร็จสิ้น" : "เริ่ม"} done={!!pre}
                 to={enrolled && !pre ? { kind: "pre" } : undefined} courseId={courseId} />
@@ -129,7 +144,7 @@ function CoursePage() {
               );
             })}
             {lessons.length === 0 && <div className="text-sm text-muted-foreground">ยังไม่มีบทเรียน</div>}
-            {hasQuestions && (
+            {usePost && (
               <Step n="ข" title="แบบทดสอบหลังเรียน (Post-test)"
                 sub={!allDone ? "เรียนให้ครบทุกบทก่อน" : bestPost !== undefined ? `คะแนนสูงสุด ${bestPost}% · ทำแล้ว ${posts.length} ครั้ง` : `ต้องได้อย่างน้อย ${course.pass_score}%`}
                 badge={cert ? "ผ่าน" : bestPost !== undefined ? "ทำใหม่" : "เริ่ม"} done={!!cert}
@@ -157,13 +172,15 @@ function CoursePage() {
               {cert ? (
                 <Link to="/certificates/$certId" params={{ certId: cert.id }} className="mt-4 block w-full rounded-xl bg-mint py-2.5 text-center text-sm font-semibold text-primary-foreground">ดูใบประกาศนียบัตร</Link>
               ) : (
-                <p className="mt-4 text-xs text-muted-foreground">เรียนครบทุกบท และสอบหลังเรียนได้ ≥ {course.pass_score}% เพื่อรับใบประกาศ</p>
+                <p className="mt-4 text-xs text-muted-foreground">{course.issue_certificate
+                  ? ["เรียนครบทุกบท", usePost && `สอบหลังเรียนได้ ≥ ${course.pass_score}%`, course.require_survey && "ตอบแบบประเมินหลักสูตร"].filter(Boolean).join(" · ") + " เพื่อรับใบประกาศ"
+                  : "หลักสูตรนี้ไม่มีการออกใบประกาศนียบัตร"}</p>
               )}
             </>
           )}
         </div>
         {enrolled && <SessionPicker courseId={courseId} current={data.sessionId} locked={data.attended} />}
-        {enrolled && me && <SurveyForm courseId={courseId} userId={me.id} />}
+        {enrolled && me && (!usePost || !course.require_survey || allDone) && <SurveyForm courseId={courseId} userId={me.id} />}
       </aside>
     </div>
   );

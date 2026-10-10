@@ -7,6 +7,8 @@ import { useMe } from "@/lib/auth";
 import { thaiDate } from "@/lib/data";
 import { PageHeader, Stat, Bar } from "@/components/AppShell";
 
+const NONE = "00000000-0000-0000-0000-000000000000";
+
 export const Route = createFileRoute("/_authenticated/admin/reports_/$courseId")({
   head: () => ({ meta: [
     { title: "รายงานรายหลักสูตร — โรงพยาบาลโอเวอร์บรุ๊ค" },
@@ -51,20 +53,20 @@ function CourseReport() {
       const lessonIds = (lessons ?? []).map((l) => l.id);
       const userIds = (enr ?? []).map((e) => e.user_id);
       const [{ data: profiles }, { data: prog }] = await Promise.all([
-        userIds.length ? supabase.from("profiles").select("id,full_name,email,division,department,position").in("id", userIds) : Promise.resolve({ data: [] as any[] }),
-        lessonIds.length && userIds.length ? supabase.from("lesson_progress").select("user_id,lesson_id").in("lesson_id", lessonIds) : Promise.resolve({ data: [] as any[] }),
+        supabase.from("profiles").select("id,full_name,email,division,department,position").in("id", userIds.length ? userIds : [NONE]),
+        supabase.from("lesson_progress").select("user_id,lesson_id").in("lesson_id", lessonIds.length && userIds.length ? lessonIds : [NONE]),
       ]);
-      const pmap = new Map((profiles ?? []).map((p: any) => [p.id, p]));
+      const pmap = new Map((profiles ?? []).map((p) => [p.id, p]));
       const rows: Row[] = (enr ?? []).map((e) => {
-        const p: any = pmap.get(e.user_id) ?? {};
+        const p = pmap.get(e.user_id);
         const a = (att ?? []).filter((x) => x.user_id === e.user_id);
         const pre = a.filter((x) => x.kind === "pre").map((x) => Number(x.percent));
         const post = a.filter((x) => x.kind === "post").map((x) => Number(x.percent));
         const cert = (certs ?? []).find((c) => c.user_id === e.user_id);
-        const done = new Set((prog ?? []).filter((x: any) => x.user_id === e.user_id).map((x: any) => x.lesson_id)).size;
+        const done = new Set((prog ?? []).filter((x) => x.user_id === e.user_id).map((x) => x.lesson_id)).size;
         const checkin = amap.get(`${e.user_id}:${e.session_id ?? ""}`);
         return {
-          name: p.full_name || "-", email: p.email || "", division: p.division || "ไม่ระบุ", department: p.department || "ไม่ระบุ", position: p.position || "",
+          name: p?.full_name || "-", email: p?.email || "", division: p?.division || "ไม่ระบุ", department: p?.department || "ไม่ระบุ", position: p?.position || "",
           enrolledAt: e.created_at, round: (e.session_id && smap.get(e.session_id)) || "ไม่ระบุรอบ", lessons: done, totalLessons: lessonIds.length,
           pre: pre.length ? pre[0]! : null, post: post.length ? Math.max(...post) : null,
           passed: !!cert, onsite: !!checkin, simulated: checkin?.is_demo ?? false, checkedAt: checkin?.checked_at ?? "", certNo: cert?.cert_no ?? "", issuedAt: cert?.issued_at ?? "",

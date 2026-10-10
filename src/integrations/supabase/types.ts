@@ -184,8 +184,12 @@ export type Database = {
           instructor_name: string | null
           instructor_signature_url: string | null
           instructor_title: string | null
+          issue_certificate: boolean
           pass_score: number
           published: boolean
+          require_posttest: boolean
+          require_pretest: boolean
+          require_survey: boolean
           title: string
           training_year: number
         }
@@ -205,8 +209,12 @@ export type Database = {
           instructor_name?: string | null
           instructor_signature_url?: string | null
           instructor_title?: string | null
+          issue_certificate?: boolean
           pass_score?: number
           published?: boolean
+          require_posttest?: boolean
+          require_pretest?: boolean
+          require_survey?: boolean
           title: string
           training_year?: number
         }
@@ -226,8 +234,12 @@ export type Database = {
           instructor_name?: string | null
           instructor_signature_url?: string | null
           instructor_title?: string | null
+          issue_certificate?: boolean
           pass_score?: number
           published?: boolean
+          require_posttest?: boolean
+          require_pretest?: boolean
+          require_survey?: boolean
           title?: string
           training_year?: number
         }
@@ -663,6 +675,7 @@ export type Database = {
         Args: { _answers: Json; _course: string; _kind: string }
         Returns: Json
       }
+      try_issue_certificate: { Args: { _course: string }; Returns: string }
     }
     Enums: {
       app_role: "admin" | "instructor" | "learner"
