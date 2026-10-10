@@ -36,6 +36,13 @@
       "when": 1791563060577,
       "tag": "0004_harden_files_and_report_totals",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791605536246,
+      "tag": "0005_course_requirement_settings",
+      "breakpoints": true
     }
   ]
 }
