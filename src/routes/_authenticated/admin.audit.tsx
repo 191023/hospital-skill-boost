@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { roleLabel, useMe, type Role } from "@/lib/auth";
@@ -23,32 +23,45 @@ const actionLabel: Record<string, string> = {
 };
 const fieldLabel: Record<string, string> = { full_name: "ชื่อ", division: "ฝ่าย", department: "แผนก", position: "ตำแหน่ง", email: "อีเมล" };
 
+const PAGE = 200;
+
 function Audit() {
   const { data: me } = useMe();
   const [fAction, setFAction] = useState("");
   const [q, setQ] = useState("");
-  const { data } = useQuery({
-    queryKey: ["audit"],
+  const { data: ps } = useQuery({
+    queryKey: ["audit-names"],
     enabled: !!me?.isAdmin,
-    queryFn: async () => {
-      const [{ data: logs }, { data: ps }] = await Promise.all([
-        supabase.from("member_audit_log").select("*").order("created_at", { ascending: false }).limit(1000),
-        supabase.from("profiles").select("id,full_name,email"),
-      ]);
-      const name = new Map((ps ?? []).map((p) => [p.id, p.full_name || p.email || ""]));
-      return (logs ?? []).map((l) => ({ ...l, actor: l.actor_id ? name.get(l.actor_id) ?? "-" : "ระบบ / ผู้สมัครเอง", target: l.target_id ? name.get(l.target_id) ?? "(ถูกลบ)" : "-" }));
-    },
+    queryFn: async () => (await supabase.from("profiles").select("id,full_name,email")).data ?? [],
   });
+  // Pages of PAGE rows; "load more" fetches older history instead of silently cutting it off.
+  const logs = useInfiniteQuery({
+    queryKey: ["audit", fAction],
+    enabled: !!me?.isAdmin,
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) => {
+      let q = supabase.from("member_audit_log").select("*").order("created_at", { ascending: false }).range(pageParam, pageParam + PAGE - 1);
+      if (fAction) q = q.eq("action", fAction);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data ?? [];
+    },
+    getNextPageParam: (last, all) => (last.length === PAGE ? all.length * PAGE : undefined),
+  });
+  const data = useMemo(() => {
+    const name = new Map((ps ?? []).map((p) => [p.id, p.full_name || p.email || ""]));
+    return (logs.data?.pages.flat() ?? []).map((l) => ({ ...l, actor: l.actor_id ? name.get(l.actor_id) ?? "-" : "ระบบ / ผู้สมัครเอง", target: l.target_id ? name.get(l.target_id) ?? "(ถูกลบ)" : "-" }));
+  }, [ps, logs.data]);
   const list = useMemo(() => {
     const t = q.trim().toLowerCase();
-    return (data ?? []).filter((l) => (!fAction || l.action === fAction) && (!t || `${l.actor} ${l.target}`.toLowerCase().includes(t)));
-  }, [data, fAction, q]);
+    return data.filter((l) => !t || `${l.actor} ${l.target}`.toLowerCase().includes(t));
+  }, [data, q]);
   if (!me?.isAdmin) return <div className="glass rounded-3xl p-10 text-center">เฉพาะผู้ดูแลระบบ</div>;
 
   function detail(l: { action: string; details: unknown }) {
-    const d = (l.details ?? {}) as Record<string, any>;
-    if (l.action === "updated") return Object.entries(d).map(([k, v]) => `${fieldLabel[k] ?? k}: "${v?.from ?? ""}" → "${v?.to ?? ""}"`).join(" · ");
-    if (l.action.startsWith("role_")) return roleLabel[d["role"] as Role] ?? d["role"];
+    const d = (l.details ?? {}) as Record<string, { from?: string; to?: string } | string | undefined>;
+    if (l.action === "updated") return Object.entries(d).map(([k, v]) => `${fieldLabel[k] ?? k}: "${typeof v === "object" ? v.from ?? "" : ""}" → "${typeof v === "object" ? v.to ?? "" : ""}"`).join(" · ");
+    if (l.action.startsWith("role_")) return roleLabel[d["role"] as Role] ?? String(d["role"] ?? "");
     return "";
   }
 
@@ -79,6 +92,13 @@ function Audit() {
           </tbody>
         </table>
       </div>
+      {logs.hasNextPage && (
+        <div className="mt-4 text-center">
+          <button onClick={() => logs.fetchNextPage()} disabled={logs.isFetchingNextPage} className="glass rounded-full px-5 py-2 text-sm font-semibold text-primary disabled:opacity-60">
+            {logs.isFetchingNextPage ? "กำลังโหลด..." : "โหลดประวัติเก่าเพิ่ม"}
+          </button>
+        </div>
+      )}
     </>
   );
 }
