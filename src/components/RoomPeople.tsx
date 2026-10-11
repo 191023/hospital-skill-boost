@@ -120,7 +120,7 @@ function Person({ seat, geometry, shirtGroups, scene, animations, color, faded, 
 }
 
 export function RoomPeople({ seats, pulseMap, reduced, color, highlighted, onSelect, shirts, labelBackground, labelForeground }: { seats: RoomSeat[]; pulseMap: Record<string, number>; reduced: boolean; color: string; fadedColor: string; highlighted: Set<string>; onSelect: (index: number) => void; shirts: Record<string, string>; labelBackground: string; labelForeground: string }) {
-  const { scene, animations } = useGLTF(humanAsset.url);
+  const { scene, animations } = useGLTF(humanUrl);
   const { geometry, shirtGroups } = useMemo(() => {
     const model = clone(scene); const mixer = new THREE.AnimationMixer(model);
     const clip = animations.find((a) => a.name === "Sitting_Idle_Loop");

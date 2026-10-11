@@ -137,7 +137,7 @@ function Seating({ seats, selected, onSelect, highlighted, palette, reduced, pul
   const heights = useRef<number[]>([]);
   const bounces = useRef(new Map<string, { pulse: number; t: number }>());
   const dummy = useMemo(() => new THREE.Object3D(), []);
-  const { scene } = useGLTF(chairAsset.url);
+  const { scene } = useGLTF(chairUrl);
   const geometry = useMemo(() => {
     const source = scene.clone(true); source.updateMatrixWorld(true);
     const parts: THREE.BufferGeometry[] = [];
