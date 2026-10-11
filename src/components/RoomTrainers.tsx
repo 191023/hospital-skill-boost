@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import learner from "@/assets/adult-learner.glb.asset.json";
+import learnerUrl from "@/assets/adult-learner.glb?url";
 
 type TrainerColors = { uniform: string; white: string; dark: string; accent: string };
 

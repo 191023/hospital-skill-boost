@@ -1,9 +1,9 @@
 import { useGLTF } from "@react-three/drei";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import desk from "@/assets/training-desk.glb.asset.json";
-import plant from "@/assets/training-plant.glb.asset.json";
-import windowAsset from "@/assets/training-window.glb.asset.json";
+import deskUrl from "@/assets/training-desk.glb?url";
+import plantUrl from "@/assets/training-plant.glb?url";
+import windowUrl from "@/assets/training-window.glb?url";
 import { RoomWallFade } from "./RoomWallFade";
 
 function Furniture({ url, height, position, rotation = 0, frame }: { url: string; height: number; position: [number, number, number]; rotation?: number; frame?: string }) {

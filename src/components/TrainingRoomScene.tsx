@@ -4,7 +4,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { roomDivisionTokens, type RoomSeat } from "@/lib/training-room";
-import chairAsset from "@/assets/training-chair.asset.json";
+import chairUrl from "@/assets/chair.glb?url";
 import { RoomPeople } from "./RoomPeople";
 import { RoomFurniture, type RoomFinishes } from "./RoomFurniture";
 import { RoomWallFade } from "./RoomWallFade";
