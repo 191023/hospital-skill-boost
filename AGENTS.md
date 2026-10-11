@@ -33,3 +33,5 @@
 - Manual room attendance uses the `staff_check_in` DB function with `can_edit_course` authorization and enrollment/session validation; repeated check-ins retain the original timestamp — keeps staff actions secure and attendance idempotent without changing QR behavior.
 - Per-course step switches (pre/post-test, survey, certificate) live on `courses`; certificates are issued only by the `try_issue_certificate` DB function (also called from `submit_test`) — keeps completion rules server-side.
 - The course editor's tabs live in `src/components/course-editor/` — keeps the route file small.
+
+- 3D room models are real binary files in src/assets imported with `?url` (not lovable-assets .asset.json pointers) — keeps the GitHub repo self-contained for local installs.
