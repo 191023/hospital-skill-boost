@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import humanAsset from "@/assets/adult-learner.glb.asset.json";
+import humanUrl from "@/assets/adult-learner.glb?url";
 import { arrivalPath, roomFirstName, type RoomSeat } from "@/lib/training-room";
 
 type PersonProps = { seat: RoomSeat; geometry: THREE.BufferGeometry; shirtGroups: number[]; scene: THREE.Group; animations: THREE.AnimationClip[]; color: string; faded: boolean; pulse: number; delay: number; back: number; reduced: boolean; onSelect: (index: number) => void };
@@ -120,7 +120,7 @@ function Person({ seat, geometry, shirtGroups, scene, animations, color, faded, 
 }
 
 export function RoomPeople({ seats, pulseMap, reduced, color, highlighted, onSelect, shirts, labelBackground, labelForeground }: { seats: RoomSeat[]; pulseMap: Record<string, number>; reduced: boolean; color: string; fadedColor: string; highlighted: Set<string>; onSelect: (index: number) => void; shirts: Record<string, string>; labelBackground: string; labelForeground: string }) {
-  const { scene, animations } = useGLTF(humanAsset.url);
+  const { scene, animations } = useGLTF(humanUrl);
   const { geometry, shirtGroups } = useMemo(() => {
     const model = clone(scene); const mixer = new THREE.AnimationMixer(model);
     const clip = animations.find((a) => a.name === "Sitting_Idle_Loop");

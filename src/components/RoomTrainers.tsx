@@ -4,14 +4,14 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import learner from "@/assets/adult-learner.glb.asset.json";
+import learnerUrl from "@/assets/adult-learner.glb?url";
 
 type TrainerColors = { uniform: string; white: string; dark: string; accent: string };
 
 // Bake the registered character's initial sit-entry pose into a standing figure.
 // All cloned materials and baked geometry belong to this presentation only.
 function Trainer({ role, x, colors, celebrate, reduced }: { role: "doctor" | "nurse"; x: number; colors: TrainerColors; celebrate: number; reduced: boolean }) {
-  const { scene, animations } = useGLTF(learner.url);
+  const { scene, animations } = useGLTF(learnerUrl);
   const geometry = useMemo(() => {
     const model = clone(scene);
     const mixer = new THREE.AnimationMixer(model);
