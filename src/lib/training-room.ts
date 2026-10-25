@@ -27,7 +27,15 @@ export const roomDivisionTokens: Record<string, string> = {
 };
 
 export function roomFirstName(fullName: string) {
-  return fullName.trim().replace(/^(?:(?:นาย|นางสาว|นาง|น\.ส\.|นพ\.|พญ\.|ดร\.|Mr\.|Mrs\.|Ms\.)\s*)+/i, "").split(/\s+/)[0] || "ไม่ระบุชื่อ";
+  const trimmed = fullName.trim();
+  if (!trimmed) return "ไม่ระบุชื่อ";
+
+  const posMatch = trimmed.match(/^(พว\.|จพ\.|ทนพ\.)\s*([^\s]+)/i);
+  if (posMatch) {
+    return `${posMatch[1]}${posMatch[2]}`;
+  }
+
+  return trimmed.replace(/^(?:(?:นาย|นางสาว|นาง|น\.ส\.|นพ\.|พญ\.|ดร\.|Mr\.|Mrs\.|Ms\.)\s*)+/i, "").split(/\s+/)[0] || "ไม่ระบุชื่อ";
 }
 
 export type RoomAttendanceSnapshot = { user_id: string; session_id: string | null; checked_at: string | null; is_demo: boolean };
@@ -93,3 +101,63 @@ export function matchesAttendee(person: RoomAttendee, search: string, status: st
     (status === "all" || (status === "checked" ? !!person.checkedAt : !person.checkedAt)) &&
     (division === "all" || person.division === division);
 }
+
+export type CountdownInfo = {
+  nowText: string;
+  state: "none" | "upcoming" | "in_progress" | "finished";
+  label: string;
+  badge: string;
+  percent: number;
+  remainingText: string;
+};
+
+export function getCountdownInfo(startsAt: string | null, endsAt: string | null, now = Date.now()): CountdownInfo {
+  const d = new Date(now);
+  const nowText = d.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "Asia/Bangkok" }) + " น.";
+  if (!startsAt) {
+    return { nowText, state: "none", label: "ยังไม่กำหนดเวลาอบรม", badge: "รอเวลา", percent: 0, remainingText: "" };
+  }
+  const start = new Date(startsAt).getTime();
+  const end = endsAt ? new Date(endsAt).getTime() : start + 3 * 3600 * 1000;
+  if (now < start) {
+    const diff = Math.max(0, start - now);
+    const h = Math.floor(diff / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    const s = Math.floor((diff % 60000) / 1000);
+    const timeStr = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    return {
+      nowText,
+      state: "upcoming",
+      label: `เริ่มอบรมในอีก ${timeStr}`,
+      badge: "เร็วๆ นี้",
+      percent: 0,
+      remainingText: timeStr,
+    };
+  }
+  if (now <= end) {
+    const diff = Math.max(0, end - now);
+    const total = Math.max(1, end - start);
+    const elapsed = now - start;
+    const percent = Math.min(100, Math.max(0, Math.round((elapsed / total) * 100)));
+    const h = Math.floor(diff / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    const s = Math.floor((diff % 60000) / 1000);
+    const timeStr = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    return {
+      nowText,
+      state: "in_progress",
+      label: `กำลังอบรม (เหลือ ${timeStr})`,
+      badge: "กำลังดำเนินอยู่",
+      percent,
+      remainingText: timeStr,
+    };
+  }
+  return {
+    nowText,
+    state: "finished",
+    label: "สิ้นสุดการอบรมแล้ว",
+    badge: "เสร็จสิ้น",
+    percent: 100,
+    remainingText: "00:00:00",
+  };
+}

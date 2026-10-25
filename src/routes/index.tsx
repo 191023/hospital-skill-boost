@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import hero from "@/assets/hero.jpg";
 import { Blobs, Brand } from "@/components/Brand";
+import { Medical3DBackground } from "@/components/Medical3DBackground";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -19,6 +20,7 @@ export const Route = createFileRoute("/")({
 function Landing() {
   return (
     <div className="relative min-h-screen overflow-hidden bg-page">
+      <Medical3DBackground />
       <Blobs />
       <header className="relative mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
         <Brand />

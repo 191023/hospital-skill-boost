@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useMe } from "@/lib/auth";
 
 export const Route = createFileRoute("/_authenticated/courses/$courseId/test/$kind")({
   head: () => ({ meta: [
@@ -21,6 +22,7 @@ type Result = { score: number; total: number; percent: number; passed: boolean; 
 function TestPage() {
   const { courseId, kind } = Route.useParams();
   const qc = useQueryClient();
+  const { data: me } = useMe();
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [result, setResult] = useState<Result | null>(null);
   const [busy, setBusy] = useState(false);
@@ -28,7 +30,35 @@ function TestPage() {
     queryKey: ["test", courseId],
     queryFn: async () => (await supabase.rpc("get_test_questions", { _course: courseId })).data ?? [],
   });
+  const { data: access } = useQuery({
+    queryKey: ["test-access", courseId, me?.id],
+    enabled: !!me,
+    queryFn: async () => {
+      const [{ data: sess }, { data: att }] = await Promise.all([
+        supabase.from("course_sessions").select("id").eq("course_id", courseId).limit(1),
+        supabase.from("attendance").select("id").eq("course_id", courseId).eq("user_id", me!.id).limit(1),
+      ]);
+      const hasSessions = (sess ?? []).length > 0;
+      const checkedIn = !hasSessions || (att ?? []).length > 0;
+      return { hasSessions, checkedIn };
+    },
+  });
   const title = kind === "pre" ? "แบบทดสอบก่อนเรียน" : "แบบทดสอบหลังเรียน";
+
+  if (kind === "post" && access && !access.checkedIn) {
+    return (
+      <div className="glass mx-auto max-w-lg rounded-3xl p-8 text-center space-y-4">
+        <div className="text-4xl">🔒</div>
+        <h2 className="text-xl font-bold">รอเช็คชื่อเข้าห้องอบรม</h2>
+        <p className="text-sm text-muted-foreground">
+          หลักสูตรนี้ต้องสแกน QR Code เช็คชื่อเข้าห้องอบรมก่อน จึงจะสามารถทำแบบทดสอบหลังเรียน (Post-test) ได้
+        </p>
+        <Link to="/courses/$courseId" params={{ courseId }} className="inline-block rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground">
+          กลับหน้าหลักสูตร
+        </Link>
+      </div>
+    );
+  }
 
   async function submit() {
     if (Object.keys(answers).length < qs.length) { toast.error("กรุณาตอบให้ครบทุกข้อ"); return; }

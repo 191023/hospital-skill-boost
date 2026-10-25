@@ -5,7 +5,7 @@ export const btn = "rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-p
 
 export async function uploadCourseFile(file: File, courseId: string) {
   const path = `${courseId}/${Date.now()}-${file.name.replace(/[^\w.-]/g, "_")}`;
-  const { error } = await supabase.storage.from("course-files").upload(path, file);
+  const { error } = await supabase.storage.from("course-files").upload(path, file, { upsert: true });
   if (error) throw error;
   return path;
 }

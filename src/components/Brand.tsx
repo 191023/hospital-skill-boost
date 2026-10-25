@@ -12,10 +12,16 @@ export function Blobs() {
   );
 }
 
-export function Brand() {
+import logo from "@/assets/obh-logo.png";
+
+export function Brand({ showLogo = true }: { showLogo?: boolean }) {
   return (
     <div className="flex items-center gap-3">
-      <div className="grid size-10 place-items-center rounded-2xl bg-brand-gradient text-lg font-bold text-primary-foreground shadow-brand">อ</div>
+      {showLogo ? (
+        <img src={logo} alt="โรงพยาบาลโอเวอร์บรุ๊ค" className="size-10 object-contain drop-shadow-sm" width={40} height={40} />
+      ) : (
+        <div className="grid size-10 place-items-center rounded-2xl bg-brand-gradient text-lg font-bold text-primary-foreground shadow-brand">อ</div>
+      )}
       <div>
         <div className="text-sm font-bold leading-tight">โรงพยาบาลโอเวอร์บรุ๊ค</div>
         <div className="text-[11px] text-primary-deep/70">ศูนย์พัฒนาศักยภาพบุคลากร</div>

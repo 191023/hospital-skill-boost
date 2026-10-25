@@ -23,13 +23,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   const items: { to: string; label: string; icon: string; show: boolean }[] = [
     { to: "/dashboard", label: "แดชบอร์ด", icon: "◈", show: true },
     { to: "/courses", label: "หลักสูตรทั้งหมด", icon: "▤", show: true },
+    { to: "/calendar", label: "ปฏิทินการอบรม", icon: "📅", show: true },
     { to: "/my-courses", label: "หลักสูตรของฉัน", icon: "▶", show: true },
     { to: "/certificates", label: "ใบประกาศ", icon: "▣", show: true },
     { to: "/manage", label: "จัดการหลักสูตร", icon: "✎", show: !!me?.isStaff },
     { to: "/admin/reports", label: "สรุปผลอบรม", icon: "▥", show: !!me?.isStaff },
-    { to: "/admin/users", label: "จัดการสมาชิก", icon: "⚙", show: !!me?.isAdmin },
+    { to: "/admin/users", label: "จัดการสมาชิก", icon: "👥", show: !!me?.isAdmin },
     { to: "/admin/qr", label: "QR Code", icon: "▦", show: !!me?.isStaff },
     { to: "/admin/audit", label: "ประวัติสมาชิก", icon: "◷", show: !!me?.isAdmin },
+    { to: "/manage-team", label: "ทีมของฉัน", icon: "⚑", show: !!me?.isTeamManager },
+    { to: "/admin/org", label: "โครงสร้างองค์กร", icon: "⌗", show: !!me?.isAdmin },
+    { to: "/settings", label: "ตั้งค่าระบบ", icon: "⚙", show: true },
   ];
 
   return (
@@ -50,7 +54,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="text-xs text-muted-foreground">{me?.department}</div>
             <div className="mt-1 text-[11px] font-semibold text-mint">{me?.roles.map((r) => roleLabel[r]).join(" · ")}</div>
             <div className="mt-3 flex gap-3">
-              <Link to="/account" className="text-xs font-semibold text-primary">เปลี่ยนรหัสผ่าน</Link>
+              <Link to="/settings" className="text-xs font-semibold text-primary">ตั้งค่า / บัญชี</Link>
               <button onClick={signOut} className="text-xs font-semibold text-coral">ออกจากระบบ</button>
             </div>
           </div>

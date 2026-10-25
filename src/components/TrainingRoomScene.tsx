@@ -9,6 +9,8 @@ import { RoomPeople } from "./RoomPeople";
 import { RoomFurniture, type RoomFinishes } from "./RoomFurniture";
 import { RoomWallFade } from "./RoomWallFade";
 import { RoomTrainers } from "./RoomTrainers";
+import { OfficeEnvironment, OfficeDesks, type OfficeFinishes, type OfficeTones } from "./RoomOffice";
+import { RoomOfficePeople } from "./RoomOfficePeople";
 
 type Palette = { background: string; floor: string; line: string; checked: string; waiting: string; empty: string; selected: string; white: string; foreground: string; shirts: Record<string, string>; finishes: RoomFinishes };
 export type RoomStats = { registered: number; checked: number; waiting: number; free: number | string };
@@ -17,7 +19,7 @@ type Props = {
   seats: RoomSeat[]; selected: number | null; onSelect: (index: number) => void; highlighted: Set<string>;
   view: "angle" | "top"; zoom: number; roomName: string; date: string; round: string; courseTitle: string;
   kiosk: boolean; walk: boolean; focus: RoomFocus; pulseMap: Record<string, number>;
-  stats: RoomStats; updatedLabel: string; celebrate?: number;
+  stats: RoomStats; updatedLabel: string; countdownText?: string; celebrate?: number; theme?: "hall" | "office";
 };
 
 function readPalette(): Palette {
@@ -51,46 +53,12 @@ function SessionSign({ palette, roomName, date, round, courseTitle }: Props & { 
     const t = new THREE.CanvasTexture(canvas); t.colorSpace = THREE.SRGBColorSpace; return t;
   }, [palette, roomName, date, round, courseTitle]);
   useEffect(() => () => texture.dispose(), [texture]);
-  return <mesh name="fixed-session-board" position={[0, 2.35, -3.635]}>
+  return <mesh name="fixed-session-board" position={[0, 2.35, -3.61]} renderOrder={10}>
     <planeGeometry args={[7.9, 1.975]} />
     <meshBasicMaterial map={texture} toneMapped={false} />
   </mesh>;
 }
 
-function StatsBoard({ palette, stats, updatedLabel, z }: { palette: Palette; stats: RoomStats; updatedLabel: string; z: number }) {
-  const texture = useMemo(() => {
-    const canvas = document.createElement("canvas"); canvas.width = 512; canvas.height = 300;
-    const ctx = canvas.getContext("2d");
-    if (ctx) {
-      ctx.fillStyle = palette.white;
-      ctx.beginPath(); ctx.roundRect(0, 0, 512, 300, 26); ctx.fill();
-      ctx.textBaseline = "middle";
-      ctx.fillStyle = palette.selected; ctx.font = 'bold 36px "IBM Plex Sans Thai", sans-serif'; ctx.textAlign = "left";
-      ctx.fillText("สรุปรอบนี้", 40, 54);
-      const rows: [string, string, string][] = [
-        ["ลงทะเบียน", String(stats.registered), palette.selected],
-        ["เช็คชื่อแล้ว", String(stats.checked), palette.checked],
-        ["รอเช็คชื่อ", String(stats.waiting), palette.waiting],
-        ["ที่นั่งว่าง", String(stats.free), palette.line],
-      ];
-      rows.forEach(([label, value, dot], i) => {
-        const y = 128 + i * 44;
-        ctx.fillStyle = dot; ctx.beginPath(); ctx.arc(52, y, 10, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = palette.selected; ctx.font = '30px "IBM Plex Sans Thai", sans-serif'; ctx.textAlign = "left";
-        ctx.fillText(label, 78, y, 280);
-        ctx.textAlign = "right"; ctx.font = 'bold 32px "IBM Plex Sans Thai", sans-serif';
-        ctx.fillText(value, 472, y, 140);
-      });
-      if (updatedLabel) {
-        ctx.fillStyle = palette.line; ctx.font = '24px "IBM Plex Sans Thai", sans-serif'; ctx.textAlign = "right";
-        ctx.fillText(updatedLabel, 472, 282, 420);
-      }
-    }
-    const t = new THREE.CanvasTexture(canvas); t.colorSpace = THREE.SRGBColorSpace; return t;
-  }, [palette, stats, updatedLabel]);
-  useEffect(() => () => texture.dispose(), [texture]);
-  return <sprite position={[5.6, 2.4, z]} scale={[2.7, 1.6, 1]}><spriteMaterial map={texture} depthTest={false} toneMapped={false} /></sprite>;
-}
 
 function PulseRing({ x, z, color, onDone }: { x: number; z: number; color: string; onDone: () => void }) {
   const ref = useRef<THREE.Mesh>(null);
@@ -137,6 +105,8 @@ function Seating({ seats, selected, onSelect, highlighted, palette, reduced, pul
   const heights = useRef<number[]>([]);
   const bounces = useRef(new Map<string, { pulse: number; t: number }>());
   const dummy = useMemo(() => new THREE.Object3D(), []);
+  const dummyColor = useMemo(() => new THREE.Color(), []);
+  const floorColor = useMemo(() => new THREE.Color(), []);
   const { scene } = useGLTF(chairUrl);
   const geometry = useMemo(() => {
     const source = scene.clone(true); source.updateMatrixWorld(true);
@@ -169,17 +139,47 @@ function Seating({ seats, selected, onSelect, highlighted, palette, reduced, pul
   useEffect(() => {
     scales.current = Array.from({ length: seats.length }, () => reduced ? 1 : 0.85);
     heights.current = seats.map(() => 0);
-  }, [seatKey, reduced]);
+    const mesh = ref.current;
+    if (mesh) {
+      seats.forEach((seat, i) => {
+        dummy.position.set(seat.x, 0, seat.z);
+        dummy.scale.setScalar(scales.current[i] ?? 1);
+        dummy.updateMatrix();
+        mesh.setMatrixAt(i, dummy.matrix);
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+    }
+  }, [seatKey, reduced, seats, dummy]);
+  useEffect(() => {
+    const mesh = ref.current;
+    if (!mesh) return;
+    floorColor.set(palette.floor);
+    seats.forEach((seat, i) => {
+      const active = selected === seat.index || hovered === seat.index;
+      const visible = !seat.attendee || highlighted.has(seat.attendee.userId);
+      dummyColor.set(active ? palette.selected : seat.attendee ? (seat.attendee.checkedAt ? palette.checked : palette.waiting) : palette.empty);
+      if (!visible) dummyColor.lerp(floorColor, 0.8);
+      mesh.setColorAt(i, dummyColor);
+    });
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  }, [seats, selected, hovered, highlighted, palette, dummyColor, floorColor]);
+
   useFrame((_, rawDelta) => {
     const mesh = ref.current;
     if (!mesh) return;
     const dt = Math.min(rawDelta, 0.05);
+    let matrixChanged = false;
+
     seats.forEach((seat, i) => {
-      const active = selected === seat.index || hovered === seat.index;
-      const visible = !seat.attendee || highlighted.has(seat.attendee.userId);
       const target = 1;
-      scales.current[i] = reduced ? target : THREE.MathUtils.lerp(scales.current[i] ?? 0.01, target, 1 - Math.exp(-7 * dt));
-      heights.current[i] = 0;
+      const prevScale = scales.current[i] ?? 1;
+      const isScaling = prevScale < 0.999;
+      if (isScaling) {
+        scales.current[i] = reduced ? target : THREE.MathUtils.lerp(prevScale, target, 1 - Math.exp(-7 * dt));
+      } else {
+        scales.current[i] = target;
+      }
+
       const uid = seat.attendee?.userId;
       const pulse = uid ? pulseMap[uid] : 0;
       let bounce = uid ? bounces.current.get(uid) : undefined;
@@ -187,18 +187,21 @@ function Seating({ seats, selected, onSelect, highlighted, palette, reduced, pul
         bounce = { pulse, t: 0 }; bounces.current.set(uid, bounce);
       }
       if (bounce) bounce.t += dt;
-      const lift = !reduced && bounce && bounce.t < 0.8 ? Math.sin(bounce.t / 0.8 * Math.PI) * 0.18 : 0;
-      dummy.position.set(seat.x, heights.current[i] + lift, seat.z);
-      dummy.scale.setScalar(scales.current[i]);
-      dummy.updateMatrix();
-      mesh.setMatrixAt(i, dummy.matrix);
-      const color = new THREE.Color(active ? palette.selected : seat.attendee ? (seat.attendee.checkedAt ? palette.checked : palette.waiting) : palette.empty);
-      if (!visible) color.lerp(new THREE.Color(palette.floor), 0.8);
-      mesh.setColorAt(i, color);
+      const isBouncing = Boolean(!reduced && bounce && bounce.t < 0.8);
+      const lift = isBouncing && bounce ? Math.sin(bounce.t / 0.8 * Math.PI) * 0.18 : 0;
+
+      if (isScaling || isBouncing || Boolean(bounce && bounce.t < 1.0)) {
+        dummy.position.set(seat.x, lift, seat.z);
+        dummy.scale.setScalar(scales.current[i]);
+        dummy.updateMatrix();
+        mesh.setMatrixAt(i, dummy.matrix);
+        matrixChanged = true;
+      }
     });
-    mesh.instanceMatrix.needsUpdate = true;
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+
+    if (matrixChanged) mesh.instanceMatrix.needsUpdate = true;
   });
+
   const pick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
     const seat = e.instanceId == null ? null : seats[e.instanceId];
@@ -210,7 +213,6 @@ function Seating({ seats, selected, onSelect, highlighted, palette, reduced, pul
       onPointerMove={(e) => { const seat = e.instanceId == null ? null : seats[e.instanceId]; setHovered(seat?.index ?? null); }} onPointerOut={() => setHovered(null)}>
       <meshStandardMaterial roughness={0.36} metalness={0.08} />
     </instancedMesh>
-
   </>;
 }
 
@@ -220,8 +222,25 @@ function Room({ palette, reduced, ...props }: Props & { palette: Palette; reduce
   const center = depth / 2 - 2;
   const orbit = useRef(0);
   const look = useRef(new THREE.Vector3(0, 0, center));
-  const desired = useRef({ p: new THREE.Vector3(14, 14, center + 14), l: new THREE.Vector3(0, 0, center), zoom: 1 });
-  const baseZoom = Math.min(size.width / 20.5, size.height / (depth + 9)) * props.zoom;
+  const isOffice = props.theme === "office";
+  const widthSpan = isOffice ? 15.2 : 17.5;
+  const heightSpan = isOffice ? depth + 4.2 : depth + 6.2;
+  const baseZoom = Math.min(size.width / widthSpan, size.height / heightSpan) * props.zoom * (isOffice ? 1.38 : 1.18);
+  const desired = useRef<{ p: THREE.Vector3; l: THREE.Vector3; zoom: number }>({ p: new THREE.Vector3(14, 14, center + 14), l: new THREE.Vector3(0, 0, center), zoom: 1 });
+  const orbitPos = useMemo(() => new THREE.Vector3(), []);
+  const kioskProgress = useRef(1);
+  const kioskStartPos = useRef(new THREE.Vector3());
+  const smoothDt = useRef(0.01666);
+  const wasKiosk = useRef(false);
+
+  useEffect(() => {
+    if (props.kiosk && !wasKiosk.current && camera) {
+      kioskStartPos.current.copy(camera.position);
+      orbit.current = Math.atan2(camera.position.x, (camera.position.z - center) || 1);
+      kioskProgress.current = 0;
+    }
+    wasKiosk.current = props.kiosk;
+  }, [props.kiosk, camera, center]);
 
   useEffect(() => {
     if (!(camera instanceof THREE.OrthographicCamera) || props.walk || props.kiosk) return;
@@ -239,18 +258,42 @@ function Room({ palette, reduced, ...props }: Props & { palette: Palette; reduce
   useFrame((_, rawDelta) => {
     if (props.walk || !(camera instanceof THREE.OrthographicCamera)) return;
     const dt = Math.min(rawDelta, 0.05);
-    let target = desired.current;
-    if (props.kiosk && !reduced) {
-      orbit.current += dt * 0.22;
+
+    if (props.kiosk) {
+      // Smooth frame-to-frame delta variation to eliminate display refresh micro-jitter
+      smoothDt.current = THREE.MathUtils.lerp(smoothDt.current, dt, 0.08);
+      orbit.current += smoothDt.current * 0.18;
       const a = orbit.current;
-      target = { p: new THREE.Vector3(Math.sin(a) * 15, 11, center + Math.cos(a) * 13), l: new THREE.Vector3(0, 0.6, center), zoom: baseZoom };
+      const radius = 14;
+      orbitPos.set(Math.sin(a) * radius, 11, center + Math.cos(a) * radius);
+
+      if (kioskProgress.current < 1) {
+        kioskProgress.current = Math.min(1, kioskProgress.current + smoothDt.current * 1.2);
+        const t = kioskProgress.current;
+        const ease = t * t * (3 - 2 * t);
+        camera.position.lerpVectors(kioskStartPos.current, orbitPos, ease);
+      } else {
+        camera.position.copy(orbitPos);
+      }
+
+      look.current.set(0, 0.6, center);
+      camera.lookAt(look.current);
+
+      if (Math.abs(camera.zoom - baseZoom) > 0.002) {
+        camera.zoom = THREE.MathUtils.lerp(camera.zoom, baseZoom, 1 - Math.exp(-6 * dt));
+        camera.updateProjectionMatrix();
+      }
+      return;
     }
-    const k = reduced ? 1 : 1 - Math.exp(-3.5 * dt);
-    camera.position.lerp(target.p, k);
-    look.current.lerp(target.l, k);
+
+    const k = 1 - Math.exp(-6 * dt);
+    camera.position.lerp(desired.current.p, k);
+    look.current.lerp(desired.current.l, k);
     camera.lookAt(look.current);
-    camera.zoom = THREE.MathUtils.lerp(camera.zoom, target.zoom, k);
-    camera.updateProjectionMatrix();
+    if (Math.abs(camera.zoom - desired.current.zoom) > 0.005) {
+      camera.zoom = THREE.MathUtils.lerp(camera.zoom, desired.current.zoom, k);
+      camera.updateProjectionMatrix();
+    }
   });
 
   const texture = useMemo(() => {
@@ -266,32 +309,109 @@ function Room({ palette, reduced, ...props }: Props & { palette: Palette; reduce
     t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(12, depth + 5); return t;
   }, [palette, depth]);
   useEffect(() => () => texture.dispose(), [texture]);
+  const officeFinishes: OfficeFinishes = useMemo(() => ({
+    backdrop: palette.background,
+    floor: "#ecd8b8",
+    seam: "#d5bc95",
+    wall: "#f6f3ed",
+    baseboard: "#3e4249",
+    rug: "#273a5a",
+    rugBorder: "#f0f4f8",
+    wood: "#d8a368",
+    sofa: "#326c7e",
+    cushion: "#f5a742",
+    plant: "#48bb78",
+    pot: "#d97736",
+    screen: "#18202c",
+    skin: "#fcd6b5",
+    hair: "#3d2314",
+    trousers: "#2d3748",
+    laptop: "#79879c",
+    glow: "#68c5f5",
+  }), [palette.background]);
+
+  const officeTones: OfficeTones = useMemo(() => ({
+    primary: palette.selected,
+    checked: palette.checked,
+    waiting: palette.waiting,
+    empty: palette.empty,
+    white: palette.white,
+    foreground: palette.foreground,
+  }), [palette]);
+
   return <>
     <color attach="background" args={[palette.background]} />
-    <ambientLight intensity={0.6} />
-    <directionalLight position={[-5, 14, 8]} intensity={1.6} castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024}
-      shadow-camera-left={-14} shadow-camera-right={14} shadow-camera-top={14} shadow-camera-bottom={-14} shadow-bias={-0.001} />
+    <ambientLight intensity={isOffice ? 0.8 : 0.6} />
+    <directionalLight
+      position={isOffice ? [-3, 15, 6] : [-5, 14, 8]}
+      intensity={isOffice ? 1.8 : 1.6}
+      castShadow={!reduced}
+      shadow-mapSize-width={reduced ? 512 : 1024}
+      shadow-mapSize-height={reduced ? 512 : 1024}
+      shadow-camera-left={-14}
+      shadow-camera-right={14}
+      shadow-camera-top={14}
+      shadow-camera-bottom={-14}
+      shadow-bias={-0.001}
+    />
     <Environment resolution={64}>
       <Lightformer intensity={2} position={[0, 8, 0]} rotation-x={-Math.PI / 2} scale={[15, 15, 1]} />
       <Lightformer intensity={1} color={palette.finishes.light} position={[-10, 4, 0]} rotation-y={Math.PI / 2} scale={[10, 5, 1]} />
     </Environment>
-    <mesh rotation-x={-Math.PI / 2} position={[0, -0.04, center]} receiveShadow><planeGeometry args={[80, 80]} /><meshStandardMaterial color={palette.background} roughness={0.8} /></mesh>
-    <mesh rotation-x={-Math.PI / 2} position={[0, 0, center]} receiveShadow><planeGeometry args={[13.5, depth + 6.8]} /><meshStandardMaterial map={texture} color={palette.finishes.carpet} roughness={1} /></mesh>
-    <mesh position={[0, -0.12, center]} receiveShadow><boxGeometry args={[13.8, 0.2, depth + 7]} /><meshStandardMaterial color={palette.line} roughness={0.7} /></mesh>
-    <RoomWallFade side="front" reduced={reduced}><mesh position={[0, 1.9, -4]} receiveShadow><boxGeometry args={[13.8, 3.8, 0.18]} /><meshStandardMaterial color={palette.finishes.wall} roughness={0.85} /></mesh></RoomWallFade>
-    <RoomWallFade side="left" reduced={reduced}><mesh position={[-6.8, 0.25, center]} receiveShadow><boxGeometry args={[0.15, 0.5, depth + 7]} /><meshStandardMaterial color={palette.finishes.wall} roughness={0.7} /></mesh></RoomWallFade>
-    <mesh rotation-x={-Math.PI / 2} position={[0, 0.005, center + 1]}><planeGeometry args={[0.85, depth + 1]} /><meshStandardMaterial map={texture} color={palette.finishes.fabric} roughness={1} /></mesh>
-    <mesh position={[0, 0.16, -2.6]} receiveShadow castShadow><boxGeometry args={[9.8, 0.35, 1.8]} /><meshStandardMaterial color={palette.finishes.wood} roughness={0.6} /></mesh>
-    <mesh position={[0, 0.35, -1.72]}><boxGeometry args={[9.8, 0.08, 0.06]} /><meshStandardMaterial color={palette.selected} /></mesh>
-    <RoomWallFade side="front" reduced={reduced}><SessionSign {...props} palette={palette} /></RoomWallFade>
-    {!props.focus && <StatsBoard palette={palette} stats={props.stats} updatedLabel={props.updatedLabel} z={center} />}
-    {!reduced && <Pulses seats={props.seats} pulseMap={props.pulseMap} palette={palette} />}
-    <Suspense fallback={null}>
-      <RoomFurniture depth={depth} finishes={palette.finishes} reduced={reduced} />
-      <RoomTrainers white={palette.white} dark={palette.finishes.panel} doctor={palette.shirts["ฝ่ายการแพทย์"] ?? palette.selected} nurse={palette.checked} accent={palette.selected} celebrate={props.celebrate ?? 0} reduced={reduced} />
-      <Seating {...props} palette={palette} reduced={reduced} />
-      <RoomPeople seats={props.seats} pulseMap={props.pulseMap} reduced={reduced} color={palette.selected} fadedColor={palette.empty} highlighted={props.highlighted} onSelect={props.onSelect} shirts={palette.shirts} labelBackground={palette.white} labelForeground={palette.foreground} />
-    </Suspense>
+
+    {isOffice ? (
+      <>
+        <OfficeEnvironment
+          depth={depth}
+          seats={props.seats}
+          finishes={officeFinishes}
+          tones={officeTones}
+          stats={props.stats}
+          roomName={props.roomName}
+          round={props.round}
+          date={props.date}
+          courseTitle={props.courseTitle}
+          countdownText={props.countdownText}
+          reduced={reduced}
+        />
+        <Pulses seats={props.seats} pulseMap={props.pulseMap} palette={palette} />
+        <Suspense fallback={null}>
+          <OfficeDesks seats={props.seats} finishes={officeFinishes} tones={officeTones} />
+          <RoomOfficePeople
+            seats={props.seats}
+            highlighted={props.highlighted}
+            selected={props.selected}
+            pulseMap={props.pulseMap}
+            onSelect={props.onSelect}
+            shirts={palette.shirts}
+            finishes={officeFinishes}
+            tones={officeTones}
+            reduced={reduced}
+          />
+        </Suspense>
+      </>
+    ) : (
+      <>
+        <mesh raycast={() => null} rotation-x={-Math.PI / 2} position={[0, -0.04, center]} receiveShadow><planeGeometry args={[80, 80]} /><meshStandardMaterial color={palette.background} roughness={0.8} /></mesh>
+        <mesh raycast={() => null} rotation-x={-Math.PI / 2} position={[0, 0, center]} receiveShadow><planeGeometry args={[13.5, depth + 6.8]} /><meshStandardMaterial map={texture} color={palette.finishes.carpet} roughness={1} /></mesh>
+        <mesh raycast={() => null} position={[0, -0.12, center]} receiveShadow><boxGeometry args={[13.8, 0.2, depth + 7]} /><meshStandardMaterial color={palette.line} roughness={0.7} /></mesh>
+        <RoomWallFade side="front" reduced={reduced}>
+          <mesh raycast={() => null} position={[0, 1.9, -4]} receiveShadow><boxGeometry args={[13.8, 3.8, 0.18]} /><meshStandardMaterial color={palette.finishes.wall} roughness={0.85} /></mesh>
+          <SessionSign {...props} palette={palette} />
+        </RoomWallFade>
+        <RoomWallFade side="left" reduced={reduced}><mesh raycast={() => null} position={[-6.8, 0.25, center]} receiveShadow><boxGeometry args={[0.15, 0.5, depth + 7]} /><meshStandardMaterial color={palette.finishes.wall} roughness={0.7} /></mesh></RoomWallFade>
+        <mesh raycast={() => null} rotation-x={-Math.PI / 2} position={[0, 0.005, center + 1]}><planeGeometry args={[0.85, depth + 1]} /><meshStandardMaterial map={texture} color={palette.finishes.fabric} roughness={1} /></mesh>
+        <mesh raycast={() => null} position={[0, 0.16, -2.6]} receiveShadow castShadow={!reduced}><boxGeometry args={[9.8, 0.35, 1.8]} /><meshStandardMaterial color={palette.finishes.wood} roughness={0.6} /></mesh>
+        <mesh raycast={() => null} position={[0, 0.35, -1.72]}><boxGeometry args={[9.8, 0.08, 0.06]} /><meshStandardMaterial color={palette.selected} /></mesh>
+        <Pulses seats={props.seats} pulseMap={props.pulseMap} palette={palette} />
+        <Suspense fallback={null}>
+          <RoomFurniture depth={depth} finishes={palette.finishes} reduced={reduced} />
+          <RoomTrainers white={palette.white} dark={palette.finishes.panel} doctor={palette.shirts["ฝ่ายการแพทย์"] ?? palette.selected} nurse={palette.checked} accent={palette.selected} celebrate={props.celebrate ?? 0} reduced={reduced} />
+          <Seating {...props} palette={palette} reduced={reduced} />
+          <RoomPeople seats={props.seats} pulseMap={props.pulseMap} reduced={reduced} color={palette.selected} fadedColor={palette.empty} highlighted={props.highlighted} onSelect={props.onSelect} shirts={palette.shirts} labelBackground={palette.white} labelForeground={palette.foreground} />
+        </Suspense>
+      </>
+    )}
     {props.walk && <OrbitControls target={[0, 0.6, center]} enableDamping dampingFactor={0.08} minZoom={Math.max(0.4, baseZoom * 0.5)} maxZoom={baseZoom * 3.5} />}
   </>;
 }
@@ -299,6 +419,8 @@ function Room({ palette, reduced, ...props }: Props & { palette: Palette; reduce
 export default function TrainingRoomScene(props: Props) {
   const [palette, setPalette] = useState<Palette | null>(null);
   const [reduced, setReduced] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
+
   useEffect(() => {
     let cancelled = false;
     document.fonts.load('600 26px "IBM Plex Sans Thai"')
@@ -306,10 +428,37 @@ export default function TrainingRoomScene(props: Props) {
     const query = window.matchMedia("(prefers-reduced-motion: reduce)");
     setReduced(query.matches);
     const update = () => setReduced(query.matches);
-    query.addEventListener("change", update); return () => { cancelled = true; query.removeEventListener("change", update); };
+    query.addEventListener("change", update);
+
+    const onVisibilityChange = () => {
+      setIsVisible(document.visibilityState === "visible");
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      query.removeEventListener("change", update);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, []);
+
   if (!palette) return null;
-  return <Canvas orthographic shadows dpr={1} camera={{ position: [14, 14, 14], near: 0.1, far: 200 }} gl={{ antialias: true, preserveDrawingBuffer: true }}>
-    <Room {...props} palette={palette} reduced={reduced} />
-  </Canvas>;
+
+  return (
+    <Canvas
+      orthographic
+      frameloop={isVisible ? "always" : "never"}
+      shadows={reduced ? false : { type: THREE.PCFShadowMap }}
+      dpr={[1, typeof window !== "undefined" ? Math.min(window.devicePixelRatio || 1, 1.75) : 1]}
+      camera={{ position: [14, 14, 14], near: 0.1, far: 200 }}
+      gl={{
+        antialias: true,
+        preserveDrawingBuffer: true,
+        powerPreference: "high-performance",
+        toneMapping: THREE.ACESFilmicToneMapping,
+      }}
+    >
+      <Room {...props} palette={palette} reduced={reduced} />
+    </Canvas>
+  );
 }

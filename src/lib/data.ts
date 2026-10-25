@@ -3,16 +3,34 @@ import { supabase } from "@/integrations/supabase/client";
 
 export type CourseProgress = {
   id: string;
+  course_id: string;
+  user_id: string;
   title: string;
+  course_title: string;
   category: string | null;
   hours: number | null;
   cover_url: string | null;
   description: string | null;
   pass_score: number;
   training_year: number;
+  session_id: string | null;
+  round_no: number | null;
+  starts_at: string | null;
+  has_sessions: boolean;
+  require_pretest: boolean;
+  pre_done: boolean;
+  attended: boolean;
+  total_lessons: number;
+  lessons_done: number;
   lessonCount: number;
   done: number;
   pct: number;
+  require_posttest: boolean;
+  post_done: boolean;
+  require_survey: boolean;
+  survey_done: boolean;
+  issue_certificate: boolean;
+  has_cert: boolean;
   pre?: number | undefined;
   post?: number | undefined;
   passed: boolean;
@@ -24,45 +42,46 @@ export function useMyCourses(userId?: string) {
     queryKey: ["my-courses", userId],
     enabled: !!userId,
     queryFn: async (): Promise<CourseProgress[]> => {
-      const { data: enr } = await supabase
-        .from("enrollments")
-        .select("course_id, courses(id,title,category,hours,cover_url,description,pass_score,training_year, lessons(id))")
-        .eq("user_id", userId!);
-      const [{ data: prog }, { data: att }, { data: certs }] = await Promise.all([
-        supabase.from("lesson_progress").select("lesson_id").eq("user_id", userId!),
-        supabase.from("test_attempts").select("course_id,kind,percent,passed,created_at").eq("user_id", userId!).order("created_at"),
-        supabase.from("certificates").select("id,course_id").eq("user_id", userId!),
-      ]);
-      const doneSet = new Set((prog ?? []).map((p) => p.lesson_id));
-      return (enr ?? [])
-        .filter((e) => e.courses)
-        .map((e) => {
-          const c = e.courses!;
-          const lessons = (c.lessons ?? []) as { id: string }[];
-          const done = lessons.filter((l) => doneSet.has(l.id)).length;
-          const mine = (att ?? []).filter((a) => a.course_id === c.id);
-          const pre = mine.find((a) => a.kind === "pre");
-          const posts = mine.filter((a) => a.kind === "post");
-          const bestPost = posts.length ? Math.max(...posts.map((p) => Number(p.percent))) : undefined;
-          const cert = (certs ?? []).find((x) => x.course_id === c.id);
-          return {
-            id: c.id,
-            title: c.title,
-            category: c.category,
-            hours: c.hours,
-            cover_url: c.cover_url,
-            description: c.description,
-            pass_score: c.pass_score,
-            training_year: c.training_year,
-            lessonCount: lessons.length,
-            done,
-            pct: lessons.length ? Math.round((done / lessons.length) * 100) : 0,
-            pre: pre ? Number(pre.percent) : undefined,
-            post: bestPost,
-            passed: !!cert,
-            certId: cert?.id,
-          };
-        });
+      const { data, error } = await supabase.rpc("get_my_enrollments");
+      if (error || !data) return [];
+      return data.map((r) => {
+        const pct = r.total_lessons ? Math.round((r.lessons_done / r.total_lessons) * 100) : 0;
+        return {
+          id: r.course_id,
+          course_id: r.course_id,
+          user_id: userId!,
+          title: r.course_title,
+          course_title: r.course_title,
+          category: r.category,
+          hours: r.hours,
+          cover_url: r.cover_url,
+          description: r.description,
+          pass_score: r.pass_score,
+          training_year: r.training_year,
+          session_id: r.session_id,
+          round_no: r.round_no,
+          starts_at: r.starts_at,
+          has_sessions: r.has_sessions,
+          require_pretest: r.require_pretest,
+          pre_done: r.pre_done,
+          attended: r.attended,
+          total_lessons: r.total_lessons,
+          lessons_done: r.lessons_done,
+          lessonCount: r.total_lessons,
+          done: r.lessons_done,
+          pct,
+          require_posttest: r.require_posttest,
+          post_done: r.post_done,
+          require_survey: r.require_survey,
+          survey_done: r.survey_done,
+          issue_certificate: r.issue_certificate,
+          has_cert: r.has_cert,
+          pre: r.pre_score != null ? Number(r.pre_score) : undefined,
+          post: r.post_score != null ? Number(r.post_score) : undefined,
+          passed: r.has_cert,
+          certId: r.cert_id ?? undefined,
+        };
+      });
     },
   });
 }

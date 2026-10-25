@@ -2,13 +2,14 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Component, lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, Armchair, Camera, CheckCircle2, Clock3, Footprints, LayoutGrid, Maximize, Minimize, Minus, Monitor, Plus, RefreshCw, RotateCcw, Search, Shuffle, Users, X } from "lucide-react";
+import { createPortal } from "react-dom";
+import { ArrowLeft, Armchair, Camera, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Footprints, LayoutGrid, Maximize, Minimize, Minus, Monitor, Plus, RefreshCw, RotateCcw, Search, Shuffle, Sparkles, Timer, Users, X, UserCheck, UserX } from "lucide-react";
 import { pickOne, pickPool } from "@/lib/room-picker";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/lib/auth";
 import { sessionLabel } from "@/components/Sessions";
 import { Button } from "@/components/ui/button";
-import { attendeeSymbol, attendanceKey, detectRoomArrivals, roomDate, matchesAttendee, roomSeats, ROOM_PAGE_SIZE, type RoomAttendee } from "@/lib/training-room";
+import { attendeeSymbol, attendanceKey, detectRoomArrivals, roomDate, matchesAttendee, roomSeats, getCountdownInfo, ROOM_PAGE_SIZE, type RoomAttendee } from "@/lib/training-room";
 
 const Scene = lazy(() => import("@/components/TrainingRoomScene"));
 export const Route = createFileRoute("/_authenticated/manage_/$courseId/room")({
@@ -40,7 +41,6 @@ function RoomPage() {
 function RoomContent({ courseId }: { courseId: string }) {
   const [sessionId, setSessionId] = useState("");
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("all");
   const [division, setDivision] = useState("all");
   const [selected, setSelected] = useState<number | null>(null);
   const [focus, setFocus] = useState<{ index: number; n: number } | null>(null);
@@ -49,7 +49,11 @@ function RoomContent({ courseId }: { courseId: string }) {
   const [zoom, setZoom] = useState(1);
   const [kiosk, setKiosk] = useState(false);
   const [walk, setWalk] = useState(false);
+  const [leftOpen, setLeftOpen] = useState(true);
+  const [rightOpen, setRightOpen] = useState(true);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [pulseMap, setPulseMap] = useState<Record<string, number>>({});
+  const [flyingCheckIn, setFlyingCheckIn] = useState<{ id: string; name: string; emoji: string; division: string } | null>(null);
   const prevChecked = useRef<Map<string, string> | null>(null);
   const pageRef = useRef<HTMLDivElement>(null);
   const [isFull, setIsFull] = useState(false);
@@ -58,10 +62,31 @@ function RoomContent({ courseId }: { courseId: string }) {
   const [rolling, setRolling] = useState(false);
   const [winner, setWinner] = useState<RoomAttendee | null>(null);
   const [celebrate, setCelebrate] = useState(0);
+  const [theme, setTheme] = useState<"hall" | "office">(() => {
+    if (typeof window === "undefined") return "office";
+    return (localStorage.getItem("training-room-theme") as "hall" | "office") || "office";
+  });
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const changeTheme = (newTheme: "hall" | "office") => {
+    setTheme(newTheme);
+    try { localStorage.setItem("training-room-theme", newTheme); } catch {}
+  };
+
   useEffect(() => {
     const sync = () => setIsFull(Boolean(document.fullscreenElement));
-    document.addEventListener("fullscreenchange", sync); return () => document.removeEventListener("fullscreenchange", sync);
+    document.addEventListener("fullscreenchange", sync);
+    return () => {
+      document.removeEventListener("fullscreenchange", sync);
+      if (flyTimerRef.current) window.clearTimeout(flyTimerRef.current);
+    };
   }, []);
+
   const { data, refetch, isFetching, isRefetchError, dataUpdatedAt } = useSuspenseQuery({
     queryKey: ["training-room", courseId],
     refetchInterval: 10000,
@@ -81,56 +106,109 @@ function RoomContent({ courseId }: { courseId: string }) {
       return { course: c.data, canCheckIn: permission.data === true, sessions: s.data ?? [], enrollments: (e.data ?? []).map((row) => ({ ...row, profile: profiles.get(row.user_id) })), attendance: a.data ?? [] };
     },
   });
+
+  const flyTimerRef = useRef<number | null>(null);
+  const triggerFly = (attendee: RoomAttendee) => {
+    if (flyTimerRef.current) window.clearTimeout(flyTimerRef.current);
+    setFlyingCheckIn(null);
+    window.requestAnimationFrame(() => {
+      setFlyingCheckIn({
+        id: attendee.userId,
+        name: attendee.name,
+        emoji: attendeeSymbol(attendee).emoji,
+        division: attendee.division || attendee.department || "บุคลากร",
+      });
+      flyTimerRef.current = window.setTimeout(() => setFlyingCheckIn(null), 3000);
+    });
+  };
+
   const checkIn = useMutation({
     mutationFn: async ({ userId, roundId }: { userId: string; roundId: string | null }) => {
-      const { error } = await supabase.rpc("staff_check_in", { _course: courseId, _user: userId, ...(roundId ? { _session: roundId } : {}) });
+      const { data: res, error } = await supabase.rpc("staff_check_in", { _course: courseId, _user: userId, ...(roundId ? { _session: roundId } : {}) });
       if (error) throw error;
+      return res;
     },
-    onSuccess: async () => {
+    onSuccess: async (_, variables) => {
       toast.success("เช็คชื่อเข้าอบรมแล้ว");
+      const key = attendanceKey(variables.userId, variables.roundId);
+      const curNow = Date.now();
+      setPulseMap((prev) => ({ ...prev, [key]: curNow }));
+      setFocus(null);
+      const p = attendees.find((a) => a.userId === variables.userId);
+      if (p) triggerFly(p);
       await refetch();
     },
     onError: (error) => toast.error(error.message || "เช็คชื่อไม่สำเร็จ กรุณาลองอีกครั้ง"),
   });
-  // เอฟเฟกต์เช็คชื่อใหม่: เทียบเวลาเช็คชื่อกับรอบก่อน แล้วส่งพัลส์ให้ที่นั่งของคนที่เพิ่งเช็ค (ข้ามข้อมูลจำลอง)
-  useEffect(() => {
-    if (!data) return;
-    const { snapshot, arrivals } = detectRoomArrivals(data.attendance, prevChecked.current, Date.now());
-    prevChecked.current = snapshot;
-    if (Object.keys(arrivals).length) setPulseMap(arrivals);
-  }, [data]);
+
   if (!data.course) return <p>ไม่พบหลักสูตร</p>;
   const activeId = sessionId || data.sessions[0]?.id || "unassigned";
   const session = data.sessions.find((s) => s.id === activeId);
+  const countdown = getCountdownInfo(session?.starts_at ?? null, session?.ends_at ?? null, now);
+
   const attendees: RoomAttendee[] = data.enrollments.filter((e) => activeId === "unassigned" ? !e.session_id : e.session_id === activeId).map((e) => ({
     userId: e.user_id, name: e.profile?.full_name || "ไม่พบชื่อสมาชิก", division: e.profile?.division || "", department: e.profile?.department || "",
     position: e.profile?.position || "", simulated: data.attendance.some((a) => a.user_id === e.user_id && a.session_id === e.session_id && a.is_demo),
     registeredAt: e.created_at, checkedAt: data.attendance.find((a) => a.user_id === e.user_id && a.session_id === e.session_id)?.checked_at ?? null,
   }));
+
+  // เอฟเฟกต์เช็คชื่อใหม่
+  useEffect(() => {
+    if (!data) return;
+    const { snapshot, arrivals } = detectRoomArrivals(data.attendance, prevChecked.current, Date.now());
+    prevChecked.current = snapshot;
+    if (Object.keys(arrivals).length) {
+      setPulseMap((prev) => {
+        const next = { ...prev };
+        for (const [k, v] of Object.entries(arrivals)) {
+          if (!prev[k] || Date.now() - prev[k] > 8000) {
+            next[k] = v;
+          }
+        }
+        return next;
+      });
+      const firstArrivedKey = Object.keys(arrivals)[0];
+      if (firstArrivedKey) {
+        const userId = firstArrivedKey.split(":")[0];
+        const person = attendees.find((a) => a.userId === userId);
+        if (person) triggerFly(person);
+      }
+    }
+  }, [data]);
+
   const count = Math.max(attendees.length, session?.capacity ?? attendees.length);
   const pages = Math.max(1, Math.ceil(count / ROOM_PAGE_SIZE));
   const safePage = Math.min(page, pages - 1);
   const seats = roomSeats(attendees, session?.capacity ?? null, safePage);
   const divisions = [...new Set(attendees.map((p) => p.division).filter(Boolean))].sort((a, b) => a.localeCompare(b, "th"));
-  const filtered = attendees.filter((person) => matchesAttendee(person, search, status, division));
-  const highlighted = new Set(filtered.map((person) => person.userId));
-  const checked = attendees.filter((p) => p.checkedAt).length;
+
+  // แยก 2 ฝั่ง: ฝั่งซ้าย (ยังไม่เช็คอิน) และ ฝั่งขวา (เช็คชื่อแล้ว)
+  const waitingList = attendees.filter((p) => !p.checkedAt);
+  const checkedList = attendees.filter((p) => Boolean(p.checkedAt)).sort((a, b) => new Date(b.checkedAt!).getTime() - new Date(a.checkedAt!).getTime());
+
+  const filteredWaiting = waitingList.filter((p) => matchesAttendee(p, search, "waiting", division));
+  const filteredChecked = checkedList.filter((p) => matchesAttendee(p, search, "checked", division));
+  const highlighted = new Set([...filteredWaiting, ...filteredChecked].map((person) => person.userId));
+
+  const checked = checkedList.length;
   const simulated = attendees.filter((p) => p.simulated).length;
   const location = session?.location || "ยังไม่ระบุห้องอบรม";
   const date = roomDate(session?.starts_at ?? null, session?.ends_at ?? null);
   const chosen = seats.find((s) => s.index === selected);
   const roundLabel = session ? `รอบที่ ${session.round_no}` : "ยังไม่เลือกรอบ";
-  const stats = { registered: attendees.length, checked, waiting: attendees.length - checked, free: session?.capacity == null ? "ไม่จำกัด" : Math.max(0, session.capacity - attendees.length) };
+  const stats = { registered: attendees.length, checked, waiting: waitingList.length, free: session?.capacity == null ? "ไม่จำกัด" : Math.max(0, session.capacity - attendees.length) };
   const updatedLabel = dataUpdatedAt ? `อัปเดต ${new Date(dataUpdatedAt).toLocaleTimeString("th-TH")}` : "";
   const sessionPulses = Object.fromEntries(attendees.map((a) => [a.userId, pulseMap[attendanceKey(a.userId, activeId === "unassigned" ? null : activeId)] ?? 0]));
-  const sceneProps = { seats, selected, onSelect: setSelected, highlighted, view, zoom, roomName: location, date, round: roundLabel, courseTitle: data.course.title, kiosk, walk, focus, pulseMap: sessionPulses, stats, updatedLabel, celebrate };
-  const changeSession = (id: string) => { setSessionId(id); setSelected(null); setPage(0); setSearch(""); setStatus("all"); setDivision("all"); setFocus(null); setDrawn(new Set()); setWinner(null); };
+  const sceneProps = { seats, selected, onSelect: setSelected, highlighted, view, zoom, roomName: location, date, round: roundLabel, courseTitle: data.course.title, kiosk, walk, focus, pulseMap: sessionPulses, stats, updatedLabel, countdownText: countdown.label, celebrate, theme };
+
+  const changeSession = (id: string) => { setSessionId(id); setSelected(null); setPage(0); setSearch(""); setDivision("all"); setFocus(null); setDrawn(new Set()); setWinner(null); };
   const toggleKiosk = () => { setKiosk((k) => !k); setWalk(false); setFocus(null); };
   const toggleWalk = () => { setWalk((w) => !w); setKiosk(false); setFocus(null); };
   const toggleFull = () => { if (document.fullscreenElement) void document.exitFullscreen(); else void pageRef.current?.requestFullscreen?.().catch(() => toast.error("เบราว์เซอร์นี้ไม่รองรับการแสดงเต็มหน้าจอ")); };
   const pool = pickPool(attendees, pickDivision, drawn);
   const eligible = pickPool(attendees, pickDivision, new Set()).length;
   const seatOf = (userId: string) => attendees.findIndex((a) => a.userId === userId);
+
   const draw = () => {
     const final = pickOne(pool);
     if (!final || rolling) return;
@@ -150,18 +228,32 @@ function RoomContent({ courseId }: { courseId: string }) {
     };
     step();
   };
-  const picker = <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border bg-card p-3" aria-live="polite">
-    <Shuffle className="size-4 text-primary" /><span className="text-sm font-bold">สุ่มผู้เข้าอบรม</span>
-    <select aria-label="สุ่มจากฝ่าย" className="rounded-lg border bg-card px-2 py-1.5 text-sm" value={pickDivision} disabled={rolling} onChange={(e) => { setPickDivision(e.target.value); setDrawn(new Set()); setWinner(null); }}>
-      <option value="all">ทุกฝ่าย</option>{divisions.map((d) => <option key={d} value={d}>{d}</option>)}
-    </select>
-    <Button size="sm" disabled={rolling || !pool.length} onClick={draw}><Shuffle />{drawn.size ? "สุ่มคนถัดไป" : "สุ่ม"}</Button>
-    <Button size="sm" variant="outline" disabled={rolling || !drawn.size} onClick={() => { setDrawn(new Set()); setWinner(null); }}><RotateCcw />เริ่มรายชื่อใหม่</Button>
-    <span className="text-xs text-muted-foreground">เหลือ {pool.length}/{eligible} คน (เฉพาะผู้เช็คชื่อจริง)</span>
-    {winner && <span className={`ml-auto rounded-lg px-3 py-1.5 text-base font-bold ${rolling ? "text-muted-foreground" : "bg-primary text-primary-foreground"}`}>{rolling ? "…" : "🎉"} {winner.name}{!rolling && winner.division ? ` · ${winner.division}` : ""}</span>}
-    {!eligible && <span className="text-xs text-amber">ยังไม่มีผู้เช็คชื่อจริงในรอบนี้</span>}
-  </div>;
-  const fullButton = <Button size="sm" variant={isFull ? "default" : "outline"} onClick={toggleFull}>{isFull ? <Minimize /> : <Maximize />}{isFull ? "ออกเต็มจอ" : "เต็มหน้าจอ"}</Button>;
+
+  const handleDemoCheckIn = () => {
+    let pick = waitingList.length ? waitingList[Math.floor(Math.random() * waitingList.length)]! : null;
+    let isReal = true;
+    if (!pick) {
+      if (attendees.length) {
+        pick = attendees[Math.floor(Math.random() * attendees.length)]!;
+        isReal = false;
+      }
+    }
+    if (!pick) {
+      toast.info("ไม่พบรายชื่อในรอบนี้");
+      return;
+    }
+    const key = attendanceKey(pick.userId, activeId === "unassigned" ? null : activeId);
+    triggerFly(pick);
+    setPulseMap((prev) => ({ ...prev, [key]: Date.now() }));
+    if (isReal && data.canCheckIn) {
+      checkIn.mutate({ userId: pick.userId, roundId: activeId === "unassigned" ? null : activeId });
+    } else {
+      toast.success(`จำลองการเช็คชื่อ: ${pick.name}`);
+    }
+  };
+
+  const fullButton = <Button size="sm" variant={isFull ? "default" : "outline"} className="h-8 text-xs" onClick={toggleFull}>{isFull ? <Minimize className="size-3.5" /> : <Maximize className="size-3.5" />}{isFull ? "ออกเต็มจอ" : "เต็มจอ"}</Button>;
+
   const capture = () => {
     const el = document.querySelector<HTMLCanvasElement>(".room-canvas canvas");
     if (!el) return;
@@ -170,97 +262,345 @@ function RoomContent({ courseId }: { courseId: string }) {
     link.download = `ห้องอบรม-${location.replace(/\s+/g, "-")}-${roundLabel}.png`;
     link.click();
   };
-  if (kiosk) return <div className="room-page" ref={pageRef}>
-    <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-      <div className="min-w-0">
-        <div className="flex items-center gap-2 text-sm font-semibold text-primary"><Armchair />{roundLabel} <span className="text-muted-foreground">· {data.course.training_year}</span></div>
-        <h1 className="mt-1 truncate text-2xl font-bold">{data.course.title}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">📍 {location} · 📅 {date}</p>
+
+  const flyingCardElement = flyingCheckIn && typeof document !== "undefined" ? createPortal(
+    <div className="pointer-events-none fixed inset-0 z-[999999] overflow-visible">
+      <div className="fly-jet-capsule absolute left-0 top-0 w-max">
+        {/* LASER JET STREAM TRAIL (Attached to rear/left of badge) */}
+        <div className="fly-jet-trail" aria-hidden="true">
+          <div className="fly-jet-core" />
+          <div className="fly-jet-particles" />
+        </div>
+
+        {/* SCI-FI HOLOGRAPHIC BADGE CARD */}
+        <div className="relative flex items-center gap-3 rounded-2xl border-2 border-cyan-400 bg-card/95 px-4 py-3 shadow-[0_0_35px_rgba(34,211,238,0.45)] backdrop-blur-xl">
+          <div className="relative grid size-10 shrink-0 place-items-center rounded-xl bg-cyan-500/20 text-2xl font-bold shadow-inner border border-cyan-400/40">
+            <span className="animate-pulse">{flyingCheckIn.emoji}</span>
+            <span className="absolute -bottom-1 -right-1 flex size-3">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-mint opacity-75" />
+              <span className="relative inline-flex size-3 rounded-full bg-mint" />
+            </span>
+          </div>
+          <div className="min-w-0 pr-1">
+            <div className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-cyan-500 dark:text-cyan-400">
+              <Sparkles className="size-3 animate-spin text-cyan-400" />
+              <span>เช็คชื่อแล้ว · กำลังเข้าห้อง</span>
+            </div>
+            <div className="text-sm font-extrabold text-foreground truncate max-w-[200px] drop-shadow-xs">
+              {flyingCheckIn.name}
+            </div>
+            <div className="text-[10px] font-semibold text-muted-foreground truncate max-w-[200px]">
+              {flyingCheckIn.division}
+            </div>
+          </div>
+
+          {/* Thruster exhaust glow point on left edge */}
+          <div className="absolute -left-1.5 top-1/2 -translate-y-1/2 size-3 rounded-full bg-cyan-300 blur-xs" />
+        </div>
+
+        {/* DOCKING IMPACT RING BURST */}
+        <div className="landing-burst-ring" aria-hidden="true" />
       </div>
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm font-semibold">
+    </div>,
+    document.body
+  ) : null;
+
+  if (kiosk) return <div className="room-page" ref={pageRef}>
+    {flyingCardElement}
+    <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+      <div className="min-w-0">
+        <div className="flex items-center gap-2 text-xs font-semibold text-primary"><Armchair className="size-3.5" />{roundLabel} <span className="text-muted-foreground">· {data.course.training_year}</span></div>
+        <h1 className="truncate text-xl font-bold">{data.course.title}</h1>
+        <p className="text-xs text-muted-foreground">📍 {location} · 📅 {date}</p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+        <div className="flex items-center gap-2 rounded-xl border bg-card/80 px-3 py-1.5 shadow-xs">
+          <Timer className="size-4 text-primary" />
+          <span className="font-mono text-sm">{countdown.nowText}</span>
+          <span className={`rounded-full px-2 py-0.5 text-xs ${countdown.state === "in_progress" ? "bg-mint/15 text-mint font-bold" : "bg-primary/10 text-primary font-bold"}`}>{countdown.label}</span>
+        </div>
         <span>ลงทะเบียน <span className="text-primary">{attendees.length}</span></span>
         <span>เช็คชื่อแล้ว <span className="text-mint">{checked}</span></span>
-        <span>รอเช็คชื่อ <span className="text-amber">{attendees.length - checked}</span></span>
-        {fullButton}<Button variant="outline" size="sm" onClick={toggleKiosk}><X />ปิดโหมดจอ</Button>
+        <span>รอเช็คชื่อ <span className="text-amber">{waitingList.length}</span></span>
+        {fullButton}<Button variant="outline" size="sm" className="h-8 text-xs" onClick={toggleKiosk}><X className="size-3.5" />ปิดโหมดจอ</Button>
       </div>
     </div>
-    {simulated > 0 && <p className="mb-3 border-l-2 border-amber pl-3 text-sm text-muted-foreground">มีข้อมูลเช็คชื่อจำลอง {simulated} คน · สำหรับทดสอบ ไม่ใช่การเข้าอบรมจริง</p>}
-    {picker}
-    <div className="room-canvas kiosk-canvas" aria-label="ภาพห้องอบรมสามมิติ">
+    <div className="room-canvas kiosk-canvas relative" aria-label="ภาพห้องอบรมสามมิติ">
       {seats.length ? <SceneBoundary><Suspense fallback={<div className="grid h-full place-items-center text-muted-foreground">กำลังเตรียมห้องอบรม...</div>}><Scene {...sceneProps} /></Suspense></SceneBoundary> : <div className="grid h-full place-items-center text-muted-foreground">ยังไม่มีผู้ลงทะเบียนในรอบนี้</div>}
     </div>
-    <p className="mt-2 text-center text-xs text-muted-foreground">โหมดจอแสดงหน้าห้อง · หมุนมุมมองอัตโนมัติ อัปเดตสถานะทุก 10 วินาที</p>
   </div>;
-  return <div className="room-page" ref={pageRef}>
-    <header className="mb-5 flex flex-wrap items-start justify-between gap-4">
-      <div className="min-w-0 flex-1">
-        <Button variant="link" asChild className="h-auto p-0"><Link to="/manage/$courseId" params={{ courseId }}><ArrowLeft />จัดการหลักสูตร</Link></Button>
-        <div className="mt-3 flex items-center gap-2 text-sm font-semibold text-primary"><Armchair />ห้องอบรม <span className="text-muted-foreground">· {data.course.training_year}</span></div>
-        <h1 className="mt-1 text-2xl font-bold">{data.course.title}</h1>
-      </div>
-      <Button variant="outline" size="icon" title="อัปเดตสถานะ" aria-label="อัปเดตสถานะ" disabled={isFetching} onClick={() => refetch()}><RefreshCw className={isFetching ? "animate-spin" : ""} /></Button>
-    </header>
-    <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-      <label className="min-w-0 flex-1 text-xs font-semibold text-muted-foreground">รอบอบรม
-        <select aria-label="รอบอบรม" value={activeId} onChange={(e) => changeSession(e.target.value)} className="mt-1 block w-full max-w-xl rounded-lg border bg-card px-3 py-2.5 text-sm text-foreground">
-          {data.sessions.map((s) => <option key={s.id} value={s.id}>{sessionLabel(s)}</option>)}
-          <option value="unassigned">{data.sessions.length ? "ยังไม่เลือกรอบ" : "ผู้ลงทะเบียนหลักสูตร"}</option>
-        </select>
-      </label>
-      <div className="text-xs text-muted-foreground">{isRefetchError ? <span className="text-destructive">อัปเดตไม่สำเร็จ กรุณาลองอีกครั้ง</span> : <>อัปเดตล่าสุด {new Date(dataUpdatedAt).toLocaleTimeString("th-TH")}</>}</div>
-    </div>
-    <div className="mb-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm"><span className="font-semibold">📍 {location}</span><span className="text-muted-foreground">📅 {date}</span></div>
-    {simulated > 0 && <p className="mb-4 border-l-2 border-amber pl-3 text-sm text-muted-foreground">ข้อมูลเช็คชื่อจำลอง {simulated} คน · สำหรับทดสอบ ไม่ใช่การเข้าอบรมจริง</p>}
-    <div className="room-stats mb-5 grid grid-cols-2 gap-4 border-y py-4 sm:grid-cols-4">
-      {[{ icon: Users, label: "ลงทะเบียน", value: attendees.length, tone: "text-primary" }, { icon: CheckCircle2, label: "เช็คชื่อแล้ว", value: checked, tone: "text-mint" }, { icon: Clock3, label: "รอเช็คชื่อ", value: attendees.length - checked, tone: "text-amber" }, { icon: Armchair, label: "ที่นั่งว่าง", value: stats.free, tone: "text-muted-foreground" }].map(({ icon: Icon, label, value, tone }) => <div key={label}><div className="flex items-center gap-2 text-xs text-muted-foreground"><Icon className={`size-4 ${tone}`} />{label}</div><div className={`mt-1 text-2xl font-bold ${tone}`}>{value}</div></div>)}
-    </div>
-    {session?.capacity != null && attendees.length > session.capacity && <p className="mb-3 text-sm text-coral">ผู้ลงทะเบียนเกินจำนวนที่นั่ง {attendees.length - session.capacity} คน</p>}
-    <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
-      <section className="min-w-0">
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          {walk
-            ? <span className="text-xs text-muted-foreground">โหมดเดินสำรวจ: ลากเพื่อหมุนมุมมอง · สกรอลล์เพื่อซูม · กดปุ่มอีกครั้งเพื่อออก</span>
-            : <div className="flex gap-2"><Button size="sm" variant={view === "angle" ? "default" : "outline"} onClick={() => { setView("angle"); setFocus(null); }}><Armchair />มุมห้อง</Button><Button size="sm" variant={view === "top" ? "default" : "outline"} onClick={() => { setView("top"); setFocus(null); }}><LayoutGrid />มุมบน</Button></div>}
-          <div className="flex flex-wrap items-center gap-1">
-            <Button size="icon" variant="ghost" title="จับภาพห้องเป็น PNG" aria-label="จับภาพห้องเป็น PNG" onClick={capture}><Camera /></Button>
-            <Button size="sm" variant={walk ? "default" : "outline"} onClick={toggleWalk}><Footprints />เดินสำรวจ</Button>
-            <Button size="sm" variant={kiosk ? "default" : "outline"} onClick={toggleKiosk}><Monitor />โหมดจอ</Button>
-            {fullButton}
-            {!walk && <div className="flex gap-1"><Button size="icon" variant="ghost" title="ย่อ" aria-label="ย่อ" disabled={zoom <= 0.7} onClick={() => setZoom((z) => Math.max(0.7, z - 0.15))}><Minus /></Button><Button size="icon" variant="ghost" title="ขยาย" aria-label="ขยาย" disabled={zoom >= 1.6} onClick={() => setZoom((z) => Math.min(1.6, z + 0.15))}><Plus /></Button></div>}
+
+  return <div className="room-page space-y-2.5" ref={pageRef}>
+    {flyingCardElement}
+
+    {/* COMPACT SINGLE-LINE COMMAND HUD BAR */}
+    <header className="flex flex-wrap items-center justify-between gap-2.5 rounded-2xl border border-glass-border bg-card/90 px-3.5 py-2 shadow-xs backdrop-blur-md">
+      <div className="flex items-center gap-2.5 min-w-0">
+        <Button variant="ghost" size="icon" className="size-8 shrink-0" asChild>
+          <Link to="/manage/$courseId" params={{ courseId }} title="กลับไปจัดการหลักสูตร"><ArrowLeft className="size-4" /></Link>
+        </Button>
+        <div className="min-w-0 max-w-[320px]">
+          <div className="truncate text-xs font-bold text-foreground leading-tight">{data.course.title}</div>
+          <div className="text-[10px] text-muted-foreground flex items-center gap-1.5">
+            <span>📍 {location}</span>
+            <span>·</span>
+            <span>📅 {date}</span>
           </div>
         </div>
-        {picker}
-        <div className="room-canvas relative" aria-label="ภาพห้องอบรมสามมิติ">
-          {seats.length ? <SceneBoundary><Suspense fallback={<div className="grid h-full place-items-center text-muted-foreground">กำลังเตรียมห้องอบรม...</div>}><Scene {...sceneProps} /></Suspense></SceneBoundary> : <div className="grid h-full place-items-center text-muted-foreground">ยังไม่มีผู้ลงทะเบียนในรอบนี้</div>}
-        </div>
-        <div className="mt-3 flex flex-wrap justify-center gap-5 text-xs text-muted-foreground"><span className="flex items-center gap-2"><i className="size-2.5 rounded-full bg-mint" />เช็คชื่อแล้ว</span><span className="flex items-center gap-2"><i className="size-2.5 rounded-full bg-amber" />รอเช็คชื่อ</span><span className="flex items-center gap-2"><i className="size-2.5 rounded-full bg-room-empty" />ว่าง</span></div>
-        {pages > 1 && <div className="mt-4 flex items-center justify-center gap-3"><Button variant="outline" size="sm" disabled={safePage === 0} onClick={() => { setPage(safePage - 1); setSelected(null); }}>ก่อนหน้า</Button><span className="text-xs">ส่วนที่ {safePage + 1} / {pages}</span><Button variant="outline" size="sm" disabled={safePage === pages - 1} onClick={() => { setPage(safePage + 1); setSelected(null); }}>ถัดไป</Button></div>}
-      </section>
-      <aside className="min-w-0 border-t pt-4 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">
-        {chosen && <div className="mb-4 rounded-lg border border-primary/30 bg-card p-4" aria-live="polite">
-          <div className="flex items-center justify-between"><span className="text-sm font-bold text-primary">ที่นั่ง {chosen.label}</span><Button variant="ghost" size="icon" aria-label="ปิดรายละเอียด" onClick={() => setSelected(null)}><X /></Button></div>
-          <h2 className="mt-1 font-bold">{chosen.attendee && <span role="img" aria-label={attendeeSymbol(chosen.attendee).label}>{attendeeSymbol(chosen.attendee).emoji} </span>}{chosen.attendee?.name ?? "ที่นั่งว่าง"}</h2>
-          {chosen.attendee?.simulated && <p className="mt-1 text-xs text-amber">เช็คชื่อจำลอง</p>}
-          {chosen.attendee && <><p className="mt-1 text-xs text-muted-foreground">{[chosen.attendee.division, chosen.attendee.department].filter(Boolean).join(" / ")}</p><p className={`mt-3 text-sm font-semibold ${chosen.attendee.checkedAt ? "text-mint" : "text-amber"}`}>{chosen.attendee.checkedAt ? "✓ เช็คชื่อแล้ว" : "รอเช็คชื่อ"}</p>{chosen.attendee.checkedAt && <p className="mt-1 text-xs text-muted-foreground">{new Date(chosen.attendee.checkedAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}</p>}</>}
-          {chosen.attendee && data.canCheckIn && <Button className="mt-3 w-full" disabled={checkIn.isPending || Boolean(chosen.attendee.checkedAt && !chosen.attendee.simulated)} onClick={() => {
-            if (!chosen.attendee || checkIn.isPending) return;
-            checkIn.mutate({ userId: chosen.attendee.userId, roundId: activeId === "unassigned" ? null : activeId });
-          }}><CheckCircle2 />{checkIn.isPending ? "กำลังเช็คชื่อ..." : chosen.attendee.checkedAt && !chosen.attendee.simulated ? "เช็คชื่อแล้ว" : "เช็คชื่อ"}</Button>}
-        </div>}
-        <h2 className="text-base font-bold">ผู้ลงทะเบียน <span className="text-sm text-muted-foreground">{filtered.length} คน</span></h2>
-        <div className="relative mt-3"><Search className="absolute left-3 top-3 size-4 text-muted-foreground" /><input aria-label="ค้นหาผู้ลงทะเบียน" placeholder="ค้นหาชื่อ ฝ่าย หรือแผนก" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full rounded-lg border bg-card py-2.5 pl-9 pr-3 text-sm" /></div>
-        <select aria-label="กรองตามฝ่าย" className="mt-2 w-full rounded-lg border bg-card p-2 text-sm" value={division} onChange={(e) => setDivision(e.target.value)}>
-          <option value="all">ทุกฝ่าย</option>
-          {divisions.map((d) => <option key={d} value={d}>{d}</option>)}
+        <select
+          aria-label="รอบอบรม"
+          value={activeId}
+          onChange={(e) => changeSession(e.target.value)}
+          className="rounded-lg border bg-background px-2.5 py-1 text-xs font-semibold text-foreground cursor-pointer outline-none"
+        >
+          {data.sessions.map((s) => <option key={s.id} value={s.id}>{sessionLabel(s)}</option>)}
+          <option value="unassigned">{data.sessions.length ? "ยังไม่เลือกรอบ" : "ผู้ลงทะเบียน"}</option>
         </select>
-        <select aria-label="สถานะเช็คชื่อ" className="mt-2 w-full rounded-lg border bg-card p-2 text-sm" value={status} onChange={(e) => setStatus(e.target.value)}><option value="all">ทุกสถานะ</option><option value="checked">เช็คชื่อแล้ว</option><option value="waiting">รอเช็คชื่อ</option></select>
-        <div className="mt-3 max-h-[430px] space-y-1 overflow-y-auto">
-          {filtered.map((person) => { const index = attendees.indexOf(person); const label = `${String.fromCharCode(65 + Math.floor(index / 8))}${String(index % 8 + 1).padStart(2, "0")}`; return <Button key={person.userId} variant="ghost" className="h-auto w-full justify-start whitespace-normal px-2 py-3 text-left" onClick={() => { setPage(Math.floor(index / ROOM_PAGE_SIZE)); setSelected(index); setFocus({ index, n: Date.now() }); }}>
-            <span className={`grid size-10 shrink-0 place-items-center rounded-lg ${person.checkedAt ? "bg-mint/15 text-mint" : "bg-amber/15 text-amber"}`}><span className="text-xl" role="img" aria-label={attendeeSymbol(person).label}>{attendeeSymbol(person).emoji}</span><span className="text-[10px]">{label}</span></span><span className="min-w-0 flex-1"><span className="block text-sm font-medium">{person.name}</span><span className="block text-[11px] text-muted-foreground">{person.department || person.division || "—"}</span><span className={`block text-[11px] ${person.checkedAt ? "text-mint" : "text-amber"}`}>{person.checkedAt ? `✓ เช็คชื่อแล้ว${person.simulated ? " · จำลอง" : ""}` : "รอเช็คชื่อ"}</span></span>
-          </Button>; })}
-          {!filtered.length && <p className="py-6 text-center text-sm text-muted-foreground">ไม่พบผู้ลงทะเบียน</p>}
+      </div>
+
+      {/* LIVE CLOCK & COUNTDOWN PILL */}
+      <div className="flex items-center gap-2 rounded-full border border-glass-border bg-background/80 px-3.5 py-1 shadow-inner text-xs">
+        <Clock3 className="size-3.5 text-primary" />
+        <span className="font-mono font-bold text-foreground">{countdown.nowText}</span>
+        <span className="text-muted-foreground">·</span>
+        <span className={`font-semibold ${countdown.state === "in_progress" ? "text-mint animate-pulse" : "text-primary"}`}>
+          {countdown.label}
+        </span>
+      </div>
+
+      {/* CONTROLS */}
+      <div className="flex items-center gap-1.5">
+        <Button variant="outline" size="sm" className="h-8 text-xs font-semibold text-mint hover:bg-mint/10 border-mint/40" onClick={handleDemoCheckIn} title="จำลองการเช็คชื่อ 1 คน เพื่อดูแอนิเมชันคนเดินและชื่อลอย">
+          <Sparkles className="size-3.5 text-mint" />
+          จำลองเช็คชื่อ
+        </Button>
+        <Button variant={pickerOpen ? "default" : "outline"} size="sm" className="h-8 text-xs" onClick={() => setPickerOpen(!pickerOpen)}>
+          <Shuffle className="size-3.5" />
+          สุ่มชื่อ
+        </Button>
+        <div className="flex items-center rounded-lg border bg-background/80 p-0.5">
+          <Button size="icon" variant={view === "angle" ? "default" : "ghost"} className="size-7" onClick={() => { setView("angle"); setFocus(null); }} title="มุมมองห้อง">
+            <Armchair className="size-3.5" />
+          </Button>
+          <Button size="icon" variant={view === "top" ? "default" : "ghost"} className="size-7" onClick={() => { setView("top"); setFocus(null); }} title="มุมมองบน">
+            <LayoutGrid className="size-3.5" />
+          </Button>
+          <Button size="icon" variant={walk ? "default" : "ghost"} className="size-7" onClick={toggleWalk} title="เดินสำรวจ">
+            <Footprints className="size-3.5" />
+          </Button>
         </div>
-      </aside>
+        <Button size="icon" variant="ghost" className="size-8" title="จับภาพห้อง PNG" onClick={capture}><Camera className="size-4" /></Button>
+        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={toggleKiosk} title="โหมดจอหน้าห้อง"><Monitor className="size-3.5" /> โหมดจอ</Button>
+        {fullButton}
+        <Button variant="ghost" size="icon" className="size-8" title="อัปเดตสถานะ" disabled={isFetching} onClick={() => refetch()}><RefreshCw className={isFetching ? "animate-spin size-3.5" : "size-3.5"} /></Button>
+      </div>
+    </header>
+
+    {/* MASSIVE FULL-BLEED 3D VIEWPORT WITH FLOATING GLASS HUD OVERLAYS */}
+    <div className="room-canvas relative w-full overflow-hidden rounded-2xl border border-glass-border shadow-2xl" aria-label="ภาพห้องอบรมสามมิติ">
+      {seats.length ? <SceneBoundary><Suspense fallback={<div className="grid h-full place-items-center text-muted-foreground">กำลังเตรียมห้องอบรม...</div>}><Scene {...sceneProps} /></Suspense></SceneBoundary> : <div className="grid h-full place-items-center text-muted-foreground">ยังไม่มีผู้ลงทะเบียนในรอบนี้</div>}
+
+      {/* LEFT FLOATING HUD: รอเช็คชื่อ (ด้านนอกห้อง) */}
+      {leftOpen ? (
+        <aside className="absolute left-3.5 top-3.5 bottom-3.5 w-76 z-20 flex flex-col rounded-2xl border border-glass-border bg-card/85 p-3 shadow-2xl backdrop-blur-md transition-all duration-300">
+          <div className="flex items-center justify-between border-b pb-2 mb-2">
+            <div className="flex items-center gap-2">
+              <UserX className="size-4 text-amber" />
+              <h2 className="text-xs font-bold text-foreground">รอเช็คชื่อ <span className="font-normal text-muted-foreground">(นอกห้อง)</span></h2>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="rounded-full bg-amber/15 px-2 py-0.5 text-[11px] font-bold text-amber">{filteredWaiting.length}</span>
+              <Button variant="ghost" size="icon" className="size-6 text-muted-foreground hover:text-foreground" onClick={() => setLeftOpen(false)} title="ย่อแถบ"><ChevronLeft className="size-4" /></Button>
+            </div>
+          </div>
+          <div className="space-y-1.5 mb-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2 size-3 text-muted-foreground" />
+              <input aria-label="ค้นหารายชื่อรอเช็คชื่อ" placeholder="ค้นหาชื่อ..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full rounded-lg border bg-background/80 py-1 pl-7 pr-2 text-xs" />
+            </div>
+            <select aria-label="กรองฝ่ายรอเช็คชื่อ" className="w-full rounded-lg border bg-background/80 p-1 text-xs" value={division} onChange={(e) => setDivision(e.target.value)}>
+              <option value="all">ทุกฝ่าย</option>
+              {divisions.map((d) => <option key={d} value={d}>{d}</option>)}
+            </select>
+          </div>
+          <div className="flex-1 space-y-1.5 overflow-y-auto pr-1">
+            {filteredWaiting.map((person) => {
+              const index = attendees.indexOf(person);
+              return (
+                <div key={person.userId} className="group flex items-center justify-between rounded-xl border border-transparent bg-background/70 p-2 hover:border-amber/40 hover:bg-card/90 transition shadow-xs">
+                  <div className="flex items-center gap-2 min-w-0 flex-1 cursor-pointer" onClick={() => { setPage(Math.floor(index / ROOM_PAGE_SIZE)); setSelected(index); setFocus({ index, n: Date.now() }); }}>
+                    <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-amber/10 text-amber text-sm font-bold">
+                      {attendeeSymbol(person).emoji}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-xs font-bold text-foreground">{person.name}</div>
+                      <div className="truncate text-[10px] text-muted-foreground">{person.department || person.division || "—"}</div>
+                    </div>
+                  </div>
+                  {data.canCheckIn && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-7 shrink-0 text-muted-foreground hover:text-mint hover:bg-mint/10"
+                      title="เช็คชื่อเข้าห้อง"
+                      disabled={checkIn.isPending}
+                      onClick={() => {
+                        checkIn.mutate({ userId: person.userId, roundId: activeId === "unassigned" ? null : activeId });
+                      }}
+                    >
+                      <CheckCircle2 className="size-4" />
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
+            {!filteredWaiting.length && (
+              <p className="py-8 text-center text-xs text-muted-foreground">ไม่มีผู้รอเช็คชื่อ</p>
+            )}
+          </div>
+        </aside>
+      ) : (
+        <Button
+          variant="outline"
+          className="absolute left-3.5 top-3.5 z-20 rounded-full border border-amber/40 bg-card/90 px-3 py-1.5 text-xs font-bold text-amber shadow-2xl backdrop-blur-md hover:bg-card"
+          onClick={() => setLeftOpen(true)}
+        >
+          <UserX className="size-3.5 mr-1" /> รอเช็คชื่อ ({waitingList.length}) <ChevronRight className="size-3.5 ml-1" />
+        </Button>
+      )}
+
+      {/* RIGHT FLOATING HUD: เช็คชื่อแล้ว (เข้าห้องแล้ว) */}
+      {rightOpen ? (
+        <aside className="absolute right-3.5 top-3.5 bottom-3.5 w-80 z-20 flex flex-col rounded-2xl border border-glass-border bg-card/85 p-3 shadow-2xl backdrop-blur-md transition-all duration-300">
+          <div className="flex items-center justify-between border-b pb-2 mb-2">
+            <div className="flex items-center gap-2">
+              <UserCheck className="size-4 text-mint" />
+              <h2 className="text-xs font-bold text-foreground">เช็คชื่อแล้ว <span className="font-normal text-muted-foreground">(เข้าห้องแล้ว)</span></h2>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="rounded-full bg-mint/15 px-2 py-0.5 text-[11px] font-bold text-mint">{filteredChecked.length}</span>
+              <Button variant="ghost" size="icon" className="size-6 text-muted-foreground hover:text-foreground" onClick={() => setRightOpen(false)} title="ย่อแถบ"><ChevronRight className="size-4" /></Button>
+            </div>
+          </div>
+          <div className="flex-1 space-y-1.5 overflow-y-auto pr-1">
+            {filteredChecked.map((person, idx) => {
+              const index = attendees.indexOf(person);
+              const label = `${String.fromCharCode(65 + Math.floor(index / 8))}${String(index % 8 + 1).padStart(2, "0")}`;
+              const isTopRecent = idx === 0;
+              return (
+                <div
+                  key={person.userId}
+                  onClick={() => { setPage(Math.floor(index / ROOM_PAGE_SIZE)); setSelected(index); setFocus({ index, n: Date.now() }); }}
+                  className={`group flex items-center justify-between rounded-xl border p-2 cursor-pointer transition shadow-xs ${
+                    isTopRecent ? "border-mint/60 bg-mint/10 animate-checkin-pulse" : "border-transparent bg-background/70 hover:border-mint/30 hover:bg-card/90"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-mint/15 text-mint text-sm font-bold">
+                      {attendeeSymbol(person).emoji}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1">
+                        <span className="truncate text-xs font-bold text-foreground">{person.name}</span>
+                        {isTopRecent && <span className="rounded-full bg-mint px-1.5 py-0.2 text-[9px] font-bold text-primary-foreground">ล่าสุด</span>}
+                      </div>
+                      <div className="truncate text-[10px] text-muted-foreground">{person.department || person.division || "—"}</div>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="text-[10px] font-bold text-primary font-mono">{label}</span>
+                    {person.checkedAt && (
+                      <div className="text-[10px] text-muted-foreground font-mono">
+                        {new Date(person.checkedAt).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {!filteredChecked.length && (
+              <p className="py-8 text-center text-xs text-muted-foreground">ยังไม่มีผู้เช็คชื่อ</p>
+            )}
+          </div>
+        </aside>
+      ) : (
+        <Button
+          variant="outline"
+          className="absolute right-3.5 top-3.5 z-20 rounded-full border border-mint/40 bg-card/90 px-3 py-1.5 text-xs font-bold text-mint shadow-2xl backdrop-blur-md hover:bg-card"
+          onClick={() => setRightOpen(true)}
+        >
+          <ChevronLeft className="size-3.5 mr-1" /><UserCheck className="size-3.5 mr-1" /> เช็คชื่อแล้ว ({checkedList.length})
+        </Button>
+      )}
+
+      {/* FLOATING SELECTED SEAT CARD */}
+      {chosen && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 w-full max-w-sm rounded-2xl border border-primary/40 bg-card/95 p-3.5 shadow-2xl backdrop-blur-md">
+          <div className="flex items-center justify-between"><span className="text-xs font-bold text-primary">ที่นั่ง {chosen.label}</span><Button variant="ghost" size="icon" className="size-6" onClick={() => setSelected(null)}><X className="size-3.5" /></Button></div>
+          <div className="mt-1 flex items-center gap-2.5">
+            <span className="text-2xl">{chosen.attendee && attendeeSymbol(chosen.attendee).emoji}</span>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-bold text-foreground truncate">{chosen.attendee?.name ?? "ที่นั่งว่าง"}</div>
+              {chosen.attendee && <div className="text-[11px] text-muted-foreground truncate">{[chosen.attendee.division, chosen.attendee.department].filter(Boolean).join(" / ")}</div>}
+            </div>
+            {chosen.attendee?.checkedAt && <span className="rounded-full bg-mint/15 px-2 py-0.5 text-[11px] font-bold text-mint">✓ เช็คชื่อแล้ว</span>}
+          </div>
+          {chosen.attendee && data.canCheckIn && !chosen.attendee.checkedAt && (
+            <Button className="mt-2.5 w-full h-8 text-xs" disabled={checkIn.isPending} onClick={() => checkIn.mutate({ userId: chosen.attendee!.userId, roundId: activeId === "unassigned" ? null : activeId })}>
+              <CheckCircle2 className="size-3.5" /> {checkIn.isPending ? "กำลังเช็คชื่อ..." : "เช็คชื่อเข้าห้อง"}
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* FLOATING LUCKY DRAW MODAL */}
+      {pickerOpen && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 w-full max-w-md rounded-2xl border border-primary/40 bg-card/95 p-4 shadow-2xl backdrop-blur-md">
+          <div className="flex items-center justify-between border-b pb-2 mb-2.5">
+            <div className="flex items-center gap-2 text-sm font-bold text-primary"><Shuffle className="size-4" /> สุ่มผู้เข้าอบรม</div>
+            <Button variant="ghost" size="icon" className="size-6" onClick={() => setPickerOpen(false)}><X className="size-3.5" /></Button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            <select aria-label="สุ่มจากฝ่าย" className="rounded-lg border bg-background px-2.5 py-1 text-xs" value={pickDivision} disabled={rolling} onChange={(e) => { setPickDivision(e.target.value); setDrawn(new Set()); setWinner(null); }}>
+              <option value="all">ทุกฝ่าย</option>{divisions.map((d) => <option key={d} value={d}>{d}</option>)}
+            </select>
+            <Button size="sm" className="h-8 text-xs" disabled={rolling || !pool.length} onClick={draw}><Shuffle className="size-3.5" />{drawn.size ? "คนถัดไป" : "สุ่ม"}</Button>
+            <Button size="sm" variant="outline" className="h-8 text-xs" disabled={rolling || !drawn.size} onClick={() => { setDrawn(new Set()); setWinner(null); }}><RotateCcw className="size-3.5" />เริ่มใหม่</Button>
+          </div>
+          <div className="text-[11px] text-muted-foreground mb-2">เหลือ {pool.length}/{eligible} คน (เฉพาะผู้เช็คชื่อจริง)</div>
+          {winner && <div className={`rounded-xl p-2.5 text-center text-sm font-bold ${rolling ? "text-muted-foreground bg-muted" : "bg-primary text-primary-foreground animate-bounce"}`}>{rolling ? "กำลังสุ่ม…" : `🎉 ${winner.name} (${winner.division || "—"})`}</div>}
+        </div>
+      )}
+
+      {/* BOTTOM-CENTER FLOATING STATUS & THEME BAR */}
+      <div className="absolute bottom-3.5 left-1/2 -translate-x-1/2 z-20 flex flex-wrap items-center gap-3 rounded-full border border-glass-border bg-card/90 px-4 py-2 shadow-2xl backdrop-blur-md text-xs">
+        <span className="flex items-center gap-1.5 font-semibold text-mint"><i className="size-2 rounded-full bg-mint" />เช็คชื่อ {checked}</span>
+        <span className="flex items-center gap-1.5 font-semibold text-amber"><i className="size-2 rounded-full bg-amber" />รอ {waitingList.length}</span>
+        <span className="flex items-center gap-1.5 font-semibold text-muted-foreground"><i className="size-2 rounded-full bg-room-empty" />ว่าง {stats.free}</span>
+        <span className="text-muted-foreground">|</span>
+        <div className="flex items-center gap-1 font-semibold text-primary">
+          <select
+            value={theme}
+            onChange={(e) => changeTheme(e.target.value as "hall" | "office")}
+            className="rounded-lg bg-transparent font-bold text-primary outline-none cursor-pointer text-xs"
+          >
+            <option value="office">🏢 Modern Office</option>
+            <option value="hall">🏛️ Training Hall</option>
+          </select>
+        </div>
+        {!walk && (
+          <>
+            <span className="text-muted-foreground">|</span>
+            <div className="flex items-center gap-0.5">
+              <Button size="icon" variant="ghost" className="size-6" title="ย่อ" disabled={zoom <= 0.7} onClick={() => setZoom((z) => Math.max(0.7, z - 0.15))}><Minus className="size-3" /></Button>
+              <Button size="icon" variant="ghost" className="size-6" title="ขยาย" disabled={zoom >= 1.6} onClick={() => setZoom((z) => Math.min(1.6, z + 0.15))}><Plus className="size-3" /></Button>
+            </div>
+          </>
+        )}
+      </div>
+
     </div>
   </div>;
 }
+
+

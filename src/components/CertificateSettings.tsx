@@ -33,6 +33,8 @@ export function CertificateSettings({ course }: { course: Course }) {
     course_logo_url: course.course_logo_url,
     instructor_signature_url: course.instructor_signature_url,
     certificate_background_url: course.certificate_background_url,
+    organization_name: course.organization_name ?? "โรงพยาบาลโอเวอร์บรุ๊ค",
+    department_subtitle: course.department_subtitle ?? "ศูนย์พัฒนาศักยภาพบุคลากร",
     instructor_name: course.instructor_name ?? "",
     instructor_title: course.instructor_title ?? "",
   });
@@ -61,7 +63,7 @@ export function CertificateSettings({ course }: { course: Course }) {
     setUploading(field);
     try {
       const path = `${course.id}/certificate/${config.folder}/${safeName(file.name)}`;
-      const { error } = await supabase.storage.from("course-files").upload(path, file, { contentType: file.type });
+      const { error } = await supabase.storage.from("course-files").upload(path, file, { contentType: file.type, upsert: true });
       if (error) throw error;
       setForm((current) => ({ ...current, [field]: path }));
       toast.success(`อัปโหลด${config.title}แล้ว กดบันทึกเพื่อยืนยัน`);
@@ -123,8 +125,22 @@ export function CertificateSettings({ course }: { course: Course }) {
         </div>
 
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          <label className="block"><span className="mb-1 block text-xs font-semibold text-muted-foreground">ชื่อวิทยากร/ผู้ลงนาม</span><input className={inputClass} value={form.instructor_name} onChange={(event) => setForm({ ...form, instructor_name: event.target.value })} placeholder="เช่น นพ. สมชาย ใจดี" /></label>
-          <label className="block"><span className="mb-1 block text-xs font-semibold text-muted-foreground">ตำแหน่ง/บทบาท</span><input className={inputClass} value={form.instructor_title} onChange={(event) => setForm({ ...form, instructor_title: event.target.value })} placeholder="เช่น วิทยากรประจำหลักสูตร" /></label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold text-muted-foreground">ชื่อโรงพยาบาล/องค์กร</span>
+            <input className={inputClass} value={form.organization_name} onChange={(event) => setForm({ ...form, organization_name: event.target.value })} placeholder="เช่น โรงพยาบาลโอเวอร์บรุ๊ค" />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold text-muted-foreground">ชื่อหน่วยงาน/ศูนย์ฝึกอบรม (ใต้ชื่อโรงพยาบาล)</span>
+            <input className={inputClass} value={form.department_subtitle} onChange={(event) => setForm({ ...form, department_subtitle: event.target.value })} placeholder="เช่น ศูนย์พัฒนาศักยภาพบุคลากร" />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold text-muted-foreground">ชื่อวิทยากร/ผู้ลงนาม</span>
+            <input className={inputClass} value={form.instructor_name} onChange={(event) => setForm({ ...form, instructor_name: event.target.value })} placeholder="เช่น นพ. สมชาย ใจดี" />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold text-muted-foreground">ตำแหน่ง/บทบาท</span>
+            <input className={inputClass} value={form.instructor_title} onChange={(event) => setForm({ ...form, instructor_title: event.target.value })} placeholder="เช่น วิทยากรประจำหลักสูตร" />
+          </label>
         </div>
         <div className="mt-5 flex justify-end"><Button type="button" onClick={save} disabled={saving || uploading !== null}><Save aria-hidden="true" />{saving ? "กำลังบันทึก..." : "บันทึกการตั้งค่า"}</Button></div>
       </section>
@@ -143,6 +159,8 @@ export function CertificateSettings({ course }: { course: Course }) {
           issuedDate="วันที่ออกใบประกาศ"
           hospitalLogoUrl={previews.hospital_logo_url}
           courseLogoUrl={previews.course_logo_url}
+          organizationName={form.organization_name}
+          departmentSubtitle={form.department_subtitle}
           signatureUrl={previews.instructor_signature_url}
           instructorName={form.instructor_name}
           instructorTitle={form.instructor_title}

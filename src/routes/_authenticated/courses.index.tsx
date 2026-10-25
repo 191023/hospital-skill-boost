@@ -38,7 +38,13 @@ function Catalog() {
         eyebrow="คลังหลักสูตร"
         title="หลักสูตรทั้งหมด"
         right={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              to="/calendar"
+              className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/20 transition-all"
+            >
+              📅 ปฏิทินการอบรม
+            </Link>
             <select value={year} onChange={(e) => setYear(e.target.value === "all" ? "all" : Number(e.target.value))} className="glass rounded-full px-4 py-2 text-sm outline-none">
               <option value="all">ทุกปี</option>
               {years.map((y) => <option key={y} value={y}>ปี {y}</option>)}

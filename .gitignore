@@ -33,3 +33,5 @@ dist-ssr
 
 # ข้อมูลจริงมี PII — ห้ามขึ้น GitHub สาธารณะ
 db-export/
+antigravity_config_backup/
+courses_direct.json

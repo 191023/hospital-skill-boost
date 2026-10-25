@@ -136,7 +136,7 @@ function QrPage() {
               <h2 className="mt-2 text-xl font-bold text-primary">{c.title}</h2>
               <QRImg value={`${origin()}/join/${c.id}`} size={200} className="mx-auto mt-4" />
               <div className="mt-3 font-semibold">สแกนเพื่อลงทะเบียนเรียน</div>
-              <div className="text-xs text-muted-foreground">เข้าสู่ระบบแล้วลงทะเบียนให้อัตโนมัติ</div>
+              <div className="text-xs text-muted-foreground">เข้าสู่ระบบแล้วเลือกรอบอบรมและลงทะเบียน</div>
               {!c.published && <div className="no-print mt-2 text-xs text-destructive">หลักสูตรนี้ยังไม่เผยแพร่</div>}
             </div>
           ))}

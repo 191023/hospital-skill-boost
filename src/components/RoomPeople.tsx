@@ -7,7 +7,7 @@ import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js
 import humanUrl from "@/assets/adult-learner.glb?url";
 import { arrivalPath, roomFirstName, type RoomSeat } from "@/lib/training-room";
 
-type PersonProps = { seat: RoomSeat; geometry: THREE.BufferGeometry; shirtGroups: number[]; scene: THREE.Group; animations: THREE.AnimationClip[]; color: string; faded: boolean; pulse: number; delay: number; back: number; reduced: boolean; onSelect: (index: number) => void };
+type PersonProps = { seat: RoomSeat; geometry: THREE.BufferGeometry; shirtGroups: number[]; scene: THREE.Group; animations: THREE.AnimationClip[]; color: string; faded: boolean; pulse: number; delay: number; back: number; reduced?: boolean; onSelect: (index: number) => void };
 
 // The front of the room is -Z. Use the same landing position for both poses.
 const PERSON_SCALE = 0.8955;
@@ -35,11 +35,12 @@ function NameLabel({ seat, background, foreground, accent, faded, onSelect }: { 
   </sprite>;
 }
 
-function Person({ seat, geometry, shirtGroups, scene, animations, color, faded, pulse, delay, back, reduced, onSelect }: PersonProps) {
+function Person({ seat, geometry, shirtGroups, scene, animations, color, faded, pulse, delay, back, onSelect }: PersonProps) {
   const group = useRef<THREE.Group>(null);
   const seated = useRef<THREE.Mesh>(null);
-  const elapsed = useRef(1000);
-  const moving = useRef(false);
+  const willMove = Boolean(pulse && Date.now() - pulse < 8000);
+  const elapsed = useRef(willMove ? -delay - 0.15 : 1000);
+  const moving = useRef(willMove);
   const { model, mixer, walk, sit, enter, material } = useMemo(() => {
     const model = clone(scene);
     const base = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 });
@@ -56,26 +57,65 @@ function Person({ seat, geometry, shirtGroups, scene, animations, color, faded, 
   }, [scene, animations, geometry, shirtGroups]);
   useEffect(() => {
     material.forEach((m) => { if (!m.vertexColors) m.color.set(color); m.transparent = faded; m.opacity = faded ? 0.3 : 1; });
-    model.traverse((o) => { if (!(o instanceof THREE.Mesh)) return; const materials = Array.isArray(o.material) ? o.material : [o.material]; materials.forEach((m) => { if (!(m instanceof THREE.MeshStandardMaterial)) return; if (m.name === "shirt") m.color.set(color); m.transparent = faded; m.opacity = faded ? 0.3 : 1; }); });
+    model.traverse((o) => {
+      if (!(o instanceof THREE.Mesh)) return;
+      const materials = Array.isArray(o.material) ? o.material : [o.material];
+      materials.forEach((m) => {
+        if (!(m instanceof THREE.MeshStandardMaterial)) return;
+        if (m.name === "skin") m.color.set("#fedac0");
+        else if (m.name === "hair") m.color.set("#3e2723");
+        else if (m.name === "trousers") m.color.set("#2d3748");
+        else if (m.name === "shoes") m.color.set("#f7fafc");
+        else if (m.name === "eyes") m.color.set("#1a202c");
+        else if (m.name === "cheeks") m.color.set("#ff9aa2");
+        else if (m.name === "shirt") m.color.set(color);
+        m.transparent = faded;
+        m.opacity = faded ? 0.3 : 1;
+      });
+    });
   }, [material, model, color, faded]);
   // Strict Mode replays effects using the same memoized actions; uncacheRoot would invalidate them.
   useEffect(() => () => { mixer.stopAllAction(); new Set(material).forEach((m) => m.dispose()); model.traverse((o) => { if (o instanceof THREE.Mesh) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose()); }); }, [mixer, material, model]);
   const path = useMemo(() => arrivalPath(seat, back).map(([x, z]) => new THREE.Vector3(x, 0, z)), [seat.x, seat.z, back]);
   const lengths = useMemo(() => path.slice(1).map((p, i) => { const from = path[i]; return from ? p.distanceTo(from) : 0; }), [path]);
-  const speed = 1.15;
+  const speed = 1.6;
   const distanceTotal = lengths.reduce((a, b) => a + b, 0);
-  const travelTime = distanceTotal / speed + 0.5;
+  const travelTime = distanceTotal / speed + 0.3;
+
   useEffect(() => {
-    if (!pulse || reduced || Date.now() - pulse > 4000) return;
-    elapsed.current = -delay - 0.9;
+    if (group.current) {
+      group.current.visible = false;
+      if (path[0]) {
+        group.current.position.copy(path[0]);
+        group.current.rotation.set(0, Math.PI, 0);
+      }
+    }
+    if (seated.current) seated.current.visible = !willMove;
+  }, []);
+
+  useEffect(() => {
+    const isRecent = Boolean(pulse && Date.now() - pulse < 8000);
+    if (!isRecent) {
+      moving.current = false;
+      if (seated.current) seated.current.visible = true;
+      if (group.current) group.current.visible = false;
+      return;
+    }
+    if (group.current && path[0]) {
+      group.current.position.copy(path[0]);
+      group.current.rotation.set(0, Math.PI, 0);
+      group.current.visible = false;
+    }
+    if (seated.current) seated.current.visible = false;
+    elapsed.current = -delay - 0.15;
     moving.current = true;
-    sit?.stop(); enter?.stop(); walk?.reset().fadeIn(0.45).play();
-    if (walk) walk.timeScale = 1;
-  }, [pulse, reduced, delay, sit, walk, enter]);
+    sit?.stop(); enter?.stop(); walk?.reset().fadeIn(0.2).play();
+    if (walk) walk.timeScale = 1.4;
+  }, [pulse, delay, sit, walk, enter, path]);
+
   useFrame((_, rawDelta) => {
     const g = group.current; const still = seated.current;
     if (!g || !still) return;
-    if (reduced) moving.current = false;
     still.visible = !moving.current;
     g.visible = moving.current && elapsed.current >= 0;
     if (!moving.current) return;
@@ -85,10 +125,11 @@ function Person({ seat, geometry, shirtGroups, scene, animations, color, faded, 
     mixer.update(Math.min(rawDelta, 0.05));
     if (t < travelTime) {
       // Half-second acceleration/deceleration keeps footfalls matched to travel.
-      const ramp = 0.5;
+      const ramp = 0.4;
       const remaining = travelTime - t;
       let distance = t < ramp ? speed * t * t / (2 * ramp) : remaining < ramp ? distanceTotal - speed * remaining * remaining / (2 * ramp) : speed * (t - ramp / 2);
-      if (walk) walk.timeScale = Math.max(0.12, Math.min(1, t / ramp, remaining / ramp));
+      const speedScale = 1.4;
+      if (walk) walk.timeScale = Math.max(0.15, Math.min(speedScale, (t / ramp) * speedScale, (remaining / ramp) * speedScale));
       for (let i = 0; i < lengths.length; i++) {
         const length = lengths[i]; const from = path[i]; const to = path[i + 1];
         if (length == null || !from || !to) continue;
@@ -110,12 +151,14 @@ function Person({ seat, geometry, shirtGroups, scene, animations, color, faded, 
       g.position.set(seat.x, SEATED_HEIGHT * eased, seat.z - 0.22 * (1 - eased) + SEATED_FORWARD * eased);
       const diff = Math.atan2(Math.sin(Math.PI - g.rotation.y), Math.cos(Math.PI - g.rotation.y));
       g.rotation.y += diff * (1 - Math.exp(-9 * Math.min(rawDelta, 0.05)));
-      if (p === 1) { moving.current = false; still.visible = true; g.visible = false; }
+      if (p === 1) {
+        moving.current = false; still.visible = true; g.visible = false;
+      }
     }
   });
   return <group onClick={(e) => { e.stopPropagation(); onSelect(seat.index); }}>
     <mesh ref={seated} geometry={geometry} position={[seat.x, SEATED_HEIGHT, seat.z + SEATED_FORWARD]} material={material} castShadow />
-    <group ref={group} visible={false} scale={PERSON_SCALE}><primitive object={model} /></group>
+    <group ref={group} scale={PERSON_SCALE}><primitive object={model} /></group>
   </group>;
 }
 
@@ -147,7 +190,13 @@ export function RoomPeople({ seats, pulseMap, reduced, color, highlighted, onSel
       for (let i = 0; i < positions.count; i++) {
         const part = o.geometry.groups.find((group: { start: number; count: number; materialIndex?: number }) => i >= group.start && i < group.start + group.count);
         const m = materials[part?.materialIndex ?? 0];
-        const c = m instanceof THREE.MeshStandardMaterial ? m.color : new THREE.Color(1, 1, 1);
+        let c = m instanceof THREE.MeshStandardMaterial ? m.color : new THREE.Color(1, 1, 1);
+        if (m?.name === "skin") c = new THREE.Color("#fedac0");
+        else if (m?.name === "hair") c = new THREE.Color("#3e2723");
+        else if (m?.name === "trousers") c = new THREE.Color("#2d3748");
+        else if (m?.name === "shoes") c = new THREE.Color("#f7fafc");
+        else if (m?.name === "eyes") c = new THREE.Color("#1a202c");
+        else if (m?.name === "cheeks") c = new THREE.Color("#ff9aa2");
         colors.set([c.r, c.g, c.b], i * 3);
       }
       for (const key of Object.keys(g.attributes)) if (key !== "position") g.deleteAttribute(key);

@@ -31,4 +31,41 @@ describe("server-side training rules", () => {
     expect(sql).toMatch(/try_issue_certificate[\s\S]*issue_certificate[\s\S]*require_posttest[\s\S]*require_survey/);
     expect(sql).toMatch(/test disabled for this course/);
   });
+  it("protects trainee privacy in get_session_roster and validates access", () => {
+    expect(types).toContain("get_session_roster: {");
+    expect(sql).toMatch(/get_session_roster[\s\S]*is_staff\(auth\.uid\(\)\)[\s\S]*can_access_course/);
+    // Ensure sensitive fields are not exposed in session roster
+    const rosterTypeBlock = types.slice(types.indexOf("get_session_roster: {"), types.indexOf("get_session_roster: {") + 400);
+    expect(rosterTypeBlock).not.toContain("email");
+    expect(rosterTypeBlock).not.toContain("phone");
+    expect(rosterTypeBlock).toContain("full_name");
+    expect(rosterTypeBlock).toContain("division");
+    expect(rosterTypeBlock).toContain("department");
+  });
+  it("enforces session capacity and enrollment via choose_session", () => {
+    expect(types).toContain("choose_session: {");
+    expect(sql).toMatch(/choose_session[\s\S]*for update[\s\S]*รอบนี้ที่นั่งเต็มแล้ว/);
+  });
+  it("enforces attendance check-in before post-test and certificate issuance for classroom courses", () => {
+    expect(sql).toMatch(/_kind = 'post'[\s\S]*course_sessions[\s\S]*attendance[\s\S]*เช็คชื่อเข้าห้องอบรมก่อนทำแบบทดสอบหลังเรียน/);
+    expect(sql).toMatch(/try_issue_certificate[\s\S]*course_sessions[\s\S]*attendance/);
+  });
+  it("scopes team data to managed units and blocks self-assignment into a team", () => {
+    expect(types).toContain("get_team_members: {");
+    expect(sql).toMatch(/get_team_members[\s\S]*can_manage_user\(auth\.uid\(\), p\.id\)/);
+    expect(sql).toMatch(/get_team_enrollments[\s\S]*can_manage_user\(auth\.uid\(\), e\.user_id\)/);
+    expect(sql).toMatch(/org managers admin write[\s\S]*has_role\(auth\.uid\(\), 'admin'\)/);
+    expect(sql).toMatch(/protect_profile[\s\S]*new\.org_unit_id := old\.org_unit_id/);
+    const block = types.slice(types.indexOf("get_team_members: {"), types.indexOf("get_team_members: {") + 400);
+    expect(block).not.toContain("email");
+  });
+  it("authorizes manager batch assignment with can_manage_user and capacity checks", () => {
+    expect(types).toContain("manager_assign_course: {");
+    expect(sql).toMatch(/manager_assign_course[\s\S]*can_manage_user[\s\S]*can_access_course[\s\S]*member_audit_log/);
+  });
+  it("exposes calendar sessions with soft-delete filter and seat quotas", () => {
+    expect(types).toContain("get_calendar_sessions: {");
+    expect(sql).toMatch(/get_calendar_sessions[\s\S]*s\.deleted_at IS NULL[\s\S]*c\.deleted_at IS NULL/);
+    expect(sql).toMatch(/get_calendar_sessions[\s\S]*taken_seats[\s\S]*team_attendees_count/);
+  });
 });

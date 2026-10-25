@@ -8,6 +8,14 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
 export default defineConfig({
   vite: {
+    server: {
+      proxy: {
+        "/__l5e": {
+          target: "https://hospital-skill-boost.lovable.app",
+          changeOrigin: true,
+        },
+      },
+    },
     optimizeDeps: {
       // Prebundle the lazy room renderer at startup so opening it cannot swap
       // the React dependency graph underneath an already mounted page.

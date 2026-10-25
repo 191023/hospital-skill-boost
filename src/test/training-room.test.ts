@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { arrivalPath, detectRoomArrivals, attendeeSymbol, roomDate, roomFirstName, roomDivisionTokens, matchesAttendee, roomSeats, type RoomAttendee } from "@/lib/training-room";
+import { arrivalPath, detectRoomArrivals, attendeeSymbol, roomDate, roomFirstName, roomDivisionTokens, matchesAttendee, roomSeats, getCountdownInfo, type RoomAttendee } from "@/lib/training-room";
 const person: RoomAttendee = { userId: "1", name: "สมชาย", division: "ฝ่ายการพยาบาล", department: "หอผู้ป่วย", registeredAt: "2026-10-08", checkedAt: null };
 describe("training room", () => {
   it("shows only first names without titles or surnames", () => {
@@ -7,6 +7,8 @@ describe("training room", () => {
     expect(roomFirstName("นางสาว สมหญิง สุขใจ")).toBe("สมหญิง");
     expect(roomFirstName("นพ. ภานุวัฒน์ เรืองมูล")).toBe("ภานุวัฒน์");
     expect(roomFirstName("ภานุวัฒน์ เรืองมูล")).toBe("ภานุวัฒน์");
+    expect(roomFirstName("พว. ชลธิชา วรรณโชติ")).toBe("พว.ชลธิชา");
+    expect(roomFirstName("พว.ชลธิชา วรรณโชติ")).toBe("พว.ชลธิชา");
     expect(roomFirstName("")).toBe("ไม่ระบุชื่อ");
   });
   it("assigns different stable shirt tokens to every division", () => {
@@ -39,5 +41,28 @@ describe("training room", () => {
   it("formats actual session times in Bangkok", () => {
     expect(roomDate("2026-10-17T02:00:00Z", "2026-10-17T05:00:00Z")).toContain("09:00–12:00");
     expect(roomDate(null, null)).toBe("ยังไม่กำหนดวันอบรม");
+  });
+  it("calculates live countdown info relative to session schedule", () => {
+    const start = new Date("2026-10-25T09:00:00Z").getTime();
+    const end = new Date("2026-10-25T12:00:00Z").getTime();
+    // 30 mins before start
+    const before = getCountdownInfo("2026-10-25T09:00:00Z", "2026-10-25T12:00:00Z", start - 1800000);
+    expect(before.state).toBe("upcoming");
+    expect(before.remainingText).toBe("00:30:00");
+    expect(before.label).toContain("เริ่มอบรมในอีก 00:30:00");
+
+    // In progress (1 hr in, 2 hrs left)
+    const mid = getCountdownInfo("2026-10-25T09:00:00Z", "2026-10-25T12:00:00Z", start + 3600000);
+    expect(mid.state).toBe("in_progress");
+    expect(mid.percent).toBe(33);
+    expect(mid.remainingText).toBe("02:00:00");
+
+    // Finished
+    const after = getCountdownInfo("2026-10-25T09:00:00Z", "2026-10-25T12:00:00Z", end + 1000);
+    expect(after.state).toBe("finished");
+    expect(after.label).toBe("สิ้นสุดการอบรมแล้ว");
+
+    // Unscheduled
+    expect(getCountdownInfo(null, null).state).toBe("none");
   });
 });

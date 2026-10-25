@@ -26,16 +26,53 @@ function LessonPage() {
     queryKey: ["lesson", lessonId, me?.id],
     enabled: !!me,
     queryFn: async () => {
-      const [{ data: lesson }, { data: all }, { data: prog }] = await Promise.all([
+      const [{ data: lesson }, { data: all }, { data: prog }, { data: course }, { data: sess }, { data: att }, { data: preAtt }] = await Promise.all([
         supabase.from("lessons").select("*").eq("id", lessonId).maybeSingle(),
         supabase.from("lessons").select("id,title,position").eq("course_id", courseId).order("position"),
         supabase.from("lesson_progress").select("lesson_id").eq("user_id", me!.id).eq("lesson_id", lessonId),
+        supabase.from("courses").select("require_pretest").eq("id", courseId).maybeSingle(),
+        supabase.from("course_sessions").select("id").eq("course_id", courseId).limit(1),
+        supabase.from("attendance").select("id").eq("course_id", courseId).eq("user_id", me!.id).maybeSingle(),
+        supabase.from("test_attempts").select("id").eq("course_id", courseId).eq("user_id", me!.id).eq("kind", "pre").maybeSingle(),
       ]);
       const pdf = lesson?.file_url ? await fileUrl(lesson.file_url) : null;
-      return { lesson, all: all ?? [], done: (prog ?? []).length > 0, pdf };
+      const hasSessions = (sess ?? []).length > 0;
+      const checkedIn = !hasSessions || !!att;
+      const needPre = !!course?.require_pretest && !preAtt;
+      return { lesson, all: all ?? [], done: (prog ?? []).length > 0, pdf, checkedIn, needPre };
     },
   });
   if (!data?.lesson) return <div className="text-muted-foreground">กำลังโหลด...</div>;
+
+  if (!data.checkedIn) {
+    return (
+      <div className="mx-auto max-w-lg glass rounded-3xl p-8 text-center space-y-4">
+        <div className="text-4xl">🔒</div>
+        <h1 className="text-xl font-bold">รอเช็คชื่อเข้าห้องอบรม</h1>
+        <p className="text-sm text-muted-foreground">
+          หลักสูตรนี้ต้องสแกน QR Code เช็คชื่อเข้าห้องอบรมก่อน จึงจะสามารถเปิดดูเนื้อหาบทเรียนได้
+        </p>
+        <Link to="/courses/$courseId" params={{ courseId }} className="inline-block rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground">
+          กลับหน้าหลักสูตร
+        </Link>
+      </div>
+    );
+  }
+
+  if (data.needPre) {
+    return (
+      <div className="mx-auto max-w-lg glass rounded-3xl p-8 text-center space-y-4">
+        <div className="text-4xl">📝</div>
+        <h1 className="text-xl font-bold">ต้องทำแบบทดสอบก่อนเรียน</h1>
+        <p className="text-sm text-muted-foreground">
+          กรุณาทำแบบทดสอบก่อนเรียน (Pre-test) ให้เรียบร้อยก่อนเริ่มเข้าดูเนื้อหาบทเรียน
+        </p>
+        <Link to="/courses/$courseId/test/$kind" params={{ courseId, kind: "pre" }} className="inline-block rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground">
+          ไปทำแบบทดสอบ Pre-test →
+        </Link>
+      </div>
+    );
+  }
   const { lesson, all, done, pdf } = data;
   const idx = all.findIndex((l) => l.id === lessonId);
   const next = all[idx + 1];

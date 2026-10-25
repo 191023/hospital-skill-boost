@@ -135,14 +135,14 @@
 }
 
 .room-page [role="img"] { font-family: "Apple Color Emoji", "Segoe UI Emoji", "Room Emoji", sans-serif; }
-.room-canvas { height: 510px; width: 100%; overflow: hidden; background: var(--room-background); }
-.room-canvas.kiosk-canvas { height: calc(100vh - 150px); min-height: 420px; }
+.room-canvas { height: calc(100vh - 145px); min-height: 680px; width: 100%; overflow: hidden; background: var(--room-background); border-radius: 1.25rem; }
+.room-canvas.kiosk-canvas { height: calc(100vh - 120px); min-height: 600px; }
 .room-page:fullscreen { background: var(--background); padding: 1.25rem; overflow-y: auto; }
-.room-page:fullscreen .room-canvas { height: calc(100vh - 190px); }
+.room-page:fullscreen .room-canvas { height: calc(100vh - 80px); }
 .room-seat-label { height: 22px; min-width: 32px; padding: 0 4px; border-radius: 4px; font-size: 10px; color: var(--foreground); background: color-mix(in oklab, var(--card) 85%, transparent); box-shadow: var(--shadow-soft); }
 .room-seat-selected { background: var(--primary); color: var(--primary-foreground); }
 @media (max-width: 640px) { .room-canvas { height: 370px; } .room-canvas.kiosk-canvas { height: calc(100vh - 210px); } }
-@media (prefers-reduced-motion: reduce) { .room-page *, .room-page *::before, .room-page *::after { animation: none !important; transition: none !important; } }
+@media (prefers-reduced-motion: reduce) { .room-page *:not(.fly-jet-capsule, .fly-jet-capsule *, .fly-jet-trail, .fly-jet-trail *, .fly-jet-core, .fly-jet-particles, .landing-burst-ring), .room-page *::before, .room-page *::after { animation: none !important; transition: none !important; } }
 @utility bg-page {
   background-image: var(--gradient-page);
 }
@@ -167,33 +167,280 @@
     -webkit-font-smoothing: antialiased;
   }
 }
+@keyframes checkinPulse {
+  0% { transform: scale(0.96); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+  50% { transform: scale(1.02); box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
 
-@media print {
-  .no-print { display: none !important; }
-  body { background: white; }
-  body:has(.print-area) * { visibility: hidden; }
-  body:has(.print-area) .print-area, body:has(.print-area) .print-area * { visibility: visible; }
-  .print-area { position: absolute; left: 0; top: 0; width: 100%; }
-  .print-area .glass { box-shadow: none; backdrop-filter: none; border: 1px solid #ddd; }
-  @page { size: A4; margin: 12mm; }
+/* SCI-FI CHECK-IN FLYING JET & LASER TRAIL */
+.fly-jet-capsule {
+  animation: flyFromLeftToRight 2.8s cubic-bezier(0.25, 1, 0.4, 1) forwards;
+  will-change: transform, opacity;
+  transform-origin: center right;
+  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.28));
+}
+
+.fly-jet-trail {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translate(-100%, -50%);
+  height: 24px;
+  pointer-events: none;
+  animation: thrusterTrailStretch 2.8s cubic-bezier(0.25, 1, 0.4, 1) forwards;
+  will-change: width, opacity;
+}
+
+.fly-jet-core {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  height: 8px;
+  width: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(to left, #ffffff, #67e8f9 35%, #06b6d4 70%, transparent 100%);
+  box-shadow: 0 0 16px #22d3ee, 0 0 32px #0891b2, 0 0 50px #0284c7;
+  animation: jetPulseFlame 0.3s ease-in-out infinite alternate;
+}
+
+.fly-jet-particles {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  height: 24px;
+  width: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(to left, rgba(103, 232, 249, 0.85), rgba(45, 212, 191, 0.5) 40%, rgba(56, 189, 248, 0.2) 75%, transparent 100%);
+  filter: blur(2px);
+  mix-blend-mode: screen;
+}
+
+.fly-jet-trail::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  width: calc(100% - 10px);
+  height: 2px;
+  background: repeating-linear-gradient(90deg, #67e8f9 0px, #67e8f9 8px, transparent 8px, transparent 16px);
+  opacity: 0.9;
+}
+
+.landing-burst-ring {
+  position: absolute;
+  inset: -12px;
+  border-radius: 1.5rem;
+  border: 2px solid #22d3ee;
+  box-shadow: 0 0 25px #22d3ee, inset 0 0 15px #67e8f9;
+  pointer-events: none;
+  animation: landingRingBurst 2.8s ease-out forwards;
+}
+
+@keyframes flyFromLeftToRight {
+  0% {
+    opacity: 0;
+    transform: translate3d(7vw, 44vh, 0) scale(0.72) rotate(-4deg);
+  }
+  12% {
+    opacity: 1;
+    transform: translate3d(14vw, 39vh, 0) scale(1.02) rotate(-2.5deg);
+  }
+  35% {
+    opacity: 1;
+    transform: translate3d(30vw, 30vh, 0) scale(1.05) rotate(-0.8deg);
+  }
+  60% {
+    opacity: 1;
+    transform: translate3d(50vw, 22vh, 0) scale(1.03) rotate(1deg);
+  }
+  80% {
+    opacity: 1;
+    transform: translate3d(66vw, 16vh, 0) scale(1.01) rotate(1.8deg);
+  }
+  92% {
+    opacity: 1;
+    transform: translate3d(74vw, 12vh, 0) scale(0.99) rotate(0.4deg);
+  }
+  97% {
+    opacity: 0.85;
+    transform: translate3d(75.5vw, 11.5vh, 0) scale(0.96) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(76vw, 11vh, 0) scale(0.9) rotate(0deg);
+  }
+}
+
+@keyframes thrusterTrailStretch {
+  0% {
+    width: 15px;
+    opacity: 0;
+  }
+  12% {
+    width: 130px;
+    opacity: 0.95;
+  }
+  38% {
+    width: 270px;
+    opacity: 1;
+  }
+  65% {
+    width: 250px;
+    opacity: 0.95;
+  }
+  82% {
+    width: 160px;
+    opacity: 0.8;
+  }
+  92% {
+    width: 60px;
+    opacity: 0.4;
+  }
+  98% {
+    width: 10px;
+    opacity: 0.1;
+  }
+  100% {
+    width: 0px;
+    opacity: 0;
+  }
+}
+
+@keyframes jetPulseFlame {
+  0% {
+    filter: drop-shadow(0 0 12px #22d3ee) drop-shadow(0 0 25px #0284c7);
+  }
+  100% {
+    filter: drop-shadow(0 0 20px #67e8f9) drop-shadow(0 0 45px #38bdf8);
+  }
+}
+
+@keyframes landingRingBurst {
+  0%, 88% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  93% {
+    opacity: 1;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.7);
+  }
+}
+
+.animate-checkin-pulse {
+  animation: checkinPulse 1.8s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @media print {
-  body:has(.certificate-print-area) { background: white; }
+  .no-print {
+    display: none !important;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide sidebar and decoration when printing */
+  aside,
+  nav,
+  body:has(.print-area) aside,
+  body:has(.print-area) nav {
+    display: none !important;
+  }
+
+  /* Multi-page continuous flow for reports */
+  .print-area {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+
+  .print-area .glass {
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    border: 1px solid #cbd5e1 !important;
+    background: #ffffff !important;
+  }
+
+  /* Proper table printing across pages */
+  table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+  }
+  thead {
+    display: table-header-group !important;
+  }
+  tr, .break-inside-avoid, .print-avoid-break {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Single-page Landscape Certificate */
+  body:has(.certificate-print-area) {
+    background: #ffffff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 297mm !important;
+    height: 210mm !important;
+    overflow: hidden !important;
+  }
+  body:has(.certificate-print-area) aside,
+  body:has(.certificate-print-area) nav,
+  body:has(.certificate-print-area) header,
+  body:has(.certificate-print-area) .no-print {
+    display: none !important;
+  }
+  body:has(.certificate-print-area) main {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 297mm !important;
+    height: 210mm !important;
+    max-width: 297mm !important;
+    max-height: 210mm !important;
+    overflow: hidden !important;
+  }
   body:has(.certificate-print-area) .certificate-print-area {
-    position: fixed;
-    inset: 0;
-    width: 297mm;
-    height: 210mm;
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 999999 !important;
+    width: 297mm !important;
+    height: 210mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
   }
   body:has(.certificate-print-area) .certificate-sheet {
-    width: 297mm;
-    height: 210mm;
-    aspect-ratio: auto;
-    border-radius: 0;
-    box-shadow: none;
-    print-color-adjust: exact;
-    -webkit-print-color-adjust: exact;
+    width: 297mm !important;
+    height: 210mm !important;
+    max-width: 297mm !important;
+    max-height: 210mm !important;
+    box-sizing: border-box !important;
+    aspect-ratio: auto !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
   }
-  @page { size: A4 landscape; margin: 0; }
 }

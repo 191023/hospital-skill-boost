@@ -36,8 +36,13 @@ function Trainer({ role, x, colors, celebrate, reduced }: { role: "doctor" | "nu
         const group = object.geometry.groups.find((g: { start: number; count: number; materialIndex?: number }) => i >= g.start && i < g.start + g.count);
         const material = materials[group?.materialIndex ?? 0];
         let color = material instanceof THREE.MeshStandardMaterial ? material.color : new THREE.Color(colors.white);
-        if (material?.name === "shirt") color = new THREE.Color(role === "doctor" ? colors.white : colors.uniform);
-        if (material?.name === "trousers") color = new THREE.Color(colors.uniform);
+        if (material?.name === "skin") color = new THREE.Color("#fedac0");
+        if (material?.name === "hair") color = new THREE.Color(role === "doctor" ? "#3e2723" : "#4a3525");
+        if (material?.name === "shirt") color = new THREE.Color(role === "doctor" ? "#ffffff" : colors.uniform);
+        if (material?.name === "trousers") color = new THREE.Color(role === "doctor" ? "#2b3a4a" : colors.uniform);
+        if (material?.name === "shoes") color = new THREE.Color(role === "doctor" ? "#1e293b" : "#f7fafc");
+        if (material?.name === "eyes") color = new THREE.Color("#1a202c");
+        if (material?.name === "cheeks") color = new THREE.Color("#ff9aa2");
         paint.set([color.r, color.g, color.b], i * 3);
       }
       for (const attribute of Object.keys(part.attributes)) if (attribute !== "position") part.deleteAttribute(attribute);
@@ -51,11 +56,6 @@ function Trainer({ role, x, colors, celebrate, reduced }: { role: "doctor" | "nu
     return merged;
   }, [scene, animations, role, colors]);
   useEffect(() => () => geometry.dispose(), [geometry]);
-  const stethoscope = useMemo(() => new THREE.CatmullRomCurve3([
-    new THREE.Vector3(-0.105, 1.49, 0.13), new THREE.Vector3(-0.15, 1.32, 0.17),
-    new THREE.Vector3(-0.08, 1.17, 0.185), new THREE.Vector3(0.06, 1.19, 0.185),
-    new THREE.Vector3(0.115, 1.32, 0.17), new THREE.Vector3(0.085, 1.49, 0.13),
-  ]), []);
   const ref = useRef<THREE.Group>(null);
   const phase = role === "doctor" ? 0 : Math.PI / 2;
   useFrame(({ clock }) => {
@@ -75,23 +75,10 @@ function Trainer({ role, x, colors, celebrate, reduced }: { role: "doctor" | "nu
     }
   });
   return <group ref={ref} name={`stage-${role}`} position={[x, 0.335, -2.45]} scale={1.05}>
-    <mesh geometry={geometry} castShadow receiveShadow><meshStandardMaterial vertexColors roughness={0.8} /></mesh>
-    {role === "doctor" ? <>
-      {/* Coat hem, lapels and stethoscope identify an illustrative male doctor. */}
-      <mesh position={[0, 0.99, 0]} castShadow><cylinderGeometry args={[0.195, 0.235, 0.35, 12]} /><meshStandardMaterial color={colors.white} roughness={0.85} /></mesh>
-      {[-1, 1].map((side) => <mesh key={side} position={[side * 0.065, 1.38, 0.147]} rotation-z={side * -0.24}><boxGeometry args={[0.065, 0.24, 0.018]} /><meshStandardMaterial color={colors.white} /></mesh>)}
-      <mesh><tubeGeometry args={[stethoscope, 20, 0.012, 6, false]} /><meshStandardMaterial color={colors.dark} roughness={0.5} /></mesh>
-      <mesh position={[0.06, 1.19, 0.2]} rotation-x={Math.PI / 2}><cylinderGeometry args={[0.034, 0.034, 0.018, 12]} /><meshStandardMaterial color={colors.accent} metalness={0.55} roughness={0.3} /></mesh>
-    </> : <>
-      {/* Illustrative female nurse: cap, uniform dress and knee-length skirt. */}
-      <mesh position={[0, 1.92, 0]} castShadow><cylinderGeometry args={[0.125, 0.15, 0.1, 16]} /><meshStandardMaterial color={colors.white} roughness={0.85} /></mesh>
-      <mesh position={[0, 1.92, 0.14]}><boxGeometry args={[0.12, 0.028, 0.012]} /><meshStandardMaterial color={colors.uniform} /></mesh>
-      <mesh position={[0, 1.45, 0.133]} rotation-z={Math.PI / 4}><boxGeometry args={[0.08, 0.08, 0.016]} /><meshStandardMaterial color={colors.dark} /></mesh>
-      <mesh position={[0, 0.83, 0]} castShadow><cylinderGeometry args={[0.2, 0.3, 0.42, 18, 1, true]} /><meshStandardMaterial color={colors.uniform} roughness={0.8} side={THREE.DoubleSide} /></mesh>
-      <mesh position={[0, 0.62, 0]}><torusGeometry args={[0.3, 0.012, 6, 24]} /><meshStandardMaterial color={colors.white} /></mesh>
-    </>}
-    <mesh position={[-0.105, 1.31, 0.165]}><boxGeometry args={[0.07, 0.1, 0.012]} /><meshStandardMaterial color={colors.white} /></mesh>
-    <mesh position={[-0.105, 1.325, 0.174]}><boxGeometry args={[0.045, 0.025, 0.008]} /><meshStandardMaterial color={colors.accent} /></mesh>
+    <mesh geometry={geometry} castShadow receiveShadow><meshStandardMaterial vertexColors roughness={0.7} /></mesh>
+    {/* Clean Hospital Badge flush on chest */}
+    <mesh position={[-0.105, 1.31, 0.165]}><boxGeometry args={[0.065, 0.09, 0.012]} /><meshStandardMaterial color="#ffffff" roughness={0.5} /></mesh>
+    <mesh position={[-0.105, 1.325, 0.172]}><boxGeometry args={[0.045, 0.022, 0.008]} /><meshStandardMaterial color={colors.accent} roughness={0.5} /></mesh>
   </group>;
 }
 

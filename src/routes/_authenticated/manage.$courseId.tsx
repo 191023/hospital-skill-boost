@@ -10,6 +10,9 @@ import { btn, inp, uploadCourseFile } from "@/components/course-editor/shared";
 import { SurveyManager } from "@/components/Survey";
 import { CertificateSettings } from "@/components/CertificateSettings";
 import { SessionManager } from "@/components/Sessions";
+import { PhotosEditor } from "@/components/course-editor/PhotosEditor";
+import { AttendeesManager } from "@/components/course-editor/AttendeesManager";
+import { DocumentsEditor } from "@/components/course-editor/DocumentsEditor";
 
 export const Route = createFileRoute("/_authenticated/manage/$courseId")({
   head: () => ({ meta: [
@@ -23,22 +26,32 @@ export const Route = createFileRoute("/_authenticated/manage/$courseId")({
   component: Editor,
 });
 
+type Tab = "info" | "access" | "sessions" | "attendees" | "lessons" | "questions" | "survey" | "certificate" | "photos" | "documents";
+
 function Editor() {
   const { courseId } = Route.useParams();
-  const [tab, setTab] = useState<"info" | "access" | "sessions" | "lessons" | "questions" | "survey" | "certificate">("info");
+  const [tab, setTab] = useState<Tab>(() => {
+    if (typeof window !== "undefined") {
+      const q = new URLSearchParams(window.location.search).get("tab") as Tab;
+      if (q && ["info", "access", "sessions", "attendees", "lessons", "questions", "survey", "certificate", "photos", "documents"].includes(q)) {
+        return q;
+      }
+    }
+    return "info";
+  });
   const { data: course } = useQuery({
     queryKey: ["edit-course", courseId],
     queryFn: async () => (await supabase.from("courses").select("*").eq("id", courseId).maybeSingle()).data,
   });
   if (!course) return <div className="text-muted-foreground">กำลังโหลด...</div>;
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="mx-auto max-w-5xl">
       <Link to="/manage" className="text-sm text-primary">← หลักสูตรทั้งหมด</Link>
       <h1 className="mt-2 text-3xl font-bold">{course.title}</h1>
       <div className="glass mt-4 inline-flex flex-wrap rounded-2xl p-1 text-sm">
-        {(["info", "access", "sessions", "lessons", "questions", "survey", "certificate"] as const).map((t) => (
+        {(["info", "access", "sessions", "attendees", "lessons", "questions", "survey", "certificate", "photos", "documents"] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)} className={`rounded-xl px-4 py-2 ${tab === t ? "bg-primary font-semibold text-primary-foreground" : "text-foreground/70"}`}>
-            {{ info: "ข้อมูลหลักสูตร", access: "ผู้มีสิทธิ์เรียน", sessions: "รอบอบรม", lessons: "บทเรียน", questions: "ข้อสอบก่อน/หลังเรียน", survey: "แบบประเมินหลักสูตร", certificate: "ใบประกาศนียบัตร" }[t]}
+            {{ info: "ข้อมูลหลักสูตร", access: "ผู้มีสิทธิ์เรียน", sessions: "รอบอบรม", attendees: "ผู้ลงทะเบียน", lessons: "บทเรียน", questions: "ข้อสอบก่อน/หลังเรียน", survey: "แบบประเมินหลักสูตร", certificate: "ใบประกาศนียบัตร", photos: "ภาพกิจกรรม", documents: "เอกสารแนบ" }[t]}
           </button>
         ))}
       </div>
@@ -46,10 +59,13 @@ function Editor() {
         {tab === "info" && <Info course={course} />}
         {tab === "access" && <Access courseId={courseId} audience={course.audience} />}
         {tab === "sessions" && <SessionManager courseId={courseId} />}
+        {tab === "attendees" && <AttendeesManager courseId={courseId} />}
         {tab === "lessons" && <Lessons courseId={courseId} />}
         {tab === "questions" && <Questions courseId={courseId} />}
         {tab === "survey" && <SurveyManager courseId={courseId} />}
         {tab === "certificate" && <CertificateSettings course={course} />}
+        {tab === "photos" && <PhotosEditor courseId={courseId} />}
+        {tab === "documents" && <DocumentsEditor courseId={courseId} />}
       </div>
     </div>
   );
@@ -76,7 +92,7 @@ function Info({ course }: { course: Course }) {
     qc.invalidateQueries();
   }
   async function del() {
-    if (!confirm("ลบหลักสูตรนี้? ข้อมูลผู้เรียนจะถูกลบด้วย")) return;
+    if (!confirm("ลบหลักสูตรนี้? (ระบบจะเก็บประวัติการอบรมของผู้เรียนเดิมไว้)")) return;
     const { error } = await supabase.from("courses").delete().eq("id", course.id);
     if (error) { toast.error(error.message); return; }
     nav({ to: "/manage" });

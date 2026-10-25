@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { DeptPicker } from "@/components/DeptPicker";
 import { Blobs, Brand } from "@/components/Brand";
+import { Medical3DBackground } from "@/components/Medical3DBackground";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -48,14 +49,29 @@ function AuthPage() {
       const result = await lovable.auth.signInWithOAuth("google", {
         redirect_uri: window.location.origin + "/auth",
       });
-      if (result.error) {
-        toast.error("เข้าสู่ระบบด้วย Google ไม่สำเร็จ");
+      if (!result.error) {
+        if (result.redirected) return;
+        goNext();
         return;
       }
-      if (result.redirected) return;
-      goNext();
+      // Fallback: direct Supabase OAuth if not on Lovable cloud
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: window.location.origin + "/auth" },
+      });
+      if (error) {
+        if (error.message.includes("provider is not enabled") || error.message.includes("Unsupported provider")) {
+          toast.error("Google Login ยังไม่ได้เปิดใช้งาน (ต้องตั้งค่า Google Client ID ใน Supabase)");
+        } else {
+          toast.error(error.message);
+        }
+        return;
+      }
+      if (data?.url) {
+        window.location.assign(data.url);
+      }
     } catch {
-      toast.error("เข้าสู่ระบบด้วย Google ไม่สำเร็จ");
+      toast.error("เข้าสู่ระบบด้วย Google ไม่สำเร็จ (ยังไม่ได้เชื่อมต่อ Google OAuth ในสภาพแวดล้อมนี้)");
     } finally {
       setBusy(false);
     }
@@ -100,8 +116,9 @@ function AuthPage() {
 
   return (
     <div className="relative grid min-h-screen place-items-center overflow-hidden bg-page px-4">
+      <Medical3DBackground />
       <Blobs />
-      <div className="glass relative w-full max-w-md rounded-3xl p-8">
+      <div className="glass relative z-10 w-full max-w-md rounded-3xl p-8 backdrop-blur-xl shadow-brand">
         <Brand />
         <h1 className="mt-6 text-2xl font-bold">{mode === "in" ? "เข้าสู่ระบบ" : "สมัครสมาชิก"}</h1>
         <form onSubmit={submit} className="mt-6 space-y-3">

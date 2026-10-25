@@ -17,7 +17,7 @@ const DEFAULTS: { kind: "rating" | "text"; prompt: string }[] = [
 function useSurveyQs(courseId: string) {
   return useQuery({
     queryKey: ["survey-q", courseId],
-    queryFn: async () => (await supabase.from("survey_questions").select("*").eq("course_id", courseId).order("position")).data ?? [],
+    queryFn: async () => (await supabase.from("survey_questions").select("*").eq("course_id", courseId).is("deleted_at", null).order("position")).data ?? [],
   });
 }
 

@@ -40,6 +40,26 @@ export function useSessions(courseId: string) {
   });
 }
 
+export type SessionRosterPerson = {
+  user_id: string;
+  full_name: string;
+  division: string;
+  department: string;
+  enrolled_at: string;
+};
+
+export function useSessionRoster(sessionId: string, enabled = true) {
+  return useQuery({
+    queryKey: ["session-roster", sessionId],
+    enabled: !!sessionId && enabled,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_session_roster", { _session: sessionId });
+      if (error) throw error;
+      return (data ?? []) as SessionRosterPerson[];
+    },
+  });
+}
+
 export function SessionManager({ courseId }: { courseId: string }) {
   const qc = useQueryClient();
   const { data } = useSessions(courseId);
@@ -79,7 +99,7 @@ function SessionRow({ s, onChange }: { s: Session & { taken: number }; onChange:
     if (error) toast.error(error.message); else { toast.success("บันทึกรอบอบรมแล้ว"); onChange(); }
   }
   async function del() {
-    if (!confirm(`ลบรอบที่ ${s.round_no}? ผู้ที่เลือกรอบนี้จะกลับเป็น "ยังไม่เลือกรอบ"`)) return;
+    if (!confirm(`ลบรอบที่ ${s.round_no}? ผู้ที่เลือกรอบนี้จะกลับเป็น "ยังไม่เลือกรอบ" (ประวัติการเช็คชื่อเดิมจะยังคงอยู่)`)) return;
     const { error } = await supabase.from("course_sessions").delete().eq("id", s.id);
     if (error) toast.error(error.message); else onChange();
   }

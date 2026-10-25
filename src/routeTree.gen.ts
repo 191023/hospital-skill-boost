@@ -14,11 +14,16 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
+import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedManageTeamRouteImport } from './routes/_authenticated/manage-team'
 import { Route as AuthenticatedMyCoursesRouteImport } from './routes/_authenticated/my-courses'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedSimulationCprRouteImport } from './routes/_authenticated/simulation-cpr'
 import { Route as JoinCourseIdRouteImport } from './routes/join.$courseId'
 import { Route as VerifyCertNoRouteImport } from './routes/verify.$certNo'
 import { Route as AuthenticatedAdminAuditRouteImport } from './routes/_authenticated/admin.audit'
+import { Route as AuthenticatedAdminOrgRouteImport } from './routes/_authenticated/admin.org'
 import { Route as AuthenticatedAdminQrRouteImport } from './routes/_authenticated/admin.qr'
 import { Route as AuthenticatedAdminReportsRouteImport } from './routes/_authenticated/admin.reports'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin.users'
@@ -59,9 +64,19 @@ const AuthenticatedAccountRoute = AuthenticatedAccountRouteImport.update({
   path: '/account',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedManageTeamRoute = AuthenticatedManageTeamRouteImport.update({
+  id: '/manage-team',
+  path: '/manage-team',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedMyCoursesRoute = AuthenticatedMyCoursesRouteImport.update({
@@ -69,6 +84,17 @@ const AuthenticatedMyCoursesRoute = AuthenticatedMyCoursesRouteImport.update({
   path: '/my-courses',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSimulationCprRoute =
+  AuthenticatedSimulationCprRouteImport.update({
+    id: '/simulation-cpr',
+    path: '/simulation-cpr',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const JoinCourseIdRoute = JoinCourseIdRouteImport.update({
   id: '/join/$courseId',
   path: '/join/$courseId',
@@ -82,6 +108,11 @@ const VerifyCertNoRoute = VerifyCertNoRouteImport.update({
 const AuthenticatedAdminAuditRoute = AuthenticatedAdminAuditRouteImport.update({
   id: '/admin/audit',
   path: '/admin/audit',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAdminOrgRoute = AuthenticatedAdminOrgRouteImport.update({
+  id: '/admin/org',
+  path: '/admin/org',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedAdminQrRoute = AuthenticatedAdminQrRouteImport.update({
@@ -177,11 +208,16 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
   '/account': typeof AuthenticatedAccountRoute
+  '/calendar': typeof AuthenticatedCalendarRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/manage-team': typeof AuthenticatedManageTeamRoute
   '/my-courses': typeof AuthenticatedMyCoursesRoute
+  '/settings': typeof AuthenticatedSettingsRoute
+  '/simulation-cpr': typeof AuthenticatedSimulationCprRoute
   '/join/$courseId': typeof JoinCourseIdRoute
   '/verify/$certNo': typeof VerifyCertNoRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
+  '/admin/org': typeof AuthenticatedAdminOrgRoute
   '/admin/qr': typeof AuthenticatedAdminQrRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
@@ -203,11 +239,16 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
   '/account': typeof AuthenticatedAccountRoute
+  '/calendar': typeof AuthenticatedCalendarRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/manage-team': typeof AuthenticatedManageTeamRoute
   '/my-courses': typeof AuthenticatedMyCoursesRoute
+  '/settings': typeof AuthenticatedSettingsRoute
+  '/simulation-cpr': typeof AuthenticatedSimulationCprRoute
   '/join/$courseId': typeof JoinCourseIdRoute
   '/verify/$certNo': typeof VerifyCertNoRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
+  '/admin/org': typeof AuthenticatedAdminOrgRoute
   '/admin/qr': typeof AuthenticatedAdminQrRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
@@ -231,11 +272,16 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/account': typeof AuthenticatedAccountRoute
+  '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/manage-team': typeof AuthenticatedManageTeamRoute
   '/_authenticated/my-courses': typeof AuthenticatedMyCoursesRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/simulation-cpr': typeof AuthenticatedSimulationCprRoute
   '/join/$courseId': typeof JoinCourseIdRoute
   '/verify/$certNo': typeof VerifyCertNoRoute
   '/_authenticated/admin/audit': typeof AuthenticatedAdminAuditRoute
+  '/_authenticated/admin/org': typeof AuthenticatedAdminOrgRoute
   '/_authenticated/admin/qr': typeof AuthenticatedAdminQrRoute
   '/_authenticated/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
@@ -259,11 +305,16 @@ export interface FileRouteTypes {
     | '/auth'
     | '/reset-password'
     | '/account'
+    | '/calendar'
     | '/dashboard'
+    | '/manage-team'
     | '/my-courses'
+    | '/settings'
+    | '/simulation-cpr'
     | '/join/$courseId'
     | '/verify/$certNo'
     | '/admin/audit'
+    | '/admin/org'
     | '/admin/qr'
     | '/admin/reports'
     | '/admin/users'
@@ -285,11 +336,16 @@ export interface FileRouteTypes {
     | '/auth'
     | '/reset-password'
     | '/account'
+    | '/calendar'
     | '/dashboard'
+    | '/manage-team'
     | '/my-courses'
+    | '/settings'
+    | '/simulation-cpr'
     | '/join/$courseId'
     | '/verify/$certNo'
     | '/admin/audit'
+    | '/admin/org'
     | '/admin/qr'
     | '/admin/reports'
     | '/admin/users'
@@ -312,11 +368,16 @@ export interface FileRouteTypes {
     | '/auth'
     | '/reset-password'
     | '/_authenticated/account'
+    | '/_authenticated/calendar'
     | '/_authenticated/dashboard'
+    | '/_authenticated/manage-team'
     | '/_authenticated/my-courses'
+    | '/_authenticated/settings'
+    | '/_authenticated/simulation-cpr'
     | '/join/$courseId'
     | '/verify/$certNo'
     | '/_authenticated/admin/audit'
+    | '/_authenticated/admin/org'
     | '/_authenticated/admin/qr'
     | '/_authenticated/admin/reports'
     | '/_authenticated/admin/users'
@@ -381,6 +442,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAccountRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/calendar': {
+      id: '/_authenticated/calendar'
+      path: '/calendar'
+      fullPath: '/calendar'
+      preLoaderRoute: typeof AuthenticatedCalendarRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -388,11 +456,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/manage-team': {
+      id: '/_authenticated/manage-team'
+      path: '/manage-team'
+      fullPath: '/manage-team'
+      preLoaderRoute: typeof AuthenticatedManageTeamRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/my-courses': {
       id: '/_authenticated/my-courses'
       path: '/my-courses'
       fullPath: '/my-courses'
       preLoaderRoute: typeof AuthenticatedMyCoursesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/simulation-cpr': {
+      id: '/_authenticated/simulation-cpr'
+      path: '/simulation-cpr'
+      fullPath: '/simulation-cpr'
+      preLoaderRoute: typeof AuthenticatedSimulationCprRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/join/$courseId': {
@@ -414,6 +503,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/audit'
       fullPath: '/admin/audit'
       preLoaderRoute: typeof AuthenticatedAdminAuditRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/admin/org': {
+      id: '/_authenticated/admin/org'
+      path: '/admin/org'
+      fullPath: '/admin/org'
+      preLoaderRoute: typeof AuthenticatedAdminOrgRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/admin/qr': {
@@ -526,9 +622,14 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAccountRoute: typeof AuthenticatedAccountRoute
+  AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedManageTeamRoute: typeof AuthenticatedManageTeamRoute
   AuthenticatedMyCoursesRoute: typeof AuthenticatedMyCoursesRoute
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedSimulationCprRoute: typeof AuthenticatedSimulationCprRoute
   AuthenticatedAdminAuditRoute: typeof AuthenticatedAdminAuditRoute
+  AuthenticatedAdminOrgRoute: typeof AuthenticatedAdminOrgRoute
   AuthenticatedAdminQrRoute: typeof AuthenticatedAdminQrRoute
   AuthenticatedAdminReportsRoute: typeof AuthenticatedAdminReportsRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
@@ -547,9 +648,14 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAccountRoute: AuthenticatedAccountRoute,
+  AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedManageTeamRoute: AuthenticatedManageTeamRoute,
   AuthenticatedMyCoursesRoute: AuthenticatedMyCoursesRoute,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedSimulationCprRoute: AuthenticatedSimulationCprRoute,
   AuthenticatedAdminAuditRoute: AuthenticatedAdminAuditRoute,
+  AuthenticatedAdminOrgRoute: AuthenticatedAdminOrgRoute,
   AuthenticatedAdminQrRoute: AuthenticatedAdminQrRoute,
   AuthenticatedAdminReportsRoute: AuthenticatedAdminReportsRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
