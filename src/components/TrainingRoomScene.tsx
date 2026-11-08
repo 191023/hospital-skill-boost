@@ -232,6 +232,7 @@ function Room({ palette, reduced, ...props }: Props & { palette: Palette; reduce
   const kioskStartPos = useRef(new THREE.Vector3());
   const smoothDt = useRef(0.01666);
   const wasKiosk = useRef(false);
+  const initializedWalk = useRef(false);
 
   useEffect(() => {
     if (props.kiosk && !wasKiosk.current && camera) {
@@ -243,7 +244,19 @@ function Room({ palette, reduced, ...props }: Props & { palette: Palette; reduce
   }, [props.kiosk, camera, center]);
 
   useEffect(() => {
-    if (!(camera instanceof THREE.OrthographicCamera) || props.walk || props.kiosk) return;
+    if (!(camera instanceof THREE.OrthographicCamera)) return;
+    if (props.walk) {
+      if (!initializedWalk.current || camera.zoom < 5) {
+        camera.zoom = baseZoom;
+        camera.position.set(14, 14, center + 14);
+        camera.lookAt(0, 0.6, center);
+        camera.updateProjectionMatrix();
+        initializedWalk.current = true;
+      }
+      return;
+    }
+    initializedWalk.current = false;
+    if (props.kiosk) return;
     const focusIndex = props.focus?.index;
     const focusSeat = focusIndex == null ? null : props.seats.find((s) => s.index === focusIndex);
     if (focusSeat) {
@@ -256,8 +269,18 @@ function Room({ palette, reduced, ...props }: Props & { palette: Palette; reduce
   }, [camera, size, depth, center, props.view, props.zoom, props.focus, props.walk, props.kiosk, props.seats, baseZoom]);
 
   useFrame((_, rawDelta) => {
-    if (props.walk || !(camera instanceof THREE.OrthographicCamera)) return;
+    if (!(camera instanceof THREE.OrthographicCamera)) return;
     const dt = Math.min(rawDelta, 0.05);
+
+    if (props.walk) {
+      if (camera.zoom < 5 && baseZoom > 5) {
+        camera.zoom = baseZoom;
+        camera.position.set(14, 14, center + 14);
+        camera.lookAt(0, 0.6, center);
+        camera.updateProjectionMatrix();
+      }
+      return;
+    }
 
     if (props.kiosk) {
       // Smooth frame-to-frame delta variation to eliminate display refresh micro-jitter
@@ -412,7 +435,7 @@ function Room({ palette, reduced, ...props }: Props & { palette: Palette; reduce
         </Suspense>
       </>
     )}
-    {props.walk && <OrbitControls target={[0, 0.6, center]} enableDamping dampingFactor={0.08} minZoom={Math.max(0.4, baseZoom * 0.5)} maxZoom={baseZoom * 3.5} />}
+    {props.walk && <OrbitControls target={[0, 0.6, center]} enableDamping dampingFactor={0.08} minZoom={Math.max(10, baseZoom * 0.4)} maxZoom={baseZoom * 3.5} />}
   </>;
 }
 
@@ -450,7 +473,7 @@ export default function TrainingRoomScene(props: Props) {
       frameloop={isVisible ? "always" : "never"}
       shadows={reduced ? false : { type: THREE.PCFShadowMap }}
       dpr={[1, typeof window !== "undefined" ? Math.min(window.devicePixelRatio || 1, 1.75) : 1]}
-      camera={{ position: [14, 14, 14], near: 0.1, far: 200 }}
+      camera={{ position: [14, 14, 22], near: 0.1, far: 200, zoom: 60 }}
       gl={{
         antialias: true,
         preserveDrawingBuffer: true,

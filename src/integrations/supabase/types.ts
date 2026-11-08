@@ -311,6 +311,7 @@ export type Database = {
           require_pretest: boolean
           require_survey: boolean
           title: string
+          training_type: string
           training_year: number
           updated_at: string | null
           updated_by: string | null
@@ -342,6 +343,7 @@ export type Database = {
           require_pretest?: boolean
           require_survey?: boolean
           title: string
+          training_type?: string
           training_year?: number
           updated_at?: string | null
           updated_by?: string | null
@@ -373,6 +375,7 @@ export type Database = {
           require_pretest?: boolean
           require_survey?: boolean
           title?: string
+          training_type?: string
           training_year?: number
           updated_at?: string | null
           updated_by?: string | null
@@ -810,6 +813,7 @@ export type Database = {
       }
       test_attempts: {
         Row: {
+          answers: Json | null
           course_id: string
           created_at: string
           id: string
@@ -821,6 +825,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          answers?: Json | null
           course_id: string
           created_at?: string
           id?: string
@@ -832,6 +837,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          answers?: Json | null
           course_id?: string
           created_at?: string
           id?: string
@@ -912,6 +918,10 @@ export type Database = {
           department: string
           enrolled_at: string
         }[]
+      }
+      get_course_item_analytics: {
+        Args: { _course: string }
+        Returns: Json
       }
       get_test_questions: {
         Args: { _course: string }

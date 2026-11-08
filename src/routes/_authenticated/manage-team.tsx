@@ -15,20 +15,19 @@ import {
   AlertCircle,
   Sparkles,
   ArrowRight,
-  UserCheck,
-  UserX,
   Search,
-  Filter,
   Check,
-  ChevronRight,
   ShieldCheck,
   Layers,
-  ArrowLeftRight,
   X,
   Loader2,
   Building2,
   ChevronDown,
   ChevronUp,
+  Award,
+  GraduationCap,
+  Percent,
+  CheckCheck,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/manage-team")({
@@ -82,11 +81,15 @@ type Enrollment = {
   has_cert: boolean;
   require_pretest: boolean;
   pre_done: boolean;
+  total_lessons?: number;
+  lessons_done?: number;
+  require_posttest?: boolean;
+  post_done?: boolean;
+  require_survey?: boolean;
+  survey_done?: boolean;
+  issue_certificate?: boolean;
 };
 
-/* ------------------------------------------------------------------------- */
-/* SUB-COMPONENT: SESSION ATTENDEES INSPECTOR & SHIFT BALANCER               */
-/* ------------------------------------------------------------------------- */
 type RecentAllocationInfo = {
   sessionId: string;
   departments: string[];
@@ -94,20 +97,76 @@ type RecentAllocationInfo = {
   timestamp: number;
 };
 
-function getDeptColor(dept: string) {
-  const hash = dept.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
-  const colors = [
-    "bg-indigo-600 text-white",
-    "bg-teal-600 text-white",
-    "bg-sky-600 text-white",
-    "bg-violet-600 text-white",
-    "bg-amber-600 text-white",
-    "bg-rose-600 text-white",
-    "bg-emerald-600 text-white",
-  ];
-  return colors[hash % colors.length] ?? "bg-indigo-600 text-white";
+type TrainingProcessStatus = "certified" | "attended" | "need_pretest" | "assigned" | "unassigned";
+
+function getTrainingProcessStatus(enr: Enrollment | undefined): {
+  key: TrainingProcessStatus;
+  label: string;
+  shortLabel: string;
+  badgeClass: string;
+  icon: typeof CheckCircle2;
+} {
+  if (!enr || !enr.session_id) {
+    return {
+      key: "unassigned",
+      label: enr ? "ลงทะเบียนแล้ว (ยังไม่จัดรอบ)" : "ยังไม่จัดรอบ",
+      shortLabel: "ยังไม่จัดรอบ",
+      badgeClass: "bg-muted text-muted-foreground border-border/80",
+      icon: Clock3,
+    };
+  }
+  if (enr.has_cert) {
+    return {
+      key: "certified",
+      label: "สำเร็จ (ได้รับใบประกาศแล้ว)",
+      shortLabel: "ได้ใบประกาศ 🎓",
+      badgeClass: "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border-emerald-300/80 dark:border-emerald-700/80 font-bold",
+      icon: Award,
+    };
+  }
+  if (enr.attended) {
+    return {
+      key: "attended",
+      label: "เช็คชื่อเข้าห้องแล้ว (รอจบหลักสูตร)",
+      shortLabel: "เช็คชื่อแล้ว ✓",
+      badgeClass: "bg-teal-500/15 text-teal-800 dark:text-teal-300 border-teal-300/80 dark:border-teal-700/80 font-bold",
+      icon: CheckCircle2,
+    };
+  }
+  if (enr.require_pretest && !enr.pre_done) {
+    return {
+      key: "need_pretest",
+      label: `รอบที่ ${enr.round_no} (ค้างทำแบบทดสอบก่อนเรียน)`,
+      shortLabel: 'ค้าง Pre-test',
+      badgeClass: "bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-300/80 dark:border-amber-700/80 font-bold",
+      icon: AlertCircle,
+    };
+  }
+  return {
+    key: "assigned",
+    label: `รอบที่ ${enr.round_no} (รอวันอบรม)`,
+    shortLabel: `รอบที่ ${enr.round_no}`,
+    badgeClass: "bg-sky-500/15 text-sky-800 dark:text-sky-300 border-sky-300/80 dark:border-sky-700/80 font-bold",
+    icon: Calendar,
+  };
 }
 
+function getDeptAvatarStyle(dept: string) {
+  const hash = dept.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  const styles = [
+    "bg-sky-500/15 text-sky-700 dark:text-sky-300 border border-sky-300/60 dark:border-sky-700/60",
+    "bg-teal-500/15 text-teal-700 dark:text-teal-300 border border-teal-300/60 dark:border-teal-700/60",
+    "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-300/60 dark:border-indigo-700/60",
+    "bg-violet-500/15 text-violet-700 dark:text-violet-300 border border-violet-300/60 dark:border-violet-700/60",
+    "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-300/60 dark:border-emerald-700/60",
+    "bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-300/60 dark:border-amber-700/60",
+  ];
+  return styles[hash % styles.length] ?? styles[0];
+}
+
+/* ------------------------------------------------------------------------- */
+/* SUB-COMPONENT: SESSION ATTENDEES INSPECTOR & SHIFT BALANCER               */
+/* ------------------------------------------------------------------------- */
 function SessionAttendeesSection({
   session,
   allSessions,
@@ -152,7 +211,7 @@ function SessionAttendeesSection({
       .sort((a, b) => b.count - a.count);
   }, [attendees]);
 
-  // Filter attendees by department & search query (with recent allocation filter support)
+  // Filter attendees by department & search query
   const filteredAttendees = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return attendees.filter((m) => {
@@ -211,7 +270,7 @@ function SessionAttendeesSection({
             <button
               type="button"
               onClick={() => setViewMode("grouped")}
-              className={`flex items-center gap-1 rounded-md px-2 py-0.5 font-medium transition ${
+              className={`flex items-center gap-1 rounded-md px-2 py-0.5 font-medium transition cursor-pointer ${
                 viewMode === "grouped" ? "bg-primary text-primary-foreground shadow-2xs" : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -221,7 +280,7 @@ function SessionAttendeesSection({
             <button
               type="button"
               onClick={() => setViewMode("compact")}
-              className={`flex items-center gap-1 rounded-md px-2 py-0.5 font-medium transition ${
+              className={`flex items-center gap-1 rounded-md px-2 py-0.5 font-medium transition cursor-pointer ${
                 viewMode === "compact" ? "bg-primary text-primary-foreground shadow-2xs" : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -258,7 +317,7 @@ function SessionAttendeesSection({
             </div>
           )}
 
-          {/* Department Filter Dropdown (Option 1) + Search Bar */}
+          {/* Department Filter Dropdown + Search Bar */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
             {deptCounts.length > 1 ? (
               <div className="flex items-center gap-1.5 flex-1 min-w-[220px] max-w-md">
@@ -351,21 +410,23 @@ function SessionAttendeesSection({
           ) : viewMode === "grouped" ? (
             <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
               {groupedAttendees.map(([dept, members]) => (
-                <div key={dept} className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-card p-3 space-y-2.5 shadow-2xs">
-                  {/* Distinct Department Header Banner */}
-                  <div className="flex items-center justify-between text-xs rounded-xl bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 px-3 py-1.5 font-bold">
-                    <div className="flex items-center gap-2 text-foreground font-black">
+                <div key={dept} className="rounded-2xl border border-border/70 bg-card p-3 space-y-2.5 shadow-2xs">
+                  {/* Clean Department Header Banner */}
+                  <div className="flex items-center justify-between text-xs rounded-xl bg-muted/60 border border-border/60 px-3 py-1.5 font-bold">
+                    <div className="flex items-center gap-2 text-foreground font-bold">
                       <Building2 className="h-4 w-4 text-primary" />
                       <span>{dept}</span>
                     </div>
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-slate-700 text-white dark:bg-slate-200 dark:text-slate-900 shadow-2xs">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-foreground/10 text-foreground border border-border/50">
                       {members.length} คน
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 gap-2">
                     {members.map((m) => {
                       const enr = enrollments.get(m.user_id);
+                      const status = getTrainingProcessStatus(enr);
+                      const StatusIcon = status.icon;
                       const isRecentlyAdded =
                         recentAllocation?.sessionId === session.id &&
                         recentAllocation?.userIds.includes(m.user_id);
@@ -373,37 +434,47 @@ function SessionAttendeesSection({
                       return (
                         <div
                           key={m.user_id}
-                          className={`flex items-center justify-between gap-2 rounded-xl border p-2.5 text-xs shadow-2xs transition ${
+                          className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 rounded-xl border p-3 text-xs shadow-2xs transition ${
                             isRecentlyAdded
                               ? "border-2 border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/30 ring-2 ring-emerald-400/30"
                               : "border-border/80 bg-background hover:border-primary/50 hover:bg-muted/30"
                           }`}
                         >
-                          <div className="min-w-0 flex items-center gap-2">
+                          <div className="min-w-0 flex items-center gap-3 flex-1">
                             <div
-                              className={`h-7 w-7 rounded-full font-black flex items-center justify-center text-xs shrink-0 shadow-2xs ${getDeptColor(dept)}`}
+                              className={`h-8 w-8 rounded-full font-bold flex items-center justify-center text-xs shrink-0 shadow-2xs ${getDeptAvatarStyle(dept)}`}
                             >
                               {m.full_name.charAt(0)}
                             </div>
                             <div className="min-w-0">
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="font-bold text-foreground text-xs truncate">{m.full_name}</span>
+                                <span className="font-bold text-foreground text-xs sm:text-sm whitespace-normal leading-snug">{m.full_name}</span>
                                 {isRecentlyAdded && (
-                                  <span className="text-[9px] font-black px-1.5 py-0.2 rounded-md bg-emerald-600 text-white shrink-0 shadow-2xs">
+                                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-md bg-emerald-600 text-white shrink-0 shadow-2xs">
                                     ✨ เพิ่งจัดสรร
                                   </span>
                                 )}
                               </div>
-                              <div className="text-[11px] text-muted-foreground truncate font-medium">{m.position || "ไม่ระบุตำแหน่ง"}</div>
+                              <div className="text-[11px] text-muted-foreground truncate font-medium">
+                                {m.position || "ไม่ระบุตำแหน่ง"}
+                              </div>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {enr?.attended ? (
-                              <span className="text-[10px] bg-emerald-600 text-white font-black px-2.5 py-0.5 rounded-md shadow-2xs">
-                                ✓ เช็คชื่อแล้ว
+                          <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto flex-wrap">
+                            {/* Process Status Tag */}
+                            {status.key !== "assigned" && (
+                              <span
+                                className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md border shadow-2xs ${status.badgeClass}`}
+                                title={status.label}
+                              >
+                                <StatusIcon className="h-2.5 w-2.5" />
+                                <span>{status.shortLabel}</span>
                               </span>
-                            ) : (
+                            )}
+
+                            {/* Actions: Move or Remove */}
+                            {!enr?.attended && (
                               <div className="flex items-center gap-1">
                                 {allSessions.length > 1 && (
                                   <select
@@ -413,10 +484,10 @@ function SessionAttendeesSection({
                                       const val = e.target.value;
                                       onQuickAssign(courseId, m.user_id, val === "unassigned" ? null : val);
                                     }}
-                                    className="text-[10px] font-bold rounded-lg border-2 border-indigo-200 dark:border-indigo-800 bg-indigo-50/80 dark:bg-indigo-950/60 text-indigo-950 dark:text-indigo-200 px-2 py-0.5 hover:border-indigo-400 transition cursor-pointer shadow-2xs"
+                                    className="text-[10px] font-bold rounded-lg border border-border bg-card px-1.5 py-0.5 hover:border-primary transition cursor-pointer"
                                     title="ย้ายรอบอบรม"
                                   >
-                                    <option value={session.id}>รอบที่ {session.round_no}</option>
+                                    <option value={session.id}>รอบ {session.round_no}</option>
                                     {allSessions
                                       .filter((other) => other.id !== session.id)
                                       .map((other) => (
@@ -451,6 +522,8 @@ function SessionAttendeesSection({
             <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto p-1">
               {filteredAttendees.map((m) => {
                 const enr = enrollments.get(m.user_id);
+                const status = getTrainingProcessStatus(enr);
+                const StatusIcon = status.icon;
                 const isRecentlyAdded =
                   recentAllocation?.sessionId === session.id &&
                   recentAllocation?.userIds.includes(m.user_id);
@@ -460,26 +533,23 @@ function SessionAttendeesSection({
                     key={m.user_id}
                     className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1 text-xs font-medium shadow-2xs transition ${
                       isRecentlyAdded
-                        ? "border-primary/60 bg-primary/15 ring-1 ring-primary/30 text-foreground"
+                        ? "border-emerald-500 bg-emerald-500/10 text-foreground ring-1 ring-emerald-500/30"
                         : "border-border/70 bg-card hover:border-primary/40"
                     }`}
                   >
-                    <span>{m.full_name}</span>
+                    <span className="font-semibold">{m.full_name}</span>
                     <span className="text-[10px] text-muted-foreground">({m.department || m.division})</span>
-                    {isRecentlyAdded && (
-                      <span className="text-[9px] font-bold px-1 rounded bg-primary text-primary-foreground">
-                        ✨ ใหม่
-                      </span>
-                    )}
-                    {enr?.attended ? (
-                      <span className="text-[10px] text-mint font-bold">✓ เช็คชื่อแล้ว</span>
-                    ) : (
+                    <span className={`inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.2 rounded-md border ${status.badgeClass}`}>
+                      <StatusIcon className="h-2.5 w-2.5" />
+                      <span>{status.shortLabel}</span>
+                    </span>
+                    {!enr?.attended && (
                       <button
                         type="button"
                         onClick={() => onQuickAssign(courseId, m.user_id, null)}
                         disabled={actionLoading}
                         title="ถอนออกจากรอบนี้"
-                        className="text-muted-foreground hover:text-destructive text-sm leading-none ml-1 cursor-pointer"
+                        className="text-muted-foreground hover:text-destructive text-sm leading-none ml-0.5 cursor-pointer"
                       >
                         ×
                       </button>
@@ -494,6 +564,11 @@ function SessionAttendeesSection({
     </div>
   );
 }
+
+/* ------------------------------------------------------------------------- */
+/* MAIN COMPONENT: TEAM ALLOCATION HUB                                       */
+/* ------------------------------------------------------------------------- */
+type StatusFilterType = "all" | "unassigned" | "assigned" | "need_pretest" | "attended" | "certified";
 
 function TeamAllocationHub() {
   const { data: me } = useMe();
@@ -512,12 +587,12 @@ function TeamAllocationHub() {
   // Filters for member roster
   const [searchQuery, setSearchQuery] = useState("");
   const [filterDept, setFilterDept] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "unassigned" | "assigned">("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilterType>("all");
 
   // Seat counts cache: { [sessionId]: takenCount }
   const [seatsMap, setSeatsMap] = useState<Record<string, number>>({});
 
-  // Context of the most recent batch allocation: { sessionId, departments, userIds, timestamp }
+  // Context of the most recent batch allocation
   const [recentAllocation, setRecentAllocation] = useState<RecentAllocationInfo | null>(null);
 
   const { data, isLoading } = useQuery({
@@ -586,6 +661,37 @@ function TeamAllocationHub() {
     return map;
   }, [data?.enr, activeCourse]);
 
+  // Status counts for the active course
+  const statusCounts = useMemo(() => {
+    if (!data?.members) {
+      return { all: 0, unassigned: 0, assigned: 0, need_pretest: 0, attended: 0, certified: 0 };
+    }
+    let unassigned = 0;
+    let assigned = 0;
+    let need_pretest = 0;
+    let attended = 0;
+    let certified = 0;
+
+    for (const m of data.members) {
+      const enr = activeCourseEnrollments.get(m.user_id);
+      const status = getTrainingProcessStatus(enr);
+      if (status.key === "unassigned") unassigned++;
+      else if (status.key === "assigned") assigned++;
+      else if (status.key === "need_pretest") need_pretest++;
+      else if (status.key === "attended") attended++;
+      else if (status.key === "certified") certified++;
+    }
+
+    return {
+      all: data.members.length,
+      unassigned,
+      assigned,
+      need_pretest,
+      attended,
+      certified,
+    };
+  }, [data?.members, activeCourseEnrollments]);
+
   // Roster members for active course
   const roster = useMemo(() => {
     if (!data?.members || !activeCourse) return [];
@@ -599,10 +705,13 @@ function TeamAllocationHub() {
         return false;
       }
       const enr = activeCourseEnrollments.get(m.user_id);
-      const isAssigned = !!enr?.session_id;
+      const status = getTrainingProcessStatus(enr);
 
-      if (statusFilter === "unassigned" && isAssigned) return false;
-      if (statusFilter === "assigned" && !isAssigned) return false;
+      if (statusFilter === "unassigned" && status.key !== "unassigned") return false;
+      if (statusFilter === "assigned" && status.key !== "assigned") return false;
+      if (statusFilter === "need_pretest" && status.key !== "need_pretest") return false;
+      if (statusFilter === "attended" && status.key !== "attended") return false;
+      if (statusFilter === "certified" && status.key !== "certified") return false;
 
       return true;
     });
@@ -731,6 +840,16 @@ function TeamAllocationHub() {
     setSelectedUserIds(ids);
   };
 
+  const selectAllNeedPretest = () => {
+    const ids = (data?.members ?? [])
+      .filter((m) => {
+        const enr = activeCourseEnrollments.get(m.user_id);
+        return enr?.require_pretest && !enr?.pre_done;
+      })
+      .map((m) => m.user_id);
+    setSelectedUserIds(ids);
+  };
+
   if (!me?.isTeamManager) {
     return (
       <div className="glass rounded-3xl p-12 text-center space-y-2">
@@ -762,7 +881,7 @@ function TeamAllocationHub() {
         <div className="flex items-center gap-1 rounded-2xl border bg-card p-1 shadow-2xs self-start md:self-auto">
           <button
             onClick={() => setViewMode("allocation")}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition ${
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition cursor-pointer ${
               viewMode === "allocation"
                 ? "bg-primary text-primary-foreground shadow-xs"
                 : "text-muted-foreground hover:text-foreground"
@@ -773,7 +892,7 @@ function TeamAllocationHub() {
           </button>
           <button
             onClick={() => setViewMode("matrix")}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition ${
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition cursor-pointer ${
               viewMode === "matrix"
                 ? "bg-primary text-primary-foreground shadow-xs"
                 : "text-muted-foreground hover:text-foreground"
@@ -806,18 +925,18 @@ function TeamAllocationHub() {
         <div className="glass rounded-2xl p-4">
           <div className="text-[11px] text-muted-foreground flex items-center justify-between">
             <span>ยังไม่จัดรอบในวิชานี้</span>
-            <AlertCircle className="h-3.5 w-3.5 text-amber" />
+            <Clock3 className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
           </div>
-          <div className="text-2xl font-bold text-amber mt-1">{unassignedMembers.length} คน</div>
+          <div className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">{statusCounts.unassigned} คน</div>
         </div>
 
         <div className="glass rounded-2xl p-4">
           <div className="text-[11px] text-muted-foreground flex items-center justify-between">
-            <span>จัดรอบเรียบร้อยแล้ว</span>
-            <CheckCircle2 className="h-3.5 w-3.5 text-mint" />
+            <span>จัดรอบแล้วในวิชานี้</span>
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
           </div>
-          <div className="text-2xl font-bold text-mint mt-1">
-            {totalMembersCount - unassignedMembers.length} คน
+          <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+            {totalMembersCount - statusCounts.unassigned} คน
           </div>
         </div>
       </div>
@@ -827,6 +946,80 @@ function TeamAllocationHub() {
         /* MODE 1: ALLOCATION WORKBENCH (กระดานจัดสรรคนเข้าอบรม - Course Allocation) */
         /* ========================================================================= */
         <div className="space-y-5">
+          {/* Step-by-Step Guided Workflow Banner */}
+          <div className="rounded-2xl border border-border/80 bg-gradient-to-r from-card via-card/90 to-primary/5 p-3.5 shadow-xs">
+            <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/15 text-primary shrink-0">
+                  <Sparkles className="h-4 w-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-foreground">ขั้นตอนการจัดสรรลูกทีมเข้าอบรม</h4>
+                  <p className="text-[11px] text-muted-foreground">ทำตาม 3 ขั้นตอนง่ายๆ ด้านล่าง</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 flex-1 md:max-w-2xl">
+                {/* Step 1 */}
+                <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-background/80 px-3 py-1.5 text-xs">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-black text-primary-foreground">
+                    1
+                  </span>
+                  <div className="min-w-0">
+                    <div className="font-bold text-foreground text-[11px] truncate">เลือกหลักสูตร</div>
+                    <div className="text-[10px] text-muted-foreground truncate">{activeCourse?.title || "เลือกจากแถบด้านล่าง"}</div>
+                  </div>
+                </div>
+
+                {/* Step 2 */}
+                <div
+                  className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs transition ${
+                    selectedUserIds.length > 0
+                      ? "border-primary bg-primary/10 text-primary shadow-2xs"
+                      : "border-border/70 bg-background/80"
+                  }`}
+                >
+                  <span
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-black ${
+                      selectedUserIds.length > 0 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    2
+                  </span>
+                  <div className="min-w-0">
+                    <div className="font-bold text-[11px] truncate">ติ๊กเลือกลูกทีม</div>
+                    <div className="text-[10px] truncate">
+                      {selectedUserIds.length > 0 ? `✓ เลือกแล้ว ${selectedUserIds.length} คน` : "ติ๊กจากกล่องซ้ายมือ"}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Step 3 */}
+                <div
+                  className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs transition ${
+                    selectedUserIds.length > 0
+                      ? "border-emerald-500/80 bg-emerald-50/80 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 shadow-2xs"
+                      : "border-border/70 bg-background/80"
+                  }`}
+                >
+                  <span
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-black ${
+                      selectedUserIds.length > 0 ? "bg-emerald-600 text-white" : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    3
+                  </span>
+                  <div className="min-w-0">
+                    <div className="font-bold text-[11px] truncate">กดส่งเข้าห้องอบรม</div>
+                    <div className="text-[10px] truncate">
+                      {selectedUserIds.length > 0 ? "กดปุ่มในรอบที่ต้องการ" : "ปุ่มทางขวามือ"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Course Selector Tabs - Compact Sleek Ribbon */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -863,7 +1056,7 @@ function TeamAllocationHub() {
                         {course.category || "ทั่วไป"}
                       </span>
                       <span
-                        className={`text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 ${
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
                           pct === 100
                             ? "bg-emerald-600 text-white shadow-2xs"
                             : pct > 0
@@ -876,7 +1069,7 @@ function TeamAllocationHub() {
                     </div>
 
                     <div className="mt-1.5 min-w-0">
-                      <h4 className="font-extrabold text-xs text-foreground truncate" title={course.title}>
+                      <h4 className="font-bold text-xs text-foreground truncate" title={course.title}>
                         {course.title}
                       </h4>
                       <div className="flex items-center justify-between text-[10px] text-muted-foreground mt-0.5 font-medium">
@@ -888,7 +1081,7 @@ function TeamAllocationHub() {
                     {/* Progress track at bottom edge */}
                     <div className="absolute bottom-0 left-0 right-0 h-1 bg-muted/60">
                       <div
-                        className={`h-full transition-all duration-300 ${pct === 100 ? "bg-mint" : "bg-primary"}`}
+                        className={`h-full transition-all duration-300 ${pct === 100 ? "bg-emerald-500" : "bg-primary"}`}
                         style={{ width: `${pct}%` }}
                       />
                     </div>
@@ -923,7 +1116,7 @@ function TeamAllocationHub() {
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       placeholder="ค้นหาชื่อ หรือตำแหน่ง…"
-                      className="w-full rounded-xl border bg-card pl-9 pr-3 py-2 text-xs focus:ring-2 focus:ring-primary focus:outline-none"
+                      className="w-full rounded-xl border bg-card pl-9 pr-3 py-2 text-xs focus:ring-2 focus:ring-primary focus:outline-hidden"
                     />
                   </div>
 
@@ -939,41 +1132,92 @@ function TeamAllocationHub() {
                       ))}
                     </select>
 
-                    <div className="flex items-center rounded-xl border border-border bg-card p-0.5 text-[11px] shadow-2xs">
+                    {/* Status Pipeline Filter Pills */}
+                    <div className="flex flex-wrap items-center gap-1 text-[11px]">
                       <button
                         type="button"
                         onClick={() => setStatusFilter("all")}
                         className={`rounded-lg px-2.5 py-1 font-bold transition cursor-pointer ${
-                          statusFilter === "all" ? "bg-foreground text-background shadow-xs" : "text-muted-foreground hover:text-foreground"
+                          statusFilter === "all"
+                            ? "bg-foreground text-background shadow-xs"
+                            : "bg-card text-muted-foreground hover:text-foreground border border-border/60"
                         }`}
                       >
-                        ทั้งหมด
+                        ทั้งหมด ({statusCounts.all})
                       </button>
                       <button
                         type="button"
                         onClick={() => setStatusFilter("unassigned")}
-                        className={`rounded-lg px-2.5 py-1 font-bold transition cursor-pointer ${
-                          statusFilter === "unassigned" ? "bg-amber-500 text-white shadow-xs" : "text-amber-700 dark:text-amber-400 hover:text-amber-800"
+                        className={`rounded-lg px-2.5 py-1 font-bold transition cursor-pointer flex items-center gap-1 ${
+                          statusFilter === "unassigned"
+                            ? "bg-amber-600 text-white shadow-xs"
+                            : "bg-amber-500/10 text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 border border-amber-300/40"
                         }`}
                       >
-                        ยังไม่จัดรอบ ({unassignedMembers.length})
+                        <Clock3 className="h-3 w-3" />
+                        <span>ยังไม่จัดรอบ ({statusCounts.unassigned})</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => setStatusFilter("assigned")}
-                        className={`rounded-lg px-2.5 py-1 font-bold transition cursor-pointer ${
-                          statusFilter === "assigned" ? "bg-emerald-600 text-white shadow-xs" : "text-emerald-700 dark:text-emerald-400 hover:text-emerald-800"
+                        className={`rounded-lg px-2.5 py-1 font-bold transition cursor-pointer flex items-center gap-1 ${
+                          statusFilter === "assigned"
+                            ? "bg-sky-600 text-white shadow-xs"
+                            : "bg-sky-500/10 text-sky-800 dark:text-sky-300 hover:bg-sky-500/20 border border-sky-300/40"
                         }`}
                       >
-                        จัดรอบแล้ว
+                        <Calendar className="h-3 w-3" />
+                        <span>จัดรอบแล้ว ({statusCounts.assigned})</span>
                       </button>
+                      {statusCounts.need_pretest > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setStatusFilter("need_pretest")}
+                          className={`rounded-lg px-2.5 py-1 font-bold transition cursor-pointer flex items-center gap-1 ${
+                            statusFilter === "need_pretest"
+                              ? "bg-amber-500 text-white shadow-xs"
+                              : "bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 border border-amber-300/40"
+                          }`}
+                        >
+                          <AlertCircle className="h-3 w-3" />
+                          <span>ค้าง Pre-test ({statusCounts.need_pretest})</span>
+                        </button>
+                      )}
+                      {statusCounts.attended > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setStatusFilter("attended")}
+                          className={`rounded-lg px-2.5 py-1 font-bold transition cursor-pointer flex items-center gap-1 ${
+                            statusFilter === "attended"
+                              ? "bg-teal-600 text-white shadow-xs"
+                              : "bg-teal-500/10 text-teal-800 dark:text-teal-300 hover:bg-teal-500/20 border border-teal-300/40"
+                          }`}
+                        >
+                          <CheckCircle2 className="h-3 w-3" />
+                          <span>เช็คชื่อแล้ว ({statusCounts.attended})</span>
+                        </button>
+                      )}
+                      {statusCounts.certified > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setStatusFilter("certified")}
+                          className={`rounded-lg px-2.5 py-1 font-bold transition cursor-pointer flex items-center gap-1 ${
+                            statusFilter === "certified"
+                              ? "bg-emerald-600 text-white shadow-xs"
+                              : "bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-500/20 border border-emerald-300/40"
+                          }`}
+                        >
+                          <Award className="h-3 w-3" />
+                          <span>ได้ใบประกาศ ({statusCounts.certified})</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
 
                 {/* Selection Action Header */}
-                <div className="flex items-center justify-between text-xs pt-1 border-t border-border/40">
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center justify-between text-xs pt-1 border-t border-border/40 gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <button
                       type="button"
                       onClick={selectAllVisible}
@@ -981,14 +1225,30 @@ function TeamAllocationHub() {
                     >
                       เลือกทั้งหมด ({roster.length})
                     </button>
-                    <span>·</span>
-                    <button
-                      type="button"
-                      onClick={selectAllUnassigned}
-                      className="font-bold text-amber-700 dark:text-amber-400 hover:underline cursor-pointer"
-                    >
-                      เลือกคนที่ยังไม่จัดรอบ ({unassignedMembers.length})
-                    </button>
+                    {unassignedMembers.length > 0 && (
+                      <>
+                        <span>·</span>
+                        <button
+                          type="button"
+                          onClick={selectAllUnassigned}
+                          className="font-bold text-amber-700 dark:text-amber-400 hover:underline cursor-pointer"
+                        >
+                          เลือกคนที่ยังไม่จัดรอบ ({unassignedMembers.length})
+                        </button>
+                      </>
+                    )}
+                    {statusCounts.need_pretest > 0 && (
+                      <>
+                        <span>·</span>
+                        <button
+                          type="button"
+                          onClick={selectAllNeedPretest}
+                          className="font-bold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
+                        >
+                          เลือกคนที่ค้าง Pre-test ({statusCounts.need_pretest})
+                        </button>
+                      </>
+                    )}
                   </div>
 
                   {selectedUserIds.length > 0 && (
@@ -1007,8 +1267,8 @@ function TeamAllocationHub() {
                   {roster.map((m) => {
                     const enr = activeCourseEnrollments.get(m.user_id);
                     const isSelected = selectedUserIds.includes(m.user_id);
-                    const assignedRound = enr?.round_no;
-                    const isAttended = enr?.attended;
+                    const status = getTrainingProcessStatus(enr);
+                    const StatusIcon = status.icon;
 
                     return (
                       <div
@@ -1032,32 +1292,22 @@ function TeamAllocationHub() {
                           </div>
 
                           <div className="min-w-0">
-                            <div className="font-bold text-xs text-foreground truncate">{m.full_name}</div>
+                            <div className="font-bold text-xs text-foreground whitespace-normal">{m.full_name}</div>
                             <div className="text-[11px] text-muted-foreground truncate font-medium">
                               {m.position} · {m.department || m.division}
                             </div>
                           </div>
                         </div>
 
-                        {/* Status Tag */}
+                        {/* Semantic Pipeline Status Tag */}
                         <div className="shrink-0 text-right ml-2">
-                          {isAttended ? (
-                            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-600 text-white px-2 py-0.5 text-[10px] font-bold shadow-2xs">
-                              <CheckCircle2 className="h-2.5 w-2.5" /> เช็คชื่อแล้ว
-                            </span>
-                          ) : assignedRound != null ? (
-                            <span className="rounded-md bg-blue-600 text-white px-2 py-0.5 text-[10px] font-bold shadow-2xs">
-                              รอบที่ {assignedRound}
-                            </span>
-                          ) : enr ? (
-                            <span className="rounded-md bg-amber-500 text-white px-2 py-0.5 text-[10px] font-bold shadow-2xs">
-                              ยังไม่ระบุรอบ
-                            </span>
-                          ) : (
-                            <span className="rounded-md bg-muted text-muted-foreground border border-border px-2 py-0.5 text-[10px] font-medium">
-                              ยังไม่ลงทะเบียน
-                            </span>
-                          )}
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] border shadow-2xs ${status.badgeClass}`}
+                            title={status.label}
+                          >
+                            <StatusIcon className="h-2.5 w-2.5" />
+                            <span>{status.shortLabel}</span>
+                          </span>
                         </div>
                       </div>
                     );
@@ -1088,7 +1338,7 @@ function TeamAllocationHub() {
             {/* RIGHT COLUMN: SESSIONS ALLOCATION CARDS (55% on desktop)       */}
             {/* ------------------------------------------------------------- */}
             <div className="lg:col-span-7 space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>
                   <h3 className="font-bold text-base text-foreground">รอบการอบรมและโควต้าที่นั่ง</h3>
                   <p className="text-xs text-muted-foreground">
@@ -1100,7 +1350,7 @@ function TeamAllocationHub() {
                 {unassignedMembers.length > 0 && (
                   <button
                     onClick={selectAllUnassigned}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-amber/30 bg-amber/10 px-3 py-1.5 text-xs font-semibold text-amber hover:bg-amber/20 transition"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 transition cursor-pointer"
                   >
                     <AlertCircle className="h-3.5 w-3.5" />
                     <span>เลือกผู้ที่ยังตกค้าง ({unassignedMembers.length} คน)</span>
@@ -1115,6 +1365,7 @@ function TeamAllocationHub() {
                     const cap = s.capacity;
                     const available = cap != null ? Math.max(0, cap - hospitalTaken) : null;
                     const isFull = available != null && available === 0;
+                    const fillPct = cap != null && cap > 0 ? Math.min(100, Math.round((hospitalTaken / cap) * 100)) : 0;
 
                     // Team members in this session
                     const teamAttendees = (data.members ?? []).filter((m) => {
@@ -1129,11 +1380,11 @@ function TeamAllocationHub() {
                         key={s.id}
                         className="glass rounded-3xl p-5 border border-border/70 hover:border-primary/30 transition space-y-4"
                       >
-                        {/* Session Header & Capacity Bar */}
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/40 pb-3">
+                        {/* Session Header & Capacity Gauge */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/40 pb-3">
                           <div className="space-y-1">
-                            <div className="flex items-center gap-2.5">
-                              <span className="inline-flex items-center gap-1.5 font-black text-sm bg-primary text-white px-3 py-1 rounded-xl shadow-xs">
+                            <div className="flex items-center gap-2.5 flex-wrap">
+                              <span className="inline-flex items-center gap-1.5 font-bold text-sm bg-primary text-white px-3 py-1 rounded-xl shadow-xs">
                                 รอบที่ {s.round_no}
                               </span>
                               {s.location && (
@@ -1143,7 +1394,7 @@ function TeamAllocationHub() {
                               )}
                             </div>
                             {s.starts_at && (
-                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap">
                                 <Calendar className="h-3.5 w-3.5 text-primary" />
                                 <span>
                                   {new Date(s.starts_at).toLocaleDateString("th-TH", {
@@ -1161,46 +1412,91 @@ function TeamAllocationHub() {
                             )}
                           </div>
 
-                          {/* Seat Gauge */}
-                          <div className="sm:text-right shrink-0">
+                          {/* Visual Seat Capacity Gauge */}
+                          <div className="sm:text-right shrink-0 min-w-[200px] space-y-1.5">
                             {cap != null ? (
-                              <div className="space-y-1">
-                                {available === 0 ? (
-                                  <div className="inline-flex items-center gap-1 bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-300 px-2.5 py-1 rounded-xl text-xs font-bold shadow-2xs">
-                                    ที่นั่งเต็ม (0 / {cap})
+                              <div>
+                                <div className="flex items-center justify-between sm:justify-end gap-2 text-xs">
+                                  {available === 0 ? (
+                                    <span className="inline-flex items-center gap-1 bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-300 px-2.5 py-0.5 rounded-lg text-xs font-bold">
+                                      <AlertCircle className="h-3 w-3" /> ที่นั่งเต็ม (0 / {cap})
+                                    </span>
+                                  ) : available != null && available <= 5 ? (
+                                    <span className="inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 px-2.5 py-0.5 rounded-lg text-xs font-bold">
+                                      <AlertCircle className="h-3 w-3" /> เหลือว่าง {available} / {cap} ที่ (ใกล้เต็ม)
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 px-2.5 py-0.5 rounded-lg text-xs font-bold">
+                                      <CheckCircle2 className="h-3 w-3" /> เหลือว่าง {available} / {cap} ที่นั่ง
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Progress bar gauge */}
+                                <div className="mt-1.5 flex items-center gap-2">
+                                  <div className="h-2 flex-1 rounded-full bg-muted/80 overflow-hidden">
+                                    <div
+                                      className={`h-full transition-all duration-300 ${
+                                        available === 0
+                                          ? "bg-rose-500"
+                                          : available != null && available <= 5
+                                          ? "bg-amber-500"
+                                          : "bg-emerald-500"
+                                      }`}
+                                      style={{ width: `${fillPct}%` }}
+                                    />
                                   </div>
-                                ) : available != null && available <= 5 ? (
-                                  <div className="inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 px-2.5 py-1 rounded-xl text-xs font-bold shadow-2xs">
-                                    ที่นั่งว่าง <span className="font-black text-amber-700 dark:text-amber-400 text-sm">{available}</span> / {cap} ที่นั่ง
-                                  </div>
-                                ) : (
-                                  <div className="inline-flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 px-2.5 py-1 rounded-xl text-xs font-bold shadow-2xs">
-                                    ที่นั่งว่าง <span className="font-black text-emerald-700 dark:text-emerald-400 text-sm">{available}</span> / {cap} ที่นั่ง
-                                  </div>
-                                )}
-                                <div className="text-[10px] text-muted-foreground font-medium">
-                                  ลูกทีมในสังกัด {teamAttendees.length} คน
+                                  <span className="text-[10px] text-muted-foreground font-semibold shrink-0">
+                                    {fillPct}% เต็ม
+                                  </span>
+                                </div>
+
+                                <div className="text-[10px] text-muted-foreground mt-0.5">
+                                  ลูกทีมในสังกัด {teamAttendees.length} คน (จองรวม รพ. {hospitalTaken}/{cap} ที่)
                                 </div>
                               </div>
                             ) : (
-                              <span className="text-xs font-bold text-mint">ไม่จำกัดที่นั่ง</span>
+                              <div className="space-y-0.5">
+                                <span className="inline-flex items-center gap-1 text-xs font-bold text-mint">
+                                  <CheckCircle2 className="h-3.5 w-3.5" /> ไม่จำกัดที่นั่ง
+                                </span>
+                                <div className="text-[10px] text-muted-foreground">
+                                  ลูกทีมในสังกัด {teamAttendees.length} คน
+                                </div>
+                              </div>
                             )}
                           </div>
                         </div>
 
                         {/* BIG ACTION BUTTON: Assign selected members to this session */}
-                        <div className={`flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl p-3 border transition ${
-                          selectedUserIds.length > 0 && !isFull && !isExceeded
-                            ? "bg-emerald-50/70 dark:bg-emerald-950/30 border-2 border-emerald-400/80 dark:border-emerald-700/80 shadow-xs"
-                            : "bg-card/60 border border-border/50"
-                        }`}>
+                        <div
+                          className={`flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl p-3.5 border transition ${
+                            selectedUserIds.length > 0 && !isFull && !isExceeded
+                              ? "bg-emerald-50/70 dark:bg-emerald-950/30 border-2 border-emerald-400/80 dark:border-emerald-700/80 shadow-xs"
+                              : isExceeded
+                              ? "bg-rose-50/70 dark:bg-rose-950/30 border-2 border-rose-300 dark:border-rose-800"
+                              : "bg-card/60 border border-border/50"
+                          }`}
+                        >
                           <div className="text-xs">
                             {selectedUserIds.length > 0 ? (
-                              <span className="font-semibold text-emerald-950 dark:text-emerald-100">
-                                เตรียมจัดสรรลูกทีม <strong className="font-black text-emerald-700 dark:text-emerald-300 underline">{selectedUserIds.length} คน</strong> เข้าสู่รอบที่ {s.round_no}
-                              </span>
+                              isExceeded ? (
+                                <span className="font-semibold text-rose-700 dark:text-rose-300">
+                                  ⚠️ โควต้าที่นั่งไม่เพียงพอ: เลือกไว้ {selectedUserIds.length} คน แต่รอบนี้ว่างเพียง {available} ที่นั่ง
+                                </span>
+                              ) : isFull ? (
+                                <span className="font-semibold text-rose-700 dark:text-rose-300">
+                                  รอบนี้ที่นั่งเต็มแล้ว กรุณาเลือกรอบอื่น
+                                </span>
+                              ) : (
+                                <span className="font-semibold text-emerald-950 dark:text-emerald-100">
+                                  พร้อมจัดสรรลูกทีม <strong className="font-black text-emerald-700 dark:text-emerald-300 underline">{selectedUserIds.length} คน</strong> เข้าสู่รอบที่ {s.round_no}
+                                </span>
+                              )
                             ) : (
-                              <span className="text-muted-foreground">ติ๊กเลือกสมาชิกจากกล่องซ้ายมือ แล้วกดปุ่มเพื่อจัดสรรเข้ารอบนี้</span>
+                              <span className="text-muted-foreground">
+                                ← ติ๊กเลือกสมาชิกจากกล่องซ้ายมือ แล้วกดปุ่มนี้เพื่อจัดสรรเข้ารอบที่ {s.round_no}
+                              </span>
                             )}
                           </div>
 
@@ -1213,7 +1509,7 @@ function TeamAllocationHub() {
                                 ? "bg-muted text-muted-foreground opacity-60 cursor-not-allowed"
                                 : isExceeded
                                 ? "bg-destructive/15 text-destructive border border-destructive/30 cursor-not-allowed"
-                                : "bg-emerald-600 hover:bg-emerald-700 text-white font-black shadow-md shadow-emerald-600/30 cursor-pointer transform active:scale-95"
+                                : "bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md shadow-emerald-600/30 cursor-pointer transform active:scale-95"
                             }`}
                           >
                             {actionLoading ? (
@@ -1224,7 +1520,11 @@ function TeamAllocationHub() {
                             <span>
                               {isExceeded
                                 ? `ที่นั่งไม่พอ (เหลือ ${available} ที่)`
-                                : `จัดสรรสมาชิกที่เลือก (${selectedUserIds.length} คน) เข้ารอบนี้`}
+                                : isFull
+                                ? "รอบนี้เต็มแล้ว"
+                                : selectedUserIds.length > 0
+                                ? `จัดสรรลูกทีม (${selectedUserIds.length} คน) เข้ารอบที่ ${s.round_no}`
+                                : `จัดสรรเข้ารอบที่ ${s.round_no}`}
                             </span>
                           </button>
                         </div>
@@ -1246,14 +1546,14 @@ function TeamAllocationHub() {
                   })}
 
                   {/* Fallback Option: Enroll without session */}
-                  <div className="rounded-2xl border border-dashed border-border p-4 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                  <div className="rounded-2xl border border-dashed border-border p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-muted-foreground">
                     <div>
                       <strong>ลงทะเบียนล่วงหน้า (ยังไม่ระบุรอบ):</strong> สมาชิกจะได้รับการลงทะเบียนหลักสูตร และสามารถเข้าไปเลือกรอบอบรมด้วยตนเองได้ในภายหลัง
                     </div>
                     <button
                       onClick={() => handleAssignToSession(null)}
                       disabled={selectedUserIds.length === 0 || actionLoading}
-                      className="rounded-xl border bg-card px-3.5 py-2 font-semibold text-foreground hover:bg-muted shrink-0 transition"
+                      className="rounded-xl border bg-card px-3.5 py-2 font-semibold text-foreground hover:bg-muted shrink-0 transition cursor-pointer"
                     >
                       ลงทะเบียน {selectedUserIds.length} คน (ยังไม่ระบุรอบ)
                     </button>
@@ -1269,7 +1569,7 @@ function TeamAllocationHub() {
                   <button
                     onClick={() => handleAssignToSession(null)}
                     disabled={selectedUserIds.length === 0 || actionLoading}
-                    className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-xs font-bold text-primary-foreground hover:bg-primary/90 transition shadow-md"
+                    className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-xs font-bold text-primary-foreground hover:bg-primary/90 transition shadow-md cursor-pointer"
                   >
                     <Sparkles className="h-4 w-4" />
                     <span>ลงทะเบียนให้สมาชิกที่เลือก ({selectedUserIds.length} คน)</span>
@@ -1285,17 +1585,20 @@ function TeamAllocationHub() {
         /* ========================================================================= */
         <div className="space-y-4">
           <div className="glass rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2">
-              <input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="ค้นหาชื่อสมาชิก…"
-                className="rounded-xl border bg-card px-3 py-1.5 text-xs w-60"
-              />
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="ค้นหาชื่อสมาชิก…"
+                  className="rounded-xl border bg-card pl-8 pr-3 py-1.5 text-xs w-60"
+                />
+              </div>
               <select
                 value={filterDept}
                 onChange={(e) => setFilterDept(e.target.value)}
-                className="rounded-xl border bg-card px-3 py-1.5 text-xs"
+                className="rounded-xl border bg-card px-3 py-1.5 text-xs text-muted-foreground"
               >
                 <option value="">ทุกแผนก/หน่วย</option>
                 {departments.map((d) => (
@@ -1304,8 +1607,21 @@ function TeamAllocationHub() {
               </select>
             </div>
 
-            <div className="text-muted-foreground">
-              สามารถเปลี่ยนรอบการอบรมให้ลูกทีมแต่ละคนได้ทันทีที่ช่อง Dropdown ของแต่ละวิชา
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <Award className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>ได้ใบประกาศ: <strong>{data.enr.filter((e) => e.has_cert).length}</strong></span>
+              </span>
+              <span>·</span>
+              <span className="flex items-center gap-1">
+                <CheckCircle2 className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" />
+                <span>เช็คชื่อแล้ว: <strong>{data.enr.filter((e) => e.attended).length}</strong></span>
+              </span>
+              <span>·</span>
+              <span className="flex items-center gap-1">
+                <Calendar className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" />
+                <span>จัดรอบแล้ว: <strong>{data.enr.filter((e) => !!e.session_id).length}</strong></span>
+              </span>
             </div>
           </div>
 
@@ -1316,21 +1632,35 @@ function TeamAllocationHub() {
                   <tr>
                     <th className="w-[220px] px-4 py-3">สมาชิก</th>
                     <th className="w-[180px] px-4 py-3">ฝ่าย / แผนก</th>
-                    {data.courses.map((course) => (
-                      <th key={course.id} className="px-4 py-3 min-w-[260px]">
-                        <div className="font-bold text-foreground truncate max-w-[240px]">{course.title}</div>
-                        <div className="text-[10px] text-muted-foreground font-normal">
-                          {course.course_sessions?.length > 0 ? `${course.course_sessions.length} รอบอบรม` : "ออนไลน์"}
-                        </div>
-                      </th>
-                    ))}
+                    {data.courses.map((course) => {
+                      const courseEnrs = data.enr.filter((e) => e.course_id === course.id);
+                      const certCount = courseEnrs.filter((e) => e.has_cert).length;
+
+                      return (
+                        <th key={course.id} className="px-4 py-3 min-w-[260px]">
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="font-bold text-foreground truncate max-w-[180px]" title={course.title}>
+                              {course.title}
+                            </span>
+                            {certCount > 0 && (
+                              <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-300/40 shrink-0">
+                                🎓 {certCount}/{totalMembersCount}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground font-normal">
+                            {course.course_sessions?.length > 0 ? `${course.course_sessions.length} รอบอบรม` : "ออนไลน์"}
+                          </div>
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody>
                   {data.members
                     .filter((m) => {
                       const q = searchQuery.trim().toLowerCase();
-                      if (q && !m.full_name.toLowerCase().includes(q)) return false;
+                      if (q && !m.full_name.toLowerCase().includes(q) && !(m.position || "").toLowerCase().includes(q)) return false;
                       if (filterDept && (m.department || m.division) !== filterDept) return false;
                       return true;
                     })
@@ -1349,55 +1679,67 @@ function TeamAllocationHub() {
                           {data.courses.map((course) => {
                             const enr = data.enr.find((e) => e.user_id === m.user_id && e.course_id === course.id);
                             const sessions = course.course_sessions ?? [];
+                            const status = getTrainingProcessStatus(enr);
+                            const StatusIcon = status.icon;
 
                             return (
                               <td key={course.id} className="px-4 py-3">
                                 {sessions.length > 0 ? (
-                                  <div className="flex items-center gap-2">
-                                    <select
-                                      disabled={enr?.attended || actionLoading}
-                                      value={enr?.session_id ?? ""}
-                                      onChange={(e) => {
-                                        const val = e.target.value;
-                                        handleQuickAssignSingle(course.id, m.user_id, val ? val : null);
-                                      }}
-                                      className={`rounded-xl border px-2.5 py-1 text-xs font-medium transition ${
-                                        enr?.attended
-                                          ? "bg-mint/15 text-mint border-mint/30 font-bold"
-                                          : enr?.session_id
-                                          ? "bg-primary/10 text-primary border-primary/30 font-bold"
-                                          : "bg-card text-muted-foreground"
-                                      }`}
-                                    >
-                                      <option value="">(ยังไม่ลงทะเบียน)</option>
-                                      {sessions.map((s) => (
-                                        <option key={s.id} value={s.id}>
-                                          รอบที่ {s.round_no} {s.starts_at ? `(${new Date(s.starts_at).toLocaleDateString("th-TH", { day: "numeric", month: "short" })})` : ""}
-                                        </option>
-                                      ))}
-                                    </select>
+                                  <div className="space-y-1.5">
+                                    <div className="flex items-center gap-2">
+                                      <select
+                                        disabled={enr?.attended || actionLoading}
+                                        value={enr?.session_id ?? ""}
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          handleQuickAssignSingle(course.id, m.user_id, val ? val : null);
+                                        }}
+                                        className={`rounded-xl border px-2.5 py-1 text-xs font-medium transition cursor-pointer ${
+                                          enr?.attended
+                                            ? "bg-teal-500/15 text-teal-800 dark:text-teal-300 border-teal-300/40 font-bold"
+                                            : enr?.session_id
+                                            ? "bg-sky-500/10 text-sky-800 dark:text-sky-300 border-sky-300/40 font-bold"
+                                            : "bg-card text-muted-foreground border-border/80"
+                                        }`}
+                                      >
+                                        <option value="">(ยังไม่จัดรอบ)</option>
+                                        {sessions.map((s) => (
+                                          <option key={s.id} value={s.id}>
+                                            รอบที่ {s.round_no} {s.starts_at ? `(${new Date(s.starts_at).toLocaleDateString("th-TH", { day: "numeric", month: "short" })})` : ""}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
 
-                                    {enr?.has_cert ? (
-                                      <span className="rounded-full bg-mint/15 px-2 py-0.5 text-[10px] font-bold text-mint shrink-0">
-                                        ✓ ผ่าน
-                                      </span>
-                                    ) : enr?.attended ? (
-                                      <span className="rounded-full bg-mint/15 px-2 py-0.5 text-[10px] font-bold text-mint shrink-0">
-                                        เช็คชื่อแล้ว
-                                      </span>
-                                    ) : null}
+                                    {/* Rich Process Badge */}
+                                    {enr && (
+                                      <div>
+                                        <span
+                                          className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] border shadow-2xs ${status.badgeClass}`}
+                                          title={status.label}
+                                        >
+                                          <StatusIcon className="h-2.5 w-2.5" />
+                                          <span>{status.shortLabel}</span>
+                                        </span>
+                                      </div>
+                                    )}
                                   </div>
                                 ) : (
                                   /* Online course */
-                                  <div className="flex items-center gap-2">
+                                  <div className="space-y-1">
                                     {enr ? (
-                                      <span className="rounded-full bg-mint/15 px-2.5 py-0.5 text-xs font-bold text-mint">
-                                        ลงทะเบียนแล้ว
-                                      </span>
+                                      <div className="flex items-center gap-1.5">
+                                        <span
+                                          className={`inline-flex items-center gap-1 rounded-md px-2.5 py-0.5 text-xs font-bold border shadow-2xs ${status.badgeClass}`}
+                                        >
+                                          <StatusIcon className="h-3 w-3" />
+                                          <span>{status.shortLabel}</span>
+                                        </span>
+                                      </div>
                                     ) : (
                                       <button
                                         onClick={() => handleQuickAssignSingle(course.id, m.user_id, null)}
-                                        className="rounded-lg border bg-card px-2 py-1 text-xs font-semibold text-primary hover:bg-muted"
+                                        className="rounded-lg border bg-card px-2.5 py-1 text-xs font-semibold text-primary hover:bg-muted transition cursor-pointer"
                                       >
                                         + ลงทะเบียน
                                       </button>

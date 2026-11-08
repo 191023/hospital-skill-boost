@@ -128,10 +128,10 @@ function HeartbeatPulseLine({ y = -2.2, z = -0.5 }: { y?: number; z?: number }) 
     return geo;
   }, [sampleCount]);
 
-  useFrame(({ clock }) => {
+  useFrame(() => {
     const line = lineRef.current;
     if (!line) return;
-    const t = clock.getElapsedTime() * 0.75;
+    const t = performance.now() * 0.00075;
     const pos = line.geometry.getAttribute("position");
     if (!pos) return;
 
@@ -152,8 +152,8 @@ function HeartbeatPulseLine({ y = -2.2, z = -0.5 }: { y?: number; z?: number }) 
   );
 }
 
-// Floating Pure Hospital Logo
-function FloatingLogo({ x = -3.2, y = 1.0, z = -1.2 }: { x?: number; y?: number; z?: number }) {
+// Floating Pure Hospital Logo Watermark (subtle ambient background watermark)
+function FloatingLogo({ x = 4.5, y = 2.2, z = -3.0 }: { x?: number; y?: number; z?: number }) {
   const meshRef = useRef<THREE.Group>(null);
   const texture = useMemo(() => {
     const loader = new THREE.TextureLoader();
@@ -166,21 +166,21 @@ function FloatingLogo({ x = -3.2, y = 1.0, z = -1.2 }: { x?: number; y?: number;
     texture.dispose();
   }, [texture]);
 
-  useFrame(({ clock }) => {
+  useFrame(() => {
     if (meshRef.current) {
-      const t = clock.getElapsedTime();
-      meshRef.current.rotation.y = Math.sin(t * 0.4) * 0.18;
-      meshRef.current.rotation.x = Math.cos(t * 0.3) * 0.08;
+      const t = performance.now() * 0.001;
+      meshRef.current.rotation.y = Math.sin(t * 0.4) * 0.1;
+      meshRef.current.rotation.x = Math.cos(t * 0.3) * 0.05;
     }
   });
 
   return (
-    <Float speed={1.8} rotationIntensity={0.2} floatIntensity={0.5}>
+    <Float speed={1.2} rotationIntensity={0.1} floatIntensity={0.25}>
       <group ref={meshRef} position={[x, y, z]}>
-        {/* Pure OBH Logo without any surrounding circle or disc */}
+        {/* Very subtle hospital logo watermark in the background to ensure crystal-clear text readability */}
         <mesh>
-          <planeGeometry args={[2.4, 2.4]} />
-          <meshBasicMaterial map={texture} transparent opacity={1} side={THREE.DoubleSide} toneMapped={false} depthWrite={false} />
+          <planeGeometry args={[2.2, 2.2]} />
+          <meshBasicMaterial map={texture} transparent opacity={0.06} side={THREE.DoubleSide} toneMapped={false} depthWrite={false} />
         </mesh>
       </group>
     </Float>
@@ -228,7 +228,7 @@ function SceneContent({ reduced }: { reduced: boolean }) {
       <pointLight position={[4, -3, 2]} intensity={1.5} color="#14b8a6" distance={10} />
 
       {/* 3D Elements */}
-      <FloatingLogo x={-3.4} y={0.8} z={-1.2} />
+      <FloatingLogo x={4.5} y={2.2} z={-3.0} />
       <SkillHelix x={3.5} y={0} z={-1.4} />
       <HeartbeatPulseLine y={-2.3} z={-0.6} />
       <SkillParticles count={70} />

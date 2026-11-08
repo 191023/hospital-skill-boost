@@ -76,12 +76,26 @@ export function CertificateSettings({ course }: { course: Course }) {
 
   async function removeAsset(field: AssetField) {
     const path = form[field];
-    if (path && !path.startsWith("http")) {
+    if (path && !path.startsWith("http") && !path.startsWith("system/")) {
       const { error } = await supabase.storage.from("course-files").remove([path]);
       if (error) { toast.error(error.message); return; }
     }
     setForm((current) => ({ ...current, [field]: null }));
     toast.success(`นำ${assetConfig[field].title}ออกแล้ว กดบันทึกเพื่อยืนยัน`);
+  }
+
+  async function resetToDefaultHospitalLogo() {
+    let defaultLogo = "system/hospital-logo.png";
+    try {
+      const { data } = await supabase.from("system_settings").select("value").eq("key", "hospital_profile").maybeSingle();
+      if (data?.value && typeof data.value === "object" && (data.value as any).logo_url) {
+        defaultLogo = (data.value as any).logo_url;
+      }
+    } catch {
+      // fallback
+    }
+    setForm((current) => ({ ...current, hospital_logo_url: defaultLogo }));
+    toast.success("ใช้โลโก้เริ่มต้นของโรงพยาบาลแล้ว กดบันทึกเพื่อยืนยัน");
   }
 
   async function save() {
@@ -114,6 +128,11 @@ export function CertificateSettings({ course }: { course: Course }) {
                   </Button>
                   {form[field] && <Button type="button" size="icon" variant="ghost" title={`ลบ${config.title}`} aria-label={`ลบ${config.title}`} onClick={() => removeAsset(field)}><Trash2 aria-hidden="true" /></Button>}
                 </div>
+                {field === "hospital_logo_url" && form.hospital_logo_url !== "system/hospital-logo.png" && (
+                  <Button type="button" size="sm" variant="ghost" className="mt-2 w-full text-xs text-primary" onClick={resetToDefaultHospitalLogo}>
+                    ใช้โลโก้เริ่มต้นของโรงพยาบาล
+                  </Button>
+                )}
                 {field === "instructor_signature_url" && (signing ? (
                   <SignaturePad onCancel={() => setSigning(false)} onSave={async (file) => { setSigning(false); await uploadAsset(field, file); }} />
                 ) : (

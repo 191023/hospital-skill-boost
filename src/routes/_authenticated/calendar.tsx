@@ -96,7 +96,7 @@ const formatThaiShort = (iso: string | null) => {
   return `${d.getDate()} ${thaiMonthsShort[d.getMonth()]} ${(d.getFullYear() + 543) % 100}`;
 };
 
-export function CalendarPage() {
+function CalendarPage() {
   const { data: me } = useMe();
   const qc = useQueryClient();
 
@@ -357,7 +357,10 @@ export function CalendarPage() {
       ]);
       setSelectedSession(null);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const rawMsg = err instanceof Error ? err.message : String(err);
+      const msg = !rawMsg || rawMsg.includes("???")
+        ? "ไม่สามารถลงทะเบียนรอบนี้ได้ กรุณาตรวจสอบสิทธิ์การเข้าอบรมหรือจำนวนที่นั่งว่าง"
+        : rawMsg;
       toast.error(msg);
     } finally {
       setIsActionLoading(false);

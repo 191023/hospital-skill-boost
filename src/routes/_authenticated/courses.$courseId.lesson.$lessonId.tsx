@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,6 +23,7 @@ function LessonPage() {
   const { data: me } = useMe();
   const qc = useQueryClient();
   const nav = useNavigate();
+  const [submitting, setSubmitting] = useState(false);
   const { data } = useQuery({
     queryKey: ["lesson", lessonId, me?.id],
     enabled: !!me,
@@ -30,7 +32,7 @@ function LessonPage() {
         supabase.from("lessons").select("*").eq("id", lessonId).maybeSingle(),
         supabase.from("lessons").select("id,title,position").eq("course_id", courseId).order("position"),
         supabase.from("lesson_progress").select("lesson_id").eq("user_id", me!.id).eq("lesson_id", lessonId),
-        supabase.from("courses").select("require_pretest").eq("id", courseId).maybeSingle(),
+        supabase.from("courses").select("require_pretest,require_posttest").eq("id", courseId).maybeSingle(),
         supabase.from("course_sessions").select("id").eq("course_id", courseId).limit(1),
         supabase.from("attendance").select("id").eq("course_id", courseId).eq("user_id", me!.id).maybeSingle(),
         supabase.from("test_attempts").select("id").eq("course_id", courseId).eq("user_id", me!.id).eq("kind", "pre").maybeSingle(),
@@ -39,7 +41,8 @@ function LessonPage() {
       const hasSessions = (sess ?? []).length > 0;
       const checkedIn = !hasSessions || !!att;
       const needPre = !!course?.require_pretest && !preAtt;
-      return { lesson, all: all ?? [], done: (prog ?? []).length > 0, pdf, checkedIn, needPre };
+      const hasPostTest = !!course?.require_posttest;
+      return { lesson, all: all ?? [], done: (prog ?? []).length > 0, pdf, checkedIn, needPre, hasPostTest };
     },
   });
   if (!data?.lesson) return <div className="text-muted-foreground">กำลังโหลด...</div>;
@@ -73,21 +76,60 @@ function LessonPage() {
       </div>
     );
   }
-  const { lesson, all, done, pdf } = data;
+  const { lesson, all, done, pdf, hasPostTest } = data;
   const idx = all.findIndex((l) => l.id === lessonId);
   const next = all[idx + 1];
   const embed = youtubeEmbed(lesson.video_url);
 
   async function complete() {
-    if (!done) {
-      const { error } = await supabase.from("lesson_progress").insert({ lesson_id: lessonId, user_id: me!.id });
-      if (error) { toast.error(error.message); return; }
-      toast.success("บันทึกการเรียนแล้ว");
-      qc.invalidateQueries();
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      if (!done) {
+        const { error } = await supabase.from("lesson_progress").insert({ lesson_id: lessonId, user_id: me!.id });
+        const isDuplicate = error && (
+          error.code === "23505" ||
+          error.message?.includes("duplicate key") ||
+          error.message?.includes("lesson_progress_user_id_lesson_id_key")
+        );
+        if (error && !isDuplicate) {
+          toast.error(error.message);
+          return;
+        }
+        if (!isDuplicate) {
+          toast.success("บันทึกการเรียนแล้ว");
+        }
+      }
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["lesson", lessonId] }),
+        qc.invalidateQueries({ queryKey: ["course", courseId] }),
+      ]);
+      if (next) {
+        nav({ to: "/courses/$courseId/lesson/$lessonId", params: { courseId, lessonId: next.id } });
+      } else if (hasPostTest) {
+        toast.success("เรียนครบทุกบทแล้ว 🎉 พร้อมทำแบบทดสอบหลังเรียน");
+        nav({ to: "/courses/$courseId/test/$kind", params: { courseId, kind: "post" } });
+      } else {
+        nav({ to: "/courses/$courseId", params: { courseId } });
+      }
+    } finally {
+      setSubmitting(false);
     }
-    if (next) nav({ to: "/courses/$courseId/lesson/$lessonId", params: { courseId, lessonId: next.id } });
-    else nav({ to: "/courses/$courseId", params: { courseId } });
   }
+
+  const buttonLabel = submitting
+    ? "กำลังบันทึก..."
+    : done
+    ? next
+      ? "บทถัดไป →"
+      : hasPostTest
+      ? "ไปทำแบบทดสอบหลังเรียน (Post-test) →"
+      : "กลับหน้าหลักสูตร"
+    : next
+    ? "เรียนจบบทนี้ · ไปบทถัดไป →"
+    : hasPostTest
+    ? "เรียนจบครบทุกบท · ทำ Post-test →"
+    : "เรียนจบบทนี้";
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -109,8 +151,12 @@ function LessonPage() {
         )}
         {lesson.body && <div className="mt-5 whitespace-pre-line leading-relaxed">{lesson.body}</div>}
         <div className="mt-8 flex justify-end">
-          <button onClick={complete} className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-brand">
-            {done ? (next ? "บทถัดไป →" : "กลับหน้าหลักสูตร") : next ? "เรียนจบบทนี้ · ไปบทถัดไป →" : "เรียนจบบทนี้"}
+          <button
+            onClick={complete}
+            disabled={submitting}
+            className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-brand disabled:opacity-50"
+          >
+            {buttonLabel}
           </button>
         </div>
       </div>

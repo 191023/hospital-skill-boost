@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe, roleLabel } from "@/lib/auth";
 import { Blobs, Brand } from "@/components/Brand";
+import { FontSizeControl } from "@/components/FontSizeControl";
 
 const navCls = "flex items-center gap-3 rounded-xl px-3 py-2.5 text-foreground/70 hover:bg-sidebar-accent";
 const activeCls = "flex items-center gap-3 rounded-xl px-3 py-2.5 bg-primary text-primary-foreground font-semibold shadow-brand";
@@ -49,24 +50,33 @@ export function AppShell({ children }: { children: ReactNode }) {
               </Link>
             ))}
           </nav>
-          <div className="glass mt-auto rounded-2xl p-4">
-            <div className="text-sm font-semibold">{me?.full_name || "..."}</div>
-            <div className="text-xs text-muted-foreground">{me?.department}</div>
-            <div className="mt-1 text-[11px] font-semibold text-mint">{me?.roles.map((r) => roleLabel[r]).join(" · ")}</div>
-            <div className="mt-3 flex gap-3">
-              <Link to="/settings" className="text-xs font-semibold text-primary">ตั้งค่า / บัญชี</Link>
-              <button onClick={signOut} className="text-xs font-semibold text-coral">ออกจากระบบ</button>
+          <div className="mt-auto space-y-3">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-xs font-semibold text-muted-foreground">ขนาดตัวอักษร:</span>
+              <FontSizeControl compact />
+            </div>
+            <div className="glass rounded-2xl p-4">
+              <div className="text-sm font-semibold">{me?.full_name || "..."}</div>
+              <div className="text-xs text-muted-foreground">{me?.department}</div>
+              <div className="mt-1 text-xs font-semibold text-mint">{me?.roles.map((r) => roleLabel[r]).join(" · ")}</div>
+              <div className="mt-3 flex gap-3">
+                <Link to="/settings" className="text-xs font-semibold text-primary">ตั้งค่า / บัญชี</Link>
+                <button onClick={signOut} className="text-xs font-semibold text-coral">ออกจากระบบ</button>
+              </div>
             </div>
           </div>
         </aside>
         <main className="min-w-0 flex-1 p-6 lg:p-10">
-          <div className="no-print mb-4 flex flex-wrap gap-2 lg:hidden">
-            {items.filter((i) => i.show).map((i) => (
-              <Link key={i.to} to={i.to} className="glass rounded-full px-3 py-1 text-xs" activeProps={{ className: "rounded-full bg-primary px-3 py-1 text-xs text-primary-foreground" }}>
-                {i.label}
-              </Link>
-            ))}
-            <button onClick={signOut} className="rounded-full px-3 py-1 text-xs text-coral">ออก</button>
+          <div className="no-print mb-4 flex flex-wrap items-center justify-between gap-2 lg:hidden">
+            <div className="flex flex-wrap gap-1.5">
+              {items.filter((i) => i.show).map((i) => (
+                <Link key={i.to} to={i.to} className="glass rounded-full px-3 py-1 text-xs" activeProps={{ className: "rounded-full bg-primary px-3 py-1 text-xs text-primary-foreground" }}>
+                  {i.label}
+                </Link>
+              ))}
+              <button onClick={signOut} className="rounded-full px-3 py-1 text-xs text-coral">ออก</button>
+            </div>
+            <FontSizeControl compact />
           </div>
           {isLoading ? (
             <div className="text-muted-foreground">กำลังโหลด...</div>

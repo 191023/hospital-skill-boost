@@ -183,7 +183,13 @@ export function SessionPicker({ courseId, current, locked }: { courseId: string;
   if (!data || data.length === 0) return null;
   async function choose(id: string) {
     const { error } = await supabase.rpc("choose_session", { _session: id });
-    if (error) { toast.error(error.message); return; }
+    if (error) {
+      const msg = !error.message || error.message.includes("???")
+        ? "ไม่สามารถลงทะเบียนรอบนี้ได้ กรุณาตรวจสอบสิทธิ์การเข้าอบรมหรือจำนวนที่นั่งว่าง"
+        : error.message;
+      toast.error(msg);
+      return;
+    }
     toast.success("เลือกรอบอบรมเรียบร้อย");
     qc.invalidateQueries();
   }

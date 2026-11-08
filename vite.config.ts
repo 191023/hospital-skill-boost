@@ -9,7 +9,18 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 export default defineConfig({
   vite: {
     server: {
+      host: true,
+      allowedHosts: [
+        "fmstraining.ovbhospital.com",
+        ".ovbhospital.com",
+      ],
       proxy: {
+        "/__supabase": {
+          target: "http://127.0.0.1:54321",
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/__supabase/, ""),
+          ws: true,
+        },
         "/__l5e": {
           target: "https://hospital-skill-boost.lovable.app",
           changeOrigin: true,

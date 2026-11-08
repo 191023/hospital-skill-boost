@@ -10,6 +10,7 @@ import { useMe } from "@/lib/auth";
 import { sessionLabel } from "@/components/Sessions";
 import { Button } from "@/components/ui/button";
 import { attendeeSymbol, attendanceKey, detectRoomArrivals, roomDate, matchesAttendee, roomSeats, getCountdownInfo, ROOM_PAGE_SIZE, type RoomAttendee } from "@/lib/training-room";
+import { ClassroomHubModal } from "@/components/course-editor/ClassroomHubModal";
 
 const Scene = lazy(() => import("@/components/TrainingRoomScene"));
 export const Route = createFileRoute("/_authenticated/manage_/$courseId/room")({
@@ -48,15 +49,15 @@ function RoomContent({ courseId }: { courseId: string }) {
   const [view, setView] = useState<"angle" | "top">("angle");
   const [zoom, setZoom] = useState(1);
   const [kiosk, setKiosk] = useState(false);
-  const [walk, setWalk] = useState(false);
-  const [leftOpen, setLeftOpen] = useState(true);
-  const [rightOpen, setRightOpen] = useState(true);
+  const [walk, setWalk] = useState(true);
+  const [leftOpen, setLeftOpen] = useState(false);
+  const [rightOpen, setRightOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pulseMap, setPulseMap] = useState<Record<string, number>>({});
-  const [flyingCheckIn, setFlyingCheckIn] = useState<{ id: string; name: string; emoji: string; division: string } | null>(null);
   const prevChecked = useRef<Map<string, string> | null>(null);
   const pageRef = useRef<HTMLDivElement>(null);
   const [isFull, setIsFull] = useState(false);
+  const [hubOpen, setHubOpen] = useState(false);
   const [drawn, setDrawn] = useState<Set<string>>(new Set());
   const [pickDivision, setPickDivision] = useState("all");
   const [rolling, setRolling] = useState(false);
@@ -83,7 +84,6 @@ function RoomContent({ courseId }: { courseId: string }) {
     document.addEventListener("fullscreenchange", sync);
     return () => {
       document.removeEventListener("fullscreenchange", sync);
-      if (flyTimerRef.current) window.clearTimeout(flyTimerRef.current);
     };
   }, []);
 
@@ -107,21 +107,6 @@ function RoomContent({ courseId }: { courseId: string }) {
     },
   });
 
-  const flyTimerRef = useRef<number | null>(null);
-  const triggerFly = (attendee: RoomAttendee) => {
-    if (flyTimerRef.current) window.clearTimeout(flyTimerRef.current);
-    setFlyingCheckIn(null);
-    window.requestAnimationFrame(() => {
-      setFlyingCheckIn({
-        id: attendee.userId,
-        name: attendee.name,
-        emoji: attendeeSymbol(attendee).emoji,
-        division: attendee.division || attendee.department || "บุคลากร",
-      });
-      flyTimerRef.current = window.setTimeout(() => setFlyingCheckIn(null), 3000);
-    });
-  };
-
   const checkIn = useMutation({
     mutationFn: async ({ userId, roundId }: { userId: string; roundId: string | null }) => {
       const { data: res, error } = await supabase.rpc("staff_check_in", { _course: courseId, _user: userId, ...(roundId ? { _session: roundId } : {}) });
@@ -134,8 +119,6 @@ function RoomContent({ courseId }: { courseId: string }) {
       const curNow = Date.now();
       setPulseMap((prev) => ({ ...prev, [key]: curNow }));
       setFocus(null);
-      const p = attendees.find((a) => a.userId === variables.userId);
-      if (p) triggerFly(p);
       await refetch();
     },
     onError: (error) => toast.error(error.message || "เช็คชื่อไม่สำเร็จ กรุณาลองอีกครั้ง"),
@@ -167,12 +150,6 @@ function RoomContent({ courseId }: { courseId: string }) {
         }
         return next;
       });
-      const firstArrivedKey = Object.keys(arrivals)[0];
-      if (firstArrivedKey) {
-        const userId = firstArrivedKey.split(":")[0];
-        const person = attendees.find((a) => a.userId === userId);
-        if (person) triggerFly(person);
-      }
     }
   }, [data]);
 
@@ -243,7 +220,6 @@ function RoomContent({ courseId }: { courseId: string }) {
       return;
     }
     const key = attendanceKey(pick.userId, activeId === "unassigned" ? null : activeId);
-    triggerFly(pick);
     setPulseMap((prev) => ({ ...prev, [key]: Date.now() }));
     if (isReal && data.canCheckIn) {
       checkIn.mutate({ userId: pick.userId, roundId: activeId === "unassigned" ? null : activeId });
@@ -263,51 +239,8 @@ function RoomContent({ courseId }: { courseId: string }) {
     link.click();
   };
 
-  const flyingCardElement = flyingCheckIn && typeof document !== "undefined" ? createPortal(
-    <div className="pointer-events-none fixed inset-0 z-[999999] overflow-visible">
-      <div className="fly-jet-capsule absolute left-0 top-0 w-max">
-        {/* LASER JET STREAM TRAIL (Attached to rear/left of badge) */}
-        <div className="fly-jet-trail" aria-hidden="true">
-          <div className="fly-jet-core" />
-          <div className="fly-jet-particles" />
-        </div>
-
-        {/* SCI-FI HOLOGRAPHIC BADGE CARD */}
-        <div className="relative flex items-center gap-3 rounded-2xl border-2 border-cyan-400 bg-card/95 px-4 py-3 shadow-[0_0_35px_rgba(34,211,238,0.45)] backdrop-blur-xl">
-          <div className="relative grid size-10 shrink-0 place-items-center rounded-xl bg-cyan-500/20 text-2xl font-bold shadow-inner border border-cyan-400/40">
-            <span className="animate-pulse">{flyingCheckIn.emoji}</span>
-            <span className="absolute -bottom-1 -right-1 flex size-3">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-mint opacity-75" />
-              <span className="relative inline-flex size-3 rounded-full bg-mint" />
-            </span>
-          </div>
-          <div className="min-w-0 pr-1">
-            <div className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-cyan-500 dark:text-cyan-400">
-              <Sparkles className="size-3 animate-spin text-cyan-400" />
-              <span>เช็คชื่อแล้ว · กำลังเข้าห้อง</span>
-            </div>
-            <div className="text-sm font-extrabold text-foreground truncate max-w-[200px] drop-shadow-xs">
-              {flyingCheckIn.name}
-            </div>
-            <div className="text-[10px] font-semibold text-muted-foreground truncate max-w-[200px]">
-              {flyingCheckIn.division}
-            </div>
-          </div>
-
-          {/* Thruster exhaust glow point on left edge */}
-          <div className="absolute -left-1.5 top-1/2 -translate-y-1/2 size-3 rounded-full bg-cyan-300 blur-xs" />
-        </div>
-
-        {/* DOCKING IMPACT RING BURST */}
-        <div className="landing-burst-ring" aria-hidden="true" />
-      </div>
-    </div>,
-    document.body
-  ) : null;
-
   if (kiosk) return <div className="room-page" ref={pageRef}>
-    {flyingCardElement}
-    <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
       <div className="min-w-0">
         <div className="flex items-center gap-2 text-xs font-semibold text-primary"><Armchair className="size-3.5" />{roundLabel} <span className="text-muted-foreground">· {data.course.training_year}</span></div>
         <h1 className="truncate text-xl font-bold">{data.course.title}</h1>
@@ -331,8 +264,7 @@ function RoomContent({ courseId }: { courseId: string }) {
   </div>;
 
   return <div className="room-page space-y-2.5" ref={pageRef}>
-    {flyingCardElement}
-
+    
     {/* COMPACT SINGLE-LINE COMMAND HUD BAR */}
     <header className="flex flex-wrap items-center justify-between gap-2.5 rounded-2xl border border-glass-border bg-card/90 px-3.5 py-2 shadow-xs backdrop-blur-md">
       <div className="flex items-center gap-2.5 min-w-0">
@@ -390,7 +322,8 @@ function RoomContent({ courseId }: { courseId: string }) {
           </Button>
         </div>
         <Button size="icon" variant="ghost" className="size-8" title="จับภาพห้อง PNG" onClick={capture}><Camera className="size-4" /></Button>
-        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={toggleKiosk} title="โหมดจอหน้าห้อง"><Monitor className="size-3.5" /> โหมดจอ</Button>
+        <Button size="sm" variant="default" className="h-8 text-xs font-semibold bg-primary text-primary-foreground shadow-brand gap-1.5" onClick={() => setHubOpen(true)} title="เปิดจอใหญ่ฉาย QR Code สำหรับสแกนเข้าห้องอบรม (Classroom Hub)"><Monitor className="size-3.5" /> ฉายจอ QR</Button>
+        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={toggleKiosk} title="โหมดจอหน้าห้อง 3D">โหมดจอ 3D</Button>
         {fullButton}
         <Button variant="ghost" size="icon" className="size-8" title="อัปเดตสถานะ" disabled={isFetching} onClick={() => refetch()}><RefreshCw className={isFetching ? "animate-spin size-3.5" : "size-3.5"} /></Button>
       </div>
@@ -437,20 +370,7 @@ function RoomContent({ courseId }: { courseId: string }) {
                       <div className="truncate text-[10px] text-muted-foreground">{person.department || person.division || "—"}</div>
                     </div>
                   </div>
-                  {data.canCheckIn && (
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="size-7 shrink-0 text-muted-foreground hover:text-mint hover:bg-mint/10"
-                      title="เช็คชื่อเข้าห้อง"
-                      disabled={checkIn.isPending}
-                      onClick={() => {
-                        checkIn.mutate({ userId: person.userId, roundId: activeId === "unassigned" ? null : activeId });
-                      }}
-                    >
-                      <CheckCircle2 className="size-4" />
-                    </Button>
-                  )}
+                  
                 </div>
               );
             })}
@@ -600,6 +520,13 @@ function RoomContent({ courseId }: { courseId: string }) {
       </div>
 
     </div>
+    <ClassroomHubModal
+      courseId={courseId}
+      courseTitle={data.course.title}
+      open={hubOpen}
+      onClose={() => setHubOpen(false)}
+      initialMode="projector"
+    />
   </div>;
 }
 

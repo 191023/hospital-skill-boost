@@ -14,7 +14,7 @@ export const Route = createFileRoute("/_authenticated/simulation-cpr")({
   component: CprSimulationPage,
 });
 
-export function CprSimulationPage() {
+function CprSimulationPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">

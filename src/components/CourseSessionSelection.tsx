@@ -42,7 +42,10 @@ export function CourseSessionSelection({
     try {
       const { error } = await supabase.rpc("choose_session", { _session: sessionId });
       if (error) {
-        toast.error(error.message || "เลือกรอบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+        const msg = !error.message || error.message.includes("???")
+          ? "ไม่สามารถลงทะเบียนรอบนี้ได้ กรุณาตรวจสอบสิทธิ์การเข้าอบรมหรือจำนวนที่นั่งว่าง"
+          : error.message;
+        toast.error(msg);
         return;
       }
       toast.success(isEnrolled ? `เปลี่ยนเป็นรอบที่ ${roundNo} เรียบร้อยแล้ว` : `ลงทะเบียนรอบที่ ${roundNo} สำเร็จ 🎉`);

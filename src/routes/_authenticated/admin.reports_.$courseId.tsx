@@ -354,6 +354,11 @@ function CourseReport() {
                 ⬇ ดาวน์โหลด Excel
               </Button>
               <Button asChild variant="outline" size="sm" className="rounded-full shadow-sm">
+                <a href={`/manage/${courseId}?tab=analytics`}>
+                  📊 วิเคราะห์ข้อสอบ & KPI
+                </a>
+              </Button>
+              <Button asChild variant="outline" size="sm" className="rounded-full shadow-sm">
                 <a href={`/manage/${courseId}?tab=attendees`}>
                   👥 จัดการรายชื่อผู้เรียน
                 </a>

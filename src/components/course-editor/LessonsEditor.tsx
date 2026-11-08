@@ -4,6 +4,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { kindLabel } from "@/lib/data";
 import { btn, inp, uploadCourseFile } from "./shared";
+import { ImportLessons } from "./ImportLessons";
+import { ImportQuestions } from "./ImportQuestions";
 
 export function Lessons({ courseId }: { courseId: string }) {
   const qc = useQueryClient();
@@ -18,6 +20,11 @@ export function Lessons({ courseId }: { courseId: string }) {
   }
   return (
     <div className="space-y-4">
+      <ImportLessons
+        courseId={courseId}
+        existingCount={data.length}
+        onDone={() => qc.invalidateQueries({ queryKey: ["edit-lessons", courseId] })}
+      />
       {data.map((l) => <LessonRow key={l.id} lesson={l} courseId={courseId} />)}
       <button onClick={add} className="w-full rounded-2xl border-2 border-dashed border-primary/30 py-4 text-sm font-semibold text-primary">+ เพิ่มบทเรียน</button>
     </div>
@@ -67,7 +74,7 @@ function LessonRow({ lesson, courseId }: { lesson: Lesson; courseId: string }) {
   );
 }
 
-export function Questions({ courseId }: { courseId: string }) {
+export function Questions({ courseId, onOpenAnalytics }: { courseId: string; onOpenAnalytics?: () => void }) {
   const qc = useQueryClient();
   const { data = [] } = useQuery({
     queryKey: ["edit-questions", courseId],
@@ -88,7 +95,37 @@ export function Questions({ courseId }: { courseId: string }) {
   }
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">ข้อสอบชุดนี้ใช้ทั้งก่อนเรียนและหลังเรียน เพื่อเปรียบเทียบพัฒนาการ</p>
+      {onOpenAnalytics && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4 text-xs">
+          <div className="flex items-center gap-2.5">
+            <span className="text-xl">📊</span>
+            <div>
+              <span className="font-bold text-foreground">ต้องการดูสถิติว่าข้อไหนคนตอบผิดมากที่สุด?</span>
+              <p className="text-muted-foreground mt-0.5">ระบบมีระบบวิเคราะห์ข้อสอบ (Item Analysis) และสถิติพัฒนาการรายแผนก (HA/JCI) สำหรับวิทยากร</p>
+            </div>
+          </div>
+          <button
+            onClick={onOpenAnalytics}
+            className="rounded-xl bg-primary px-3.5 py-1.5 font-semibold text-primary-foreground hover:opacity-90 transition-all shadow-sm"
+          >
+            เปิดหน้าวิเคราะห์ข้อสอบ & KPI →
+          </button>
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-muted-foreground">ข้อสอบชุดนี้ใช้ทั้งก่อนเรียนและหลังเรียน เพื่อเปรียบเทียบพัฒนาการ</p>
+        <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+          ทั้งหมด {data.length} ข้อ
+        </span>
+      </div>
+
+      <ImportQuestions
+        courseId={courseId}
+        existingCount={data.length}
+        onDone={() => qc.invalidateQueries({ queryKey: ["edit-questions", courseId] })}
+      />
+
       {data.map((x, i) => (
         <div key={x.id} className="glass rounded-3xl p-5">
           <div className="flex justify-between gap-4">

@@ -9,7 +9,7 @@ const types = readFileSync("src/integrations/supabase/types.ts", "utf8");
 
 describe("server-side training rules", () => {
   it("exposes grading, check-in and report functions", () => {
-    for (const fn of ["submit_test", "get_test_questions", "check_in", "staff_check_in", "can_access_course", "report_overview", "report_rows"]) {
+    for (const fn of ["submit_test", "get_test_questions", "check_in", "staff_check_in", "can_access_course", "report_overview", "report_rows", "get_course_item_analytics"]) {
       expect(types).toContain(`${fn}: {`);
     }
   });

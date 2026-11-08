@@ -30,6 +30,7 @@ function useCourseState(courseId: string, userId?: string) {
   return useQuery({
     queryKey: ["course", courseId, userId],
     enabled: !!userId,
+    staleTime: 0,
     queryFn: async () => {
       const [{ data: course }, { data: lessons }, { data: enr }, { data: prog }, { data: att }, { data: cert }, { data: qs }, { data: atd }, { data: surveyRes }] = await Promise.all([
         supabase.from("courses").select("*").eq("id", courseId).maybeSingle(),
@@ -125,8 +126,8 @@ function CoursePage() {
   const { course, lessons, done, enrolled, pre, posts, cert, hasQuestions, allDone } = data;
   if (!course) return <div className="glass rounded-3xl p-10 text-center">ไม่พบหลักสูตร</div>;
 
-  const isClassroomCourse = sessions.length > 0;
-  const hasSelectedSession = !isClassroomCourse || !!data.sessionId;
+  const isClassroomCourse = (course.training_type || "classroom") === "classroom";
+  const hasSelectedSession = !isClassroomCourse || (sessions.length > 0 ? !!data.sessionId : true);
   const isCheckedIn = !isClassroomCourse || data.attended;
 
   const usePre = hasQuestions && course.require_pretest;
@@ -137,7 +138,7 @@ function CoursePage() {
 
   async function enroll() {
     if (!me) return;
-    if (sessions.length > 0) {
+    if (isClassroomCourse && sessions.length > 0) {
       toast.info("กรุณาเลือกรอบการอบรมที่คุณต้องการเข้าร่วม", { duration: 4000 });
       document.getElementById("course-sessions-section")?.scrollIntoView({ behavior: "smooth" });
       return;
@@ -154,8 +155,13 @@ function CoursePage() {
         <div className="glass overflow-hidden rounded-3xl">
           <img src={coverFor(course.id, course.cover_url)} alt="" className="aspect-[21/9] w-full object-cover" />
           <div className="p-6">
-            <div className="text-[11px] font-semibold text-primary">{course.category || "ทั่วไป"} · {course.hours} ชั่วโมง · เกณฑ์ผ่าน {course.pass_score}%</div>
-            <h1 className="mt-1 text-2xl font-bold">{course.title}</h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${isClassroomCourse ? "bg-amber/15 text-amber" : "bg-primary/15 text-primary"}`}>
+                {isClassroomCourse ? "🏢 อบรมในห้องประชุม (On-site)" : "🌐 อบรมออนไลน์ (Online)"}
+              </span>
+              <span className="text-[11px] font-semibold text-primary">{course.category || "ทั่วไป"} · {course.hours} ชั่วโมง · เกณฑ์ผ่าน {course.pass_score}%</span>
+            </div>
+            <h1 className="mt-2 text-2xl font-bold">{course.title}</h1>
             <p className="mt-2 whitespace-pre-line text-sm text-muted-foreground">{course.description}</p>
             {enrolled && <div className="mt-4"><Bar value={pct} tone="gradient" /><div className="mt-1 text-xs text-muted-foreground">ความคืบหน้า {pct}%</div></div>}
           </div>
@@ -188,8 +194,8 @@ function CoursePage() {
           </div>
         )}
 
-        {/* Training Rounds & Overview */}
-        {sessions.length > 0 && (
+        {/* Training Rounds & Overview (Classroom courses only) */}
+        {isClassroomCourse && sessions.length > 0 && (
           <div id="course-sessions-section">
             <CourseSessionSelection
               courseId={courseId}
@@ -210,12 +216,14 @@ function CoursePage() {
                     ก
                   </span>
                   <span className="rounded-full bg-amber/20 px-2.5 py-0.5 text-xs font-semibold text-amber">
-                    จำเป็นต้องทำก่อนเข้าอบรม
+                    จำเป็นต้องทำก่อน{isClassroomCourse ? "เข้าอบรม" : "เข้าเรียนบทเรียน"}
                   </span>
                 </div>
                 <h3 className="text-lg font-bold text-foreground">แบบทดสอบก่อนการอบรม (Pre-test)</h3>
                 <p className="text-xs text-muted-foreground">
-                  คุณเลือกรอบการอบรมเรียบร้อยแล้ว กรุณาทำแบบทดสอบก่อนเรียนเพื่อวัดระดับความรู้พื้นฐานก่อนเข้าร่วมกิจกรรมในห้องอบรม
+                  {isClassroomCourse
+                    ? "คุณเลือกรอบการอบรมเรียบร้อยแล้ว กรุณาทำแบบทดสอบก่อนเรียนเพื่อวัดระดับความรู้พื้นฐานก่อนเข้าร่วมกิจกรรมในห้องอบรม"
+                    : "กรุณาทำแบบทดสอบก่อนเรียนเพื่อวัดระดับความรู้พื้นฐาน ระบบจะปลดล็อกบทเรียนทันทีหลังจากทำแบบทดสอบเสร็จสิ้น"}
                 </p>
               </div>
               <Link
@@ -230,7 +238,7 @@ function CoursePage() {
           </div>
         )}
 
-        {enrolled && hasSelectedSession && usePre && pre && !isCheckedIn && (
+        {enrolled && hasSelectedSession && usePre && pre && !isCheckedIn && isClassroomCourse && (
           <div className="glass rounded-3xl p-5 border border-mint/40 bg-mint/5 flex items-center gap-3">
             <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-mint/20 text-mint font-bold">
               <CheckCircle2 className="size-5" />
@@ -240,6 +248,52 @@ function CoursePage() {
               <div className="text-xs text-muted-foreground">
                 คะแนนที่ได้ {pre.score}/{pre.total} ข้อ ({pre.percent}%) · รอสแกน QR Code หน้าห้องอบรมเพื่อเช็คชื่อเข้าเรียนและปลดล็อกเนื้อหา
               </div>
+            </div>
+          </div>
+        )}
+
+        {enrolled && usePre && pre && !isClassroomCourse && (
+          <div className="glass rounded-3xl p-5 border border-mint/40 bg-mint/5 flex items-center gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-mint/20 text-mint font-bold">
+              <CheckCircle2 className="size-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-bold text-foreground">ทำแบบทดสอบก่อนเรียน (Pre-test) เรียบร้อยแล้ว</div>
+              <div className="text-xs text-muted-foreground">
+                คะแนนที่ได้ {pre.score}/{pre.total} ข้อ ({pre.percent}%) · บทเรียนด้านล่างปลดล็อกพร้อมให้เข้าศึกษาได้ทันที
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Prominent Post-test callout when lessons are done and post-test is ready */}
+        {enrolled && isCheckedIn && allDone && usePost && !cert && (bestPost === undefined || bestPost < course.pass_score) && (
+          <div className="glass rounded-3xl p-6 border-2 border-mint/40 bg-gradient-to-br from-mint/15 via-mint/5 to-transparent shadow-brand space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="flex size-7 items-center justify-center rounded-xl bg-mint text-primary-foreground text-xs font-bold shadow-sm">
+                    ข
+                  </span>
+                  <span className="rounded-full bg-mint/20 px-2.5 py-0.5 text-xs font-semibold text-mint">
+                    เรียนครบทุกบทแล้ว · พร้อมทำแบบทดสอบ
+                  </span>
+                </div>
+                <h3 className="text-lg font-bold text-foreground">แบบทดสอบหลังการอบรม (Post-test)</h3>
+                <p className="text-xs text-muted-foreground">
+                  {bestPost !== undefined
+                    ? `คะแนนครั้งก่อนหน้า ${bestPost}% (เกณฑ์ผ่าน ${course.pass_score}%) ท่านสามารถทำแบบทดสอบใหม่เพื่อปรับปรุงคะแนนและรับใบประกาศนียบัตร`
+                    : `ท่านศึกษาบทเรียนครบถ้วนแล้ว กรุณาทำแบบทดสอบวัดผลหลังเรียน (เกณฑ์ผ่าน ${course.pass_score}%) เพื่อประเมินผลและรับใบประกาศนียบัตร`}
+                </p>
+              </div>
+              <Link
+                to="/courses/$courseId/test/$kind"
+                params={{ courseId, kind: "post" }}
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-mint px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-brand hover:opacity-95 transition-all"
+              >
+                <span>{bestPost !== undefined ? "ทำแบบทดสอบอีกครั้ง" : "เริ่มทำ Post-test ตอนนี้"}</span>
+                <ArrowRight className="size-4" />
+              </Link>
             </div>
           </div>
         )}
@@ -266,7 +320,13 @@ function CoursePage() {
               <Step
                 n="ก"
                 title="แบบทดสอบก่อนเรียน (Pre-test)"
-                sub={pre ? `ทำแล้ว · ${pre.score}/${pre.total} (${pre.percent}%)` : "วัดความรู้ก่อนเริ่มเรียน (ทำได้ทันทีหลังเลือกรอบ)"}
+                sub={
+                  pre
+                    ? `ทำแล้ว · ${pre.score}/${pre.total} (${pre.percent}%)`
+                    : isClassroomCourse
+                    ? "วัดความรู้ก่อนเริ่มเรียน (ทำได้ทันทีหลังเลือกรอบ)"
+                    : "วัดความรู้ก่อนเริ่มเรียน (ทำได้ทันทีหลังลงทะเบียน)"
+                }
                 badge={pre ? "เสร็จสิ้น" : "เริ่ม"}
                 done={!!pre}
                 to={enrolled && !pre ? { kind: "pre" } : undefined}
@@ -277,7 +337,7 @@ function CoursePage() {
               const locked = !enrolled || !isCheckedIn || needPre;
               let lockText = "";
               if (!enrolled) lockText = "ต้องลงทะเบียนก่อน";
-              else if (!isCheckedIn) lockText = "รอเช็คชื่อเข้าห้องอบรม";
+              else if (!isCheckedIn && isClassroomCourse) lockText = "รอเช็คชื่อเข้าห้องอบรม";
               else if (needPre) lockText = "ต้องทำ Pre-test ก่อน";
 
               return locked ? (
@@ -303,7 +363,7 @@ function CoursePage() {
                 n="ข"
                 title="แบบทดสอบหลังเรียน (Post-test)"
                 sub={
-                  !isCheckedIn
+                  !isCheckedIn && isClassroomCourse
                     ? "ปลดล็อกหลังสแกน QR เช็คชื่อเข้าห้องอบรมและเรียนครบทุกบท"
                     : !allDone
                     ? "เรียนให้ครบทุกบทก่อน"
@@ -311,7 +371,15 @@ function CoursePage() {
                     ? `คะแนนสูงสุด ${bestPost}% · ทำแล้ว ${posts.length} ครั้ง`
                     : `ต้องได้อย่างน้อย ${course.pass_score}%`
                 }
-                badge={(bestPost !== undefined && bestPost >= course.pass_score) || !!cert ? "ผ่าน" : !isCheckedIn ? "รอเช็คชื่อ" : bestPost !== undefined ? "ทำใหม่" : "เริ่ม"}
+                badge={
+                  (bestPost !== undefined && bestPost >= course.pass_score) || !!cert
+                    ? "ผ่าน"
+                    : !isCheckedIn && isClassroomCourse
+                    ? "รอเช็คชื่อ"
+                    : bestPost !== undefined
+                    ? "ทำใหม่"
+                    : "เริ่ม"
+                }
                 done={!!cert || (bestPost !== undefined && bestPost >= course.pass_score)}
                 to={enrolled && isCheckedIn && allDone && !needPre && !cert ? { kind: "post" } : undefined}
                 courseId={courseId}

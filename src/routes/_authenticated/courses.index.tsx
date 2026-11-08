@@ -20,6 +20,7 @@ export const Route = createFileRoute("/_authenticated/courses/")({
 function Catalog() {
   const [q, setQ] = useState("");
   const [year, setYear] = useState<number | "all">("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | "online" | "classroom">("all");
   const { data = [], isLoading } = useQuery({
     queryKey: ["catalog"],
     queryFn: async () => {
@@ -30,6 +31,7 @@ function Catalog() {
   const years = [...new Set(data.map((c) => c.training_year))].sort((a, b) => b - a);
   const list = data.filter((c) =>
     (year === "all" || c.training_year === year) &&
+    (typeFilter === "all" || (c.training_type || "classroom") === typeFilter) &&
     (c.title + (c.category ?? "")).toLowerCase().includes(q.toLowerCase()));
 
   return (
@@ -45,6 +47,11 @@ function Catalog() {
             >
               📅 ปฏิทินการอบรม
             </Link>
+            <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as "all" | "online" | "classroom")} className="glass rounded-full px-4 py-2 text-sm outline-none">
+              <option value="all">ทุกรูปแบบการอบรม</option>
+              <option value="online">🌐 อบรมออนไลน์</option>
+              <option value="classroom">🏢 อบรมในห้องประชุม</option>
+            </select>
             <select value={year} onChange={(e) => setYear(e.target.value === "all" ? "all" : Number(e.target.value))} className="glass rounded-full px-4 py-2 text-sm outline-none">
               <option value="all">ทุกปี</option>
               {years.map((y) => <option key={y} value={y}>ปี {y}</option>)}
@@ -54,21 +61,29 @@ function Catalog() {
         }
       />
       {isLoading && <div className="text-muted-foreground">กำลังโหลด...</div>}
-      {!isLoading && list.length === 0 && <div className="glass rounded-3xl p-10 text-center text-muted-foreground">ยังไม่มีหลักสูตรที่เผยแพร่</div>}
+      {!isLoading && list.length === 0 && <div className="glass rounded-3xl p-10 text-center text-muted-foreground">ยังไม่มีหลักสูตรที่ตรงกับเงื่อนไข</div>}
       <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-        {list.map((c) => (
-          <Link key={c.id} to="/courses/$courseId" params={{ courseId: c.id }} className="glass overflow-hidden rounded-3xl transition hover:-translate-y-1">
-            <img src={coverFor(c.id, c.cover_url)} alt="" loading="lazy" className="aspect-[16/9] w-full object-cover" />
-            <div className="p-5">
-              <div className={`text-[11px] font-semibold ${toneFor(c.id)}`}>ปี {c.training_year} · {c.category || "ทั่วไป"} · {c.hours} ชั่วโมง</div>
-              <div className="mt-1 text-base font-bold">{c.title}</div>
-              <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{c.description}</p>
-              <div className="mt-3 text-xs text-muted-foreground">
-                {(c.lessons as unknown as { count: number }[])[0]?.count ?? 0} บทเรียน · เกณฑ์ผ่าน {c.pass_score}%
+        {list.map((c) => {
+          const isOnline = (c.training_type || "classroom") === "online";
+          return (
+            <Link key={c.id} to="/courses/$courseId" params={{ courseId: c.id }} className="glass overflow-hidden rounded-3xl transition hover:-translate-y-1">
+              <img src={coverFor(c.id, c.cover_url)} alt="" loading="lazy" className="aspect-[16/9] w-full object-cover" />
+              <div className="p-5">
+                <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${isOnline ? "bg-primary/15 text-primary" : "bg-amber/15 text-amber"}`}>
+                    {isOnline ? "🌐 ออนไลน์" : "🏢 ห้องประชุม"}
+                  </span>
+                  <div className={`text-[11px] font-semibold ${toneFor(c.id)}`}>ปี {c.training_year} · {c.category || "ทั่วไป"} · {c.hours} ชั่วโมง</div>
+                </div>
+                <div className="mt-1 text-base font-bold">{c.title}</div>
+                <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{c.description}</p>
+                <div className="mt-3 text-xs text-muted-foreground">
+                  {(c.lessons as unknown as { count: number }[])[0]?.count ?? 0} บทเรียน · เกณฑ์ผ่าน {c.pass_score}%
+                </div>
               </div>
-            </div>
-          </Link>
-        ))}
+            </Link>
+          );
+        })}
       </div>
     </>
   );

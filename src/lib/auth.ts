@@ -57,7 +57,7 @@ export const roleLabel: Record<Role, string> = {
 
 export async function fileUrl(path: string | null | undefined) {
   if (!path) return null;
-  if (path.startsWith("http")) return path;
+  if (path.startsWith("http") || path.startsWith("/") || path.startsWith("data:")) return path;
   const { data } = await supabase.storage.from("course-files").createSignedUrl(path, 3600);
   return data?.signedUrl ?? null;
 }

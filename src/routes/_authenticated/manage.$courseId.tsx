@@ -13,6 +13,9 @@ import { SessionManager } from "@/components/Sessions";
 import { PhotosEditor } from "@/components/course-editor/PhotosEditor";
 import { AttendeesManager } from "@/components/course-editor/AttendeesManager";
 import { DocumentsEditor } from "@/components/course-editor/DocumentsEditor";
+import { ClassroomHubModal } from "@/components/course-editor/ClassroomHubModal";
+import { InstructorAnalytics } from "@/components/course-editor/InstructorAnalytics";
+import { Monitor, Armchair } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/manage/$courseId")({
   head: () => ({ meta: [
@@ -26,14 +29,15 @@ export const Route = createFileRoute("/_authenticated/manage/$courseId")({
   component: Editor,
 });
 
-type Tab = "info" | "access" | "sessions" | "attendees" | "lessons" | "questions" | "survey" | "certificate" | "photos" | "documents";
+type Tab = "info" | "access" | "sessions" | "attendees" | "analytics" | "lessons" | "questions" | "survey" | "certificate" | "photos" | "documents";
 
 function Editor() {
   const { courseId } = Route.useParams();
+  const [classroomHubOpen, setClassroomHubOpen] = useState(false);
   const [tab, setTab] = useState<Tab>(() => {
     if (typeof window !== "undefined") {
       const q = new URLSearchParams(window.location.search).get("tab") as Tab;
-      if (q && ["info", "access", "sessions", "attendees", "lessons", "questions", "survey", "certificate", "photos", "documents"].includes(q)) {
+      if (q && ["info", "access", "sessions", "attendees", "analytics", "lessons", "questions", "survey", "certificate", "photos", "documents"].includes(q)) {
         return q;
       }
     }
@@ -44,29 +48,78 @@ function Editor() {
     queryFn: async () => (await supabase.from("courses").select("*").eq("id", courseId).maybeSingle()).data,
   });
   if (!course) return <div className="text-muted-foreground">กำลังโหลด...</div>;
+
+  const isOnline = (course.training_type || "classroom") === "online";
+  const allTabs = [
+    "info",
+    "access",
+    ...(isOnline ? [] : ["sessions"]),
+    "attendees",
+    "analytics",
+    "lessons",
+    "questions",
+    "survey",
+    "certificate",
+    "photos",
+    "documents",
+  ] as const;
+
   return (
     <div className="mx-auto max-w-5xl">
       <Link to="/manage" className="text-sm text-primary">← หลักสูตรทั้งหมด</Link>
-      <h1 className="mt-2 text-3xl font-bold">{course.title}</h1>
+      <div className="mt-2 flex flex-wrap items-center gap-3">
+        <h1 className="text-3xl font-bold">{course.title}</h1>
+        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${isOnline ? "bg-primary/15 text-primary" : "bg-amber/15 text-amber"}`}>
+          {isOnline ? "🌐 อบรมออนไลน์ (Online)" : "🏢 อบรมในห้องประชุม (On-site)"}
+        </span>
+        {!isOnline && (
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setClassroomHubOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/10 px-3.5 py-2 text-xs font-semibold text-primary hover:bg-primary/20 transition-all shadow-xs"
+            >
+              <Monitor className="size-4" />
+              ฉายจอ QR (Classroom Hub)
+            </button>
+            <Link
+              to="/manage/$courseId/room"
+              params={{ courseId }}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground hover:opacity-95 transition-all shadow-brand"
+            >
+              <Armchair className="size-4" />
+              ห้องอบรม 3D
+            </Link>
+          </div>
+        )}
+      </div>
       <div className="glass mt-4 inline-flex flex-wrap rounded-2xl p-1 text-sm">
-        {(["info", "access", "sessions", "attendees", "lessons", "questions", "survey", "certificate", "photos", "documents"] as const).map((t) => (
-          <button key={t} onClick={() => setTab(t)} className={`rounded-xl px-4 py-2 ${tab === t ? "bg-primary font-semibold text-primary-foreground" : "text-foreground/70"}`}>
-            {{ info: "ข้อมูลหลักสูตร", access: "ผู้มีสิทธิ์เรียน", sessions: "รอบอบรม", attendees: "ผู้ลงทะเบียน", lessons: "บทเรียน", questions: "ข้อสอบก่อน/หลังเรียน", survey: "แบบประเมินหลักสูตร", certificate: "ใบประกาศนียบัตร", photos: "ภาพกิจกรรม", documents: "เอกสารแนบ" }[t]}
+        {allTabs.map((t) => (
+          <button key={t} onClick={() => setTab(t as Tab)} className={`rounded-xl px-4 py-2 ${tab === t ? "bg-primary font-semibold text-primary-foreground" : "text-foreground/70"}`}>
+            {{ info: "ข้อมูลหลักสูตร", access: "ผู้มีสิทธิ์เรียน", sessions: "รอบอบรม", attendees: "ผู้ลงทะเบียน", analytics: "📊 วิเคราะห์ข้อสอบ & KPI", lessons: "บทเรียน", questions: "ข้อสอบก่อน/หลังเรียน", survey: "แบบประเมินหลักสูตร", certificate: "ใบประกาศนียบัตร", photos: "ภาพกิจกรรม", documents: "เอกสารแนบ" }[t]}
           </button>
         ))}
       </div>
       <div className="mt-5">
         {tab === "info" && <Info course={course} />}
         {tab === "access" && <Access courseId={courseId} audience={course.audience} />}
-        {tab === "sessions" && <SessionManager courseId={courseId} />}
+        {tab === "sessions" && !isOnline && <SessionManager courseId={courseId} />}
         {tab === "attendees" && <AttendeesManager courseId={courseId} />}
+        {tab === "analytics" && <InstructorAnalytics courseId={courseId} />}
         {tab === "lessons" && <Lessons courseId={courseId} />}
-        {tab === "questions" && <Questions courseId={courseId} />}
+        {tab === "questions" && <Questions courseId={courseId} onOpenAnalytics={() => setTab("analytics")} />}
         {tab === "survey" && <SurveyManager courseId={courseId} />}
         {tab === "certificate" && <CertificateSettings course={course} />}
         {tab === "photos" && <PhotosEditor courseId={courseId} />}
         {tab === "documents" && <DocumentsEditor courseId={courseId} />}
       </div>
+      <ClassroomHubModal
+        courseId={courseId}
+        courseTitle={course.title}
+        open={classroomHubOpen}
+        onClose={() => setClassroomHubOpen(false)}
+        initialMode="projector"
+      />
     </div>
   );
 }
@@ -85,6 +138,7 @@ function Info({ course }: { course: Course }) {
   async function save() {
     const { error } = await supabase.from("courses").update({
       title: f.title, description: f.description, category: f.category, hours: f.hours, pass_score: f.pass_score, published: f.published, cover_url: f.cover_url, training_year: f.training_year,
+      training_type: f.training_type || "classroom",
       require_pretest: f.require_pretest, require_posttest: f.require_posttest, require_survey: f.require_survey, issue_certificate: f.issue_certificate,
     }).eq("id", course.id);
     if (error) { toast.error(error.message); return; }
@@ -99,6 +153,48 @@ function Info({ course }: { course: Course }) {
   }
   return (
     <div className="glass space-y-4 rounded-3xl p-6">
+      {/* Training Type Selector */}
+      <L label="รูปแบบการอบรม (ประเภทหลักสูตร)">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 transition-all ${f.training_type === "online" ? "border-primary bg-primary/10 shadow-sm" : "border-glass-border bg-glass hover:bg-card"}`}>
+            <input
+              type="radio"
+              name="training_type"
+              value="online"
+              checked={f.training_type === "online"}
+              onChange={() => setF({ ...f, training_type: "online" })}
+              className="mt-1"
+            />
+            <div>
+              <div className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                <span>🌐 อบรมออนไลน์ (Online E-Learning)</span>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                เรียนได้ทุกที่ ทุกเวลา ตลอด 24 ชม. ผู้เรียนลงทะเบียนแล้วทำ Pre-test ศึกษาบทเรียนวิดีโอ/เอกสาร และทำ Post-test ได้ทันทีโดยไม่ต้องเลือกรอบและไม่ต้องสแกนเช็กอิน
+              </p>
+            </div>
+          </label>
+          <label className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 transition-all ${(f.training_type === "classroom" || !f.training_type) ? "border-primary bg-primary/10 shadow-sm" : "border-glass-border bg-glass hover:bg-card"}`}>
+            <input
+              type="radio"
+              name="training_type"
+              value="classroom"
+              checked={f.training_type === "classroom" || !f.training_type}
+              onChange={() => setF({ ...f, training_type: "classroom" })}
+              className="mt-1"
+            />
+            <div>
+              <div className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                <span>🏢 อบรมในห้องประชุม (On-site Training)</span>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                มีการจัดรอบอบรม ผู้เรียนต้องเลือกรอบ และต้องสแกน QR Code เช็กอินหน้าห้องอบรมก่อน จึงจะปลดล็อกเนื้อหาบทเรียนและแบบทดสอบหลังเรียน
+              </p>
+            </div>
+          </label>
+        </div>
+      </L>
+
       <L label="ชื่อหลักสูตร"><input className={inp} value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></L>
       <L label="รายละเอียด"><textarea rows={4} className={inp} value={f.description ?? ""} onChange={(e) => setF({ ...f, description: e.target.value })} /></L>
       <div className="grid gap-4 sm:grid-cols-4">

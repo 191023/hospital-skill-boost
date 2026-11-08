@@ -90,9 +90,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="th">
+    <html lang="th" suppressHydrationWarning>
       <head>
         <HeadContent />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var s=localStorage.getItem("hospital_font_size")||"normal";document.documentElement.setAttribute("data-font-size",s);}catch(e){}})();`,
+          }}
+        />
       </head>
       <body>
         {children}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -18,7 +18,9 @@ import {
   AlertTriangle,
   Loader2,
   Users,
+  Monitor,
 } from "lucide-react";
+import { ClassroomHubModal } from "./ClassroomHubModal";
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 import { thaiDate } from "@/lib/data";
@@ -68,6 +70,42 @@ export function AttendeesManager({ courseId }: { courseId: string }) {
   const [selectedSessionForAdd, setSelectedSessionForAdd] = useState<string>("");
   const [autoCheckInOnAdd, setAutoCheckInOnAdd] = useState(false);
   const [addingUser, setAddingUser] = useState<string | null>(null);
+  const [classroomHubOpen, setClassroomHubOpen] = useState(false);
+
+  // Realtime live sync for attendees
+  useEffect(() => {
+    const channel = supabase
+      .channel(`attendees-mgr-${courseId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "attendance",
+          filter: `course_id=eq.${courseId}`,
+        },
+        () => {
+          void qc.invalidateQueries({ queryKey: ["manage-attendees", courseId] });
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "enrollments",
+          filter: `course_id=eq.${courseId}`,
+        },
+        () => {
+          void qc.invalidateQueries({ queryKey: ["manage-attendees", courseId] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [courseId, qc]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["manage-attendees", courseId],
@@ -549,6 +587,14 @@ export function AttendeesManager({ courseId }: { courseId: string }) {
 
           {/* Action Buttons */}
           <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              onClick={() => setClassroomHubOpen(true)}
+              className="gap-1.5 bg-gradient-to-r from-teal-600 to-emerald-600 text-white font-bold hover:from-teal-700 hover:to-emerald-700 shadow-sm cursor-pointer"
+            >
+              <Monitor className="size-4" />
+              ศูนย์หน้าห้องอบรม (Kiosk & Projector)
+            </Button>
             <Button size="sm" onClick={() => setAddModalOpen(true)} className="gap-1.5">
               <UserPlus className="size-4" />
               เพิ่มผู้ลงทะเบียน
@@ -972,6 +1018,15 @@ export function AttendeesManager({ courseId }: { courseId: string }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* On-site Classroom Operations Hub Modal */}
+      <ClassroomHubModal
+        courseId={courseId}
+        courseTitle="ศูนย์ปฏิบัติการอบรม On-site"
+        open={classroomHubOpen}
+        onClose={() => setClassroomHubOpen(false)}
+        initialMode="projector"
+      />
     </div>
   );
 }

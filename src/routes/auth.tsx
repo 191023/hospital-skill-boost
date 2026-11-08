@@ -33,6 +33,18 @@ function AuthPage() {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) goNext();
     });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && session) {
+        goNext();
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [nav]);
 
   function goNext() {
@@ -46,32 +58,60 @@ function AuthPage() {
   async function signInGoogle() {
     setBusy(true);
     try {
-      const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin + "/auth",
-      });
-      if (!result.error) {
-        if (result.redirected) return;
-        goNext();
-        return;
+      const isLovable =
+        typeof window !== "undefined" &&
+        (window.location.hostname.endsWith(".lovable.app") ||
+          window.location.hostname.endsWith(".lovableproject.com"));
+
+      if (isLovable) {
+        try {
+          const result = await lovable.auth.signInWithOAuth("google", {
+            redirect_uri: window.location.origin + "/auth",
+          });
+          if (!result.error) {
+            if (result.redirected) return;
+            goNext();
+            return;
+          }
+        } catch {
+          // Fallback to Supabase OAuth below
+        }
       }
-      // Fallback: direct Supabase OAuth if not on Lovable cloud
+
+      // Direct Supabase OAuth
+      const redirectUri = `${window.location.origin}/auth`;
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: window.location.origin + "/auth" },
+        options: {
+          redirectTo: redirectUri,
+          queryParams: {
+            access_type: "offline",
+            prompt: "consent",
+          },
+        },
       });
+
       if (error) {
-        if (error.message.includes("provider is not enabled") || error.message.includes("Unsupported provider")) {
-          toast.error("Google Login ยังไม่ได้เปิดใช้งาน (ต้องตั้งค่า Google Client ID ใน Supabase)");
+        if (
+          error.message.includes("provider is not enabled") ||
+          error.message.includes("Unsupported provider")
+        ) {
+          toast.error(
+            "ยังไม่ได้เปิดใช้งาน Google Provider ใน Supabase Auth (ต้องใส่ Google Client ID & Secret)"
+          );
         } else {
           toast.error(error.message);
         }
         return;
       }
+
       if (data?.url) {
         window.location.assign(data.url);
       }
-    } catch {
-      toast.error("เข้าสู่ระบบด้วย Google ไม่สำเร็จ (ยังไม่ได้เชื่อมต่อ Google OAuth ในสภาพแวดล้อมนี้)");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการเชื่อมต่อ Google OAuth"
+      );
     } finally {
       setBusy(false);
     }
