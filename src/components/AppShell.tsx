@@ -5,6 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMe, roleLabel } from "@/lib/auth";
 import { Blobs, Brand } from "@/components/Brand";
 import { FontSizeControl } from "@/components/FontSizeControl";
+import { ThemeControl } from "@/components/ThemeControl";
+import { OfflineSyncIndicator } from "@/components/OfflineSyncIndicator";
 
 const navCls = "flex items-center gap-3 rounded-xl px-3 py-2.5 text-foreground/70 hover:bg-sidebar-accent";
 const activeCls = "flex items-center gap-3 rounded-xl px-3 py-2.5 bg-primary text-primary-foreground font-semibold shadow-brand";
@@ -38,26 +40,35 @@ export function AppShell({ children }: { children: ReactNode }) {
   ];
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-page">
+    <div className="relative h-screen overflow-hidden bg-page">
       <Blobs />
-      <div className="relative flex min-h-screen">
-        <aside className="no-print hidden w-64 shrink-0 flex-col gap-6 border-r border-sidebar-border bg-sidebar p-5 backdrop-blur-2xl lg:flex">
-          <Brand />
-          <nav className="flex flex-col gap-1 text-sm">
-            {items.filter((i) => i.show).map((i) => (
-              <Link key={i.to} to={i.to} className={navCls} activeProps={{ className: activeCls }}>
-                <span>{i.icon}</span> {i.label}
-              </Link>
-            ))}
-          </nav>
-          <div className="mt-auto space-y-3">
-            <div className="flex items-center justify-between px-1">
-              <span className="text-xs font-semibold text-muted-foreground">ขนาดตัวอักษร:</span>
-              <FontSizeControl compact />
+      <div className="relative flex h-full w-full overflow-hidden">
+        <aside className="no-print hidden h-screen w-64 shrink-0 flex-col justify-between overflow-y-auto border-r border-sidebar-border bg-sidebar p-5 backdrop-blur-2xl lg:flex">
+          <div className="space-y-6">
+            <Brand />
+            <nav className="flex flex-col gap-1 text-sm">
+              {items.filter((i) => i.show).map((i) => (
+                <Link key={i.to} to={i.to} className={navCls} activeProps={{ className: activeCls }}>
+                  <span>{i.icon}</span> {i.label}
+                </Link>
+              ))}
+            </nav>
+          </div>
+          <div className="mt-auto shrink-0 space-y-3 pt-6">
+            <OfflineSyncIndicator className="w-full justify-between" />
+            <div className="space-y-2 rounded-2xl border border-glass-border bg-glass/60 p-2.5 backdrop-blur-md">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-muted-foreground">ขนาดอักษร:</span>
+                <FontSizeControl compact />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-muted-foreground">ธีม & โทนสี:</span>
+                <ThemeControl compact />
+              </div>
             </div>
-            <div className="glass rounded-2xl p-4">
-              <div className="text-sm font-semibold">{me?.full_name || "..."}</div>
-              <div className="text-xs text-muted-foreground">{me?.department}</div>
+            <div className="glass rounded-2xl p-4 shadow-none">
+              <div className="text-sm font-semibold truncate">{me?.full_name || "..."}</div>
+              <div className="text-xs text-muted-foreground truncate">{me?.department}</div>
               <div className="mt-1 text-xs font-semibold text-mint">{me?.roles.map((r) => roleLabel[r]).join(" · ")}</div>
               <div className="mt-3 flex gap-3">
                 <Link to="/settings" className="text-xs font-semibold text-primary">ตั้งค่า / บัญชี</Link>
@@ -66,7 +77,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </div>
         </aside>
-        <main className="min-w-0 flex-1 p-6 lg:p-10">
+        <main className="h-full min-w-0 flex-1 overflow-y-auto p-6 lg:p-10">
+          <OfflineSyncIndicator className="mb-3 lg:hidden w-full justify-between" />
           <div className="no-print mb-4 flex flex-wrap items-center justify-between gap-2 lg:hidden">
             <div className="flex flex-wrap gap-1.5">
               {items.filter((i) => i.show).map((i) => (
@@ -76,7 +88,10 @@ export function AppShell({ children }: { children: ReactNode }) {
               ))}
               <button onClick={signOut} className="rounded-full px-3 py-1 text-xs text-coral">ออก</button>
             </div>
-            <FontSizeControl compact />
+            <div className="flex items-center gap-1.5">
+              <ThemeControl compact />
+              <FontSizeControl compact />
+            </div>
           </div>
           {isLoading ? (
             <div className="text-muted-foreground">กำลังโหลด...</div>

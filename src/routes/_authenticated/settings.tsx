@@ -31,6 +31,7 @@ import {
 import { useServerFn } from "@tanstack/react-start";
 import { testAiConnection } from "@/lib/ai.functions";
 import { FontSizeControl } from "@/components/FontSizeControl";
+import { ThemeControl } from "@/components/ThemeControl";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
@@ -494,17 +495,28 @@ function SettingsPage() {
           </div>
 
           {/* Accessibility & Display Settings */}
-          <div className="glass space-y-4 rounded-3xl p-6 shadow-sm lg:col-span-12">
+          <div className="glass space-y-6 rounded-3xl p-6 shadow-sm lg:col-span-12">
             <div>
               <h3 className="flex items-center gap-2 text-base font-bold text-foreground">
-                <Type className="size-5 text-primary" />
-                <span>การแสดงผลและขนาดตัวอักษรของระบบ (Accessibility & Font Size)</span>
+                <Sparkles className="size-5 text-primary" />
+                <span>การแสดงผล ธีมสี และโหมดกลางวัน/กลางคืน (Theme & Accessibility)</span>
               </h3>
               <p className="mt-1 text-xs text-muted-foreground">
-                ปรับขนาดตัวอักษรของระบบเพื่อความสะดวกและสบายตาในการอ่านเนื้อหา บทเรียน และข้อสอบ (ระบบจะบันทึกค่าไว้บนอุปกรณ์ของคุณโดยอัตโนมัติ)
+                เลือกโหมดการแสดงผล โทนสีของระบบ และขนาดตัวอักษรเพื่อความสบายตาในการใช้งานและการอ่านบทเรียน (ระบบจะบันทึกค่าไว้บนอุปกรณ์ของคุณโดยอัตโนมัติ)
               </p>
             </div>
-            <div className="pt-2">
+
+            {/* Theme & Color Tone Controls */}
+            <div className="border-t border-border/40 pt-4">
+              <ThemeControl />
+            </div>
+
+            {/* Font Size Control */}
+            <div className="border-t border-border/40 pt-4 space-y-2">
+              <div className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                <Type className="size-3.5 text-primary" />
+                <span>ขนาดตัวอักษรของระบบ (Font Size)</span>
+              </div>
               <FontSizeControl showHint />
             </div>
           </div>

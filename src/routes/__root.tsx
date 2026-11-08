@@ -95,7 +95,25 @@ function RootShell({ children }: { children: ReactNode }) {
         <HeadContent />
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var s=localStorage.getItem("hospital_font_size")||"normal";document.documentElement.setAttribute("data-font-size",s);}catch(e){}})();`,
+            __html: `(function(){
+              try {
+                var s = localStorage.getItem("hospital_font_size") || "normal";
+                document.documentElement.setAttribute("data-font-size", s);
+
+                var m = localStorage.getItem("hospital_theme_mode") || "light";
+                var isDark = m === "dark" || (m === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+                if (isDark) {
+                  document.documentElement.classList.add("dark");
+                  document.documentElement.setAttribute("data-theme", "dark");
+                } else {
+                  document.documentElement.classList.remove("dark");
+                  document.documentElement.setAttribute("data-theme", "light");
+                }
+
+                var c = localStorage.getItem("hospital_color_theme") || "blue";
+                document.documentElement.setAttribute("data-color-theme", c);
+              } catch(e) {}
+            })();`,
           }}
         />
       </head>

@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { CheckInSuccess3D } from "@/components/CheckInSuccess3D";
 import { CelebrationConfetti } from "@/components/CelebrationConfetti";
-import { CheckCircle2, BookOpen, AlertCircle, Sparkles } from "lucide-react";
+import { CheckCircle2, BookOpen, AlertCircle, Sparkles, WifiOff, RefreshCw, Check } from "lucide-react";
+import { enqueueOfflineCheckin, syncOfflineQueue } from "@/lib/offline-sync";
 
 export const Route = createFileRoute("/_authenticated/attend/$courseId/$code")({
   head: () => ({
@@ -38,7 +39,22 @@ function Attend() {
   const [res, setRes] = useState<Res | null>(null);
   const [profile, setProfile] = useState<ProfileInfo | null>(null);
   const [err, setErr] = useState("");
+  const [isOfflineSaved, setIsOfflineSaved] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const ran = useRef(false);
+
+  async function trySyncNow() {
+    setSyncing(true);
+    const { syncedCount } = await syncOfflineQueue();
+    setSyncing(false);
+    if (syncedCount > 0) {
+      const { data, error } = await supabase.rpc("check_in", { _course: courseId, _code: code });
+      if (!error && data) {
+        setRes(data as unknown as Res);
+        setIsOfflineSaved(false);
+      }
+    }
+  }
 
   useEffect(() => {
     if (ran.current) return;
@@ -66,14 +82,40 @@ function Attend() {
       }
     });
 
+    // Check offline status first
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      enqueueOfflineCheckin(courseId, code, {
+        userName: profile?.full_name,
+      });
+      setIsOfflineSaved(true);
+      return;
+    }
+
     // Execute check-in
     supabase
       .rpc("check_in", { _course: courseId, _code: code })
       .then(({ data, error }) => {
-        if (error) setErr(error.message);
-        else setRes(data as unknown as Res);
+        if (error) {
+          const msg = error.message.toLowerCase();
+          if (msg.includes("fetch") || msg.includes("network") || msg.includes("failed to fetch")) {
+            enqueueOfflineCheckin(courseId, code, {
+              userName: profile?.full_name,
+            });
+            setIsOfflineSaved(true);
+          } else {
+            setErr(error.message);
+          }
+        } else {
+          setRes(data as unknown as Res);
+        }
+      })
+      .catch(() => {
+        enqueueOfflineCheckin(courseId, code, {
+          userName: profile?.full_name,
+        });
+        setIsOfflineSaved(true);
       });
-  }, [courseId, code]);
+  }, [courseId, code, profile?.full_name]);
 
   return (
     <div className="mx-auto max-w-xl pb-16">
@@ -86,7 +128,7 @@ function Attend() {
         <div className="pointer-events-none absolute -bottom-24 -left-24 size-72 rounded-full bg-primary/15 blur-3xl" />
 
         {/* Loading State */}
-        {!res && !err && (
+        {!res && !err && !isOfflineSaved && (
           <div className="py-16">
             <div className="mx-auto size-12 animate-spin rounded-full border-4 border-mint border-t-transparent" />
             <div className="mt-4 font-semibold text-foreground">กำลังบันทึกการเข้าอบรม...</div>
@@ -96,8 +138,61 @@ function Attend() {
           </div>
         )}
 
+        {/* Offline Cached State (จุดอับสัญญาณ) */}
+        {isOfflineSaved && !res && (
+          <div className="py-8 space-y-4">
+            <div className="mx-auto grid size-16 place-items-center rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+              <WifiOff className="size-8" />
+            </div>
+
+            <div className="space-y-1">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-700 dark:text-amber-300">
+                <span>📶 บันทึกข้อมูลออฟไลน์สำเร็จ (Offline Cached)</span>
+              </span>
+              <h2 className="text-xl font-bold text-foreground">บันทึกรหัสเช็คชื่อในอุปกรณ์แล้ว</h2>
+              <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
+                เนื่องจากจุดอบรมนี้มีสัญญาณอินเทอร์เน็ตไม่เสถียร (จุดอับสัญญาณ) ระบบได้บันทึกเวลาและรหัสเช็คชื่อลงในเครื่องเรียบร้อยแล้ว และจะทำการยืนยันขึ้นเซิร์ฟเวอร์อัตโนมัติเมื่ออุปกรณ์เชื่อมต่อสัญญาณได้อีกครั้ง
+              </p>
+            </div>
+
+            <div className="glass mx-auto max-w-sm rounded-2xl p-4 text-xs space-y-1.5 border border-border/80">
+              <div className="flex justify-between text-muted-foreground">
+                <span>รหัสเช็คชื่อ:</span>
+                <span className="font-mono font-bold text-foreground">{code}</span>
+              </div>
+              <div className="flex justify-between text-muted-foreground">
+                <span>เวลาบันทึก:</span>
+                <span className="font-semibold text-foreground">{new Date().toLocaleTimeString("th-TH")}</span>
+              </div>
+              <div className="flex justify-between text-muted-foreground">
+                <span>สถานะคิว:</span>
+                <span className="font-bold text-amber-600 dark:text-amber-400">รอซิงค์อัตโนมัติ</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row justify-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={trySyncNow}
+                disabled={syncing}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-amber-600 disabled:opacity-50"
+              >
+                <RefreshCw className={`size-3.5 ${syncing ? "animate-spin" : ""}`} />
+                <span>{syncing ? "กำลังตรวจสอบสัญญาณ..." : "ตรวจสอบและซิงค์ทันที"}</span>
+              </button>
+              <Link
+                to="/courses/$courseId"
+                params={{ courseId }}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border bg-card px-5 py-2.5 text-xs font-semibold hover:bg-accent"
+              >
+                <span>กลับไปที่หลักสูตร</span>
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Error State */}
-        {err && (
+        {err && !isOfflineSaved && (
           <div className="py-10">
             <div className="mx-auto grid size-16 place-items-center rounded-full bg-destructive/15 text-destructive">
               <AlertCircle className="size-8" />

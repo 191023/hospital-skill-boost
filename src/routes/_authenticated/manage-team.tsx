@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, useEffect } from "react";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/lib/auth";
 import { PageHeader } from "@/components/AppShell";
@@ -28,6 +29,8 @@ import {
   GraduationCap,
   Percent,
   CheckCheck,
+  Download,
+  FileSpreadsheet,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/manage-team")({
@@ -850,6 +853,105 @@ function TeamAllocationHub() {
     setSelectedUserIds(ids);
   };
 
+  // 1-Click Export: สรุปผลการอบรมของวิชาที่เลือก
+  function exportCourseSummary() {
+    if (!activeCourse || !data?.members) {
+      toast.error("ไม่มีข้อมูลสำหรับส่งออก");
+      return;
+    }
+
+    const rows = data.members.map((m, idx) => {
+      const enr = activeCourseEnrollments.get(m.user_id);
+      const st = getMemberAllocationStatus(m, enr);
+      return {
+        "ลำดับ": idx + 1,
+        "ชื่อ-นามสกุล": m.full_name,
+        "ฝ่าย": m.division || "-",
+        "แผนก": m.department || "-",
+        "ตำแหน่ง": m.position || "-",
+        "หลักสูตร": activeCourse.title,
+        "สถานะการอบรม": st.label,
+        "รอบอบรม": enr?.round_no ? `รอบที่ ${enr.round_no}` : "ยังไม่จัดรอบ",
+        "วันเวลาอบรม": enr?.starts_at ? new Date(enr.starts_at).toLocaleString("th-TH") : "-",
+        "เช็คชื่อเข้าห้อง": enr?.attended ? "เช็คชื่อแล้ว ✓" : "ยังไม่เช็คชื่อ",
+        "คะแนน Pre-test (%)": enr?.pre_score != null ? `${enr.pre_score}%` : "-",
+        "คะแนน Post-test (%)": enr?.post_score != null ? `${enr.post_score}%` : "-",
+        "ผลการประเมิน": enr?.has_cert ? "ผ่านเกณฑ์ (ได้ใบประกาศแล้ว) 🎓" : "ยังไม่ผ่านเกณฑ์",
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "สรุปผลการอบรม");
+    const cleanTitle = activeCourse.title.replace(/[\/\\?%*:|"<>]/g, "_").slice(0, 30);
+    const dateStr = new Date().toISOString().split("T")[0];
+    XLSX.writeFile(wb, `รายงานสรุปผลอบรม_${cleanTitle}_${dateStr}.xlsx`);
+    toast.success(`ส่งออกรายงานวิชา ${activeCourse.title} เรียบร้อยแล้ว 📊`);
+  }
+
+  // 1-Click Export: สรุปภาพรวม Matrix ทุกวิชาของแผนก (สำหรับหัวหน้างาน / ตรวจ HA)
+  function exportMatrixSummary() {
+    if (!data?.members || !data?.courses) {
+      toast.error("ไม่มีข้อมูลสำหรับส่งออก");
+      return;
+    }
+
+    // Sheet 1: Matrix รายบุคคล x ทุกวิชา
+    const matrixRows = data.members.map((m, idx) => {
+      const row: Record<string, any> = {
+        "ลำดับ": idx + 1,
+        "ชื่อ-นามสกุล": m.full_name,
+        "ฝ่าย": m.division || "-",
+        "แผนก": m.department || "-",
+        "ตำแหน่ง": m.position || "-",
+      };
+
+      let passedCount = 0;
+      data.courses.forEach((c) => {
+        const enr = data.enr.find((e) => e.user_id === m.user_id && e.course_id === c.id);
+        const st = getMemberAllocationStatus(m, enr);
+        row[c.title] = st.shortLabel;
+        if (enr?.has_cert) passedCount++;
+      });
+
+      row["จำนวนวิชาที่ผ่าน"] = `${passedCount}/${data.courses.length}`;
+      row["อัตราสำเร็จ (%)"] = `${Math.round((passedCount / data.courses.length) * 100)}%`;
+      return row;
+    });
+
+    // Sheet 2: สรุปเปอร์เซ็นต์ผ่านแต่ละวิชาของหน่วยงาน
+    const courseStatsRows = data.courses.map((c, idx) => {
+      const enrs = data.enr.filter((e) => e.course_id === c.id);
+      const passed = enrs.filter((e) => e.has_cert).length;
+      const attended = enrs.filter((e) => e.attended).length;
+      const assigned = enrs.filter((e) => !!e.session_id).length;
+      const total = data.members.length;
+
+      return {
+        "ลำดับ": idx + 1,
+        "ชื่อหลักสูตร": c.title,
+        "หมวดหมู่": c.category || "ทั่วไป",
+        "จำนวนชั่วโมง": c.hours || 0,
+        "จำนวนบุคลากรในสังกัด": total,
+        "จัดรอบแล้ว (คน)": assigned,
+        "เช็คชื่อเข้าห้องแล้ว (คน)": attended,
+        "ผ่านเกณฑ์แล้ว (คน)": passed,
+        "สัดส่วนผ่านเกณฑ์ (%)": `${total > 0 ? Math.round((passed / total) * 100) : 0}%`,
+      };
+    });
+
+    const wb = XLSX.utils.book_new();
+    const ws1 = XLSX.utils.json_to_sheet(matrixRows);
+    const ws2 = XLSX.utils.json_to_sheet(courseStatsRows);
+    XLSX.utils.book_append_sheet(wb, ws1, "Matrix_รายบุคคล");
+    XLSX.utils.book_append_sheet(wb, ws2, "สถิติสรุปตามวิชา");
+
+    const deptName = (me?.department || me?.division || "ทีม").replace(/[\/\\?%*:|"<>]/g, "_");
+    const dateStr = new Date().toISOString().split("T")[0];
+    XLSX.writeFile(wb, `รายงานผลอบรมภาพรวม_${deptName}_${dateStr}.xlsx`);
+    toast.success(`ส่งออกรายงานภาพรวมแผนก ${deptName} เรียบร้อยแล้ว 📑`);
+  }
+
   if (!me?.isTeamManager) {
     return (
       <div className="glass rounded-3xl p-12 text-center space-y-2">
@@ -877,30 +979,53 @@ function TeamAllocationHub() {
           </p>
         </div>
 
-        {/* View Mode Toggle */}
-        <div className="flex items-center gap-1 rounded-2xl border bg-card p-1 shadow-2xs self-start md:self-auto">
-          <button
-            onClick={() => setViewMode("allocation")}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition cursor-pointer ${
-              viewMode === "allocation"
-                ? "bg-primary text-primary-foreground shadow-xs"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Layers className="h-4 w-4" />
-            <span>กระดานจัดสรรการอบรม (Allocation Board)</span>
-          </button>
-          <button
-            onClick={() => setViewMode("matrix")}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition cursor-pointer ${
-              viewMode === "matrix"
-                ? "bg-primary text-primary-foreground shadow-xs"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <LayoutGrid className="h-4 w-4" />
-            <span>ตารางสรุปภาพรวม Matrix</span>
-          </button>
+        {/* Actions & View Mode Toggle */}
+        <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
+          {/* 1-Click Export Actions */}
+          <div className="flex items-center gap-1 rounded-2xl border border-glass-border bg-glass/80 p-1 shadow-2xs backdrop-blur-md">
+            <button
+              onClick={exportCourseSummary}
+              title="ส่งออกรายงาน Excel สรุปผลของวิชาที่เลือกในปัจจุบัน"
+              className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold text-foreground/80 hover:bg-card hover:text-primary transition cursor-pointer"
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>Export วิชานี้ (.xlsx)</span>
+            </button>
+            <button
+              onClick={exportMatrixSummary}
+              title="ส่งออกรายงานภาพรวมทุกหลักสูตรของสมาชิกในแผนก (สำหรับตรวจ HA)"
+              className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold text-foreground/80 hover:bg-card hover:text-primary transition cursor-pointer"
+            >
+              <Download className="h-3.5 w-3.5 text-primary" />
+              <span>Export ภาพรวมแผนก (.xlsx)</span>
+            </button>
+          </div>
+
+          {/* View Mode Toggle */}
+          <div className="flex items-center gap-1 rounded-2xl border bg-card p-1 shadow-2xs">
+            <button
+              onClick={() => setViewMode("allocation")}
+              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition cursor-pointer ${
+                viewMode === "allocation"
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Layers className="h-4 w-4" />
+              <span>กระดานจัดสรรการอบรม (Allocation Board)</span>
+            </button>
+            <button
+              onClick={() => setViewMode("matrix")}
+              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition cursor-pointer ${
+                viewMode === "matrix"
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <LayoutGrid className="h-4 w-4" />
+              <span>ตารางสรุปภาพรวม Matrix</span>
+            </button>
+          </div>
         </div>
       </div>
 

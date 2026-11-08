@@ -126,6 +126,71 @@
   --shadow-brand: 0 10px 24px -8px oklch(0.56 0.18 260 / 0.4);
 }
 
+/* DARK MODE THEME */
+html.dark, [data-theme="dark"] {
+  --background: oklch(0.18 0.025 260);
+  --foreground: oklch(0.96 0.01 255);
+  --card: oklch(0.22 0.03 260);
+  --card-foreground: oklch(0.96 0.01 255);
+  --popover: oklch(0.22 0.03 260);
+  --popover-foreground: oklch(0.96 0.01 255);
+  --secondary: oklch(0.26 0.03 260);
+  --secondary-foreground: oklch(0.96 0.01 255);
+  --muted: oklch(0.25 0.025 260);
+  --muted-foreground: oklch(0.72 0.02 260);
+  --accent: oklch(0.28 0.04 260);
+  --accent-foreground: oklch(0.96 0.01 255);
+  --border: oklch(0.32 0.03 260);
+  --input: oklch(0.32 0.03 260);
+  --glass: oklch(0.22 0.03 260 / 0.75);
+  --glass-border: oklch(0.36 0.03 260 / 0.5);
+  --mist: oklch(0.25 0.03 260);
+  --sidebar: oklch(0.19 0.03 260 / 0.85);
+  --sidebar-foreground: oklch(0.96 0.01 255);
+  --sidebar-accent: oklch(0.26 0.035 260 / 0.8);
+  --sidebar-accent-foreground: oklch(0.99 0 0);
+  --sidebar-border: oklch(0.32 0.03 260 / 0.5);
+  --gradient-page: linear-gradient(160deg, oklch(0.16 0.025 260) 0%, oklch(0.18 0.03 260) 45%, oklch(0.20 0.035 255) 100%);
+  --shadow-soft: 0 10px 30px -12px oklch(0 0 0 / 0.5);
+  --shadow-brand: 0 10px 24px -8px oklch(0.56 0.18 260 / 0.5);
+}
+
+/* COLOR TONES: BLUE (DEFAULT) */
+html[data-color-theme="blue"], :root {
+  --primary: oklch(0.56 0.18 260);
+  --primary-deep: oklch(0.46 0.17 262);
+  --ring: oklch(0.56 0.18 260);
+  --sidebar-primary: oklch(0.56 0.18 260);
+  --shadow-brand: 0 10px 24px -8px oklch(0.56 0.18 260 / 0.4);
+}
+
+/* COLOR TONES: EMERALD */
+html[data-color-theme="emerald"] {
+  --primary: oklch(0.60 0.17 165);
+  --primary-deep: oklch(0.48 0.16 168);
+  --ring: oklch(0.60 0.17 165);
+  --sidebar-primary: oklch(0.60 0.17 165);
+  --shadow-brand: 0 10px 24px -8px oklch(0.60 0.17 165 / 0.4);
+}
+
+/* COLOR TONES: TEAL */
+html[data-color-theme="teal"] {
+  --primary: oklch(0.58 0.14 205);
+  --primary-deep: oklch(0.46 0.14 210);
+  --ring: oklch(0.58 0.14 205);
+  --sidebar-primary: oklch(0.58 0.14 205);
+  --shadow-brand: 0 10px 24px -8px oklch(0.58 0.14 205 / 0.4);
+}
+
+/* COLOR TONES: VIOLET */
+html[data-color-theme="violet"] {
+  --primary: oklch(0.58 0.18 290);
+  --primary-deep: oklch(0.46 0.18 295);
+  --ring: oklch(0.58 0.18 290);
+  --sidebar-primary: oklch(0.58 0.18 290);
+  --shadow-brand: 0 10px 24px -8px oklch(0.58 0.18 290 / 0.4);
+}
+
 @utility glass {
   background-color: var(--glass);
   border: 1px solid var(--glass-border);

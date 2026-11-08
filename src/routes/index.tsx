@@ -13,6 +13,7 @@ import hero from "@/assets/hero.jpg";
 import { Blobs, Brand } from "@/components/Brand";
 import { Medical3DBackground } from "@/components/Medical3DBackground";
 import { FontSizeControl } from "@/components/FontSizeControl";
+import { ThemeControl } from "@/components/ThemeControl";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -46,7 +47,8 @@ function Landing() {
       <div className="sticky top-0 z-50 px-4 pt-4 sm:px-6">
         <header className="mx-auto flex max-w-6xl items-center justify-between rounded-2xl border border-white/60 bg-white/75 px-5 py-3 shadow-sm backdrop-blur-xl transition-all">
           <Brand />
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <ThemeControl compact />
             <FontSizeControl compact />
             <Link
               to="/auth"
