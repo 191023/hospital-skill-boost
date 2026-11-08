@@ -862,7 +862,7 @@ function TeamAllocationHub() {
 
     const rows = data.members.map((m, idx) => {
       const enr = activeCourseEnrollments.get(m.user_id);
-      const st = getMemberAllocationStatus(m, enr);
+      const st = getTrainingProcessStatus(enr);
       return {
         "ลำดับ": idx + 1,
         "ชื่อ-นามสกุล": m.full_name,
@@ -909,7 +909,7 @@ function TeamAllocationHub() {
       let passedCount = 0;
       data.courses.forEach((c) => {
         const enr = data.enr.find((e) => e.user_id === m.user_id && e.course_id === c.id);
-        const st = getMemberAllocationStatus(m, enr);
+        const st = getTrainingProcessStatus(enr);
         row[c.title] = st.shortLabel;
         if (enr?.has_cert) passedCount++;
       });
