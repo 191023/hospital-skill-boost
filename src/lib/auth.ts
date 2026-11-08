@@ -16,6 +16,8 @@ export type Me = {
   isAdmin: boolean;
   isStaff: boolean;
   isTeamManager: boolean;
+  telegram_chat_id?: string;
+  telegram_username?: string;
 };
 
 export function useMe() {
@@ -43,6 +45,8 @@ export function useMe() {
         isAdmin: roles.includes("admin"),
         isStaff: roles.includes("admin") || roles.includes("instructor"),
         isTeamManager: !!tm,
+        telegram_chat_id: (p as any)?.telegram_chat_id ?? "",
+        telegram_username: (p as any)?.telegram_username ?? "",
       };
     },
   });

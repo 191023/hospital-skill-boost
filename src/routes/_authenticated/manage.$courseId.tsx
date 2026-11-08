@@ -15,7 +15,9 @@ import { AttendeesManager } from "@/components/course-editor/AttendeesManager";
 import { DocumentsEditor } from "@/components/course-editor/DocumentsEditor";
 import { ClassroomHubModal } from "@/components/course-editor/ClassroomHubModal";
 import { InstructorAnalytics } from "@/components/course-editor/InstructorAnalytics";
-import { Monitor, Armchair } from "lucide-react";
+import { Monitor, Armchair, Send } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { notifyCoursePublished } from "@/lib/telegram.functions";
 
 export const Route = createFileRoute("/_authenticated/manage/$courseId")({
   head: () => ({ meta: [
@@ -50,6 +52,25 @@ function Editor() {
   if (!course) return <div className="text-muted-foreground">กำลังโหลด...</div>;
 
   const isOnline = (course.training_type || "classroom") === "online";
+  const notifyCourseFn = useServerFn(notifyCoursePublished);
+  const [broadcasting, setBroadcasting] = useState(false);
+
+  async function handleBroadcastTelegram() {
+    if (!confirm(`ต้องการส่งข้อความแจ้งเตือนหลักสูตร "${course.title}" ไปยังกลุ่ม Telegram ที่ตั้งค่าไว้หรือไม่?`)) return;
+    setBroadcasting(true);
+    try {
+      const res = await notifyCourseFn({ data: { courseId: course.id } });
+      if (res.success) {
+        toast.success("ส่งประกาศเปิดหลักสูตรลง Telegram เรียบร้อยแล้ว ✈️");
+      } else {
+        toast.error(res.error || "ไม่สามารถส่งประกาศได้");
+      }
+    } catch (err: any) {
+      toast.error(`ส่งประกาศไม่สำเร็จ: ${err.message || String(err)}`);
+    } finally {
+      setBroadcasting(false);
+    }
+  }
   const allTabs = [
     "info",
     "access",
@@ -72,6 +93,15 @@ function Editor() {
         <span className={`rounded-full px-3 py-1 text-xs font-semibold ${isOnline ? "bg-primary/15 text-primary" : "bg-amber/15 text-amber"}`}>
           {isOnline ? "🌐 อบรมออนไลน์ (Online)" : "🏢 อบรมในห้องประชุม (On-site)"}
         </span>
+        <button
+          type="button"
+          onClick={handleBroadcastTelegram}
+          disabled={broadcasting}
+          className="inline-flex items-center gap-1.5 rounded-xl border border-sky-500/30 bg-sky-500/10 px-3.5 py-2 text-xs font-semibold text-sky-700 dark:text-sky-300 hover:bg-sky-500/20 transition-all shadow-xs"
+        >
+          <Send className="size-3.5" />
+          {broadcasting ? "กำลังส่ง..." : "📢 แจ้งลง Telegram"}
+        </button>
         {!isOnline && (
           <div className="flex flex-wrap items-center gap-2">
             <button

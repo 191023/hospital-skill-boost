@@ -32,6 +32,10 @@ import { useServerFn } from "@tanstack/react-start";
 import { testAiConnection } from "@/lib/ai.functions";
 import { FontSizeControl } from "@/components/FontSizeControl";
 import { ThemeControl } from "@/components/ThemeControl";
+import { TelegramSettingsTab } from "@/components/settings/TelegramSettingsTab";
+import { PersonalTelegramCard } from "@/components/settings/PersonalTelegramCard";
+import { saveTelegramConfig } from "@/lib/telegram.functions";
+import type { TelegramConfig } from "@/lib/telegram.server";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
@@ -192,9 +196,30 @@ function SettingsPage() {
 
   const [savingSettings, setSavingSettings] = useState(false);
 
+  // State: Tab 5 (Telegram Settings)
+  const [telegramConfig, setTelegramConfig] = useState<Partial<TelegramConfig>>({});
+  const saveTelegramConfigFn = useServerFn(saveTelegramConfig);
+
+  async function handleSaveTelegram(cfg: TelegramConfig) {
+    setSavingSettings(true);
+    try {
+      await saveTelegramConfigFn({ data: { config: cfg } });
+      toast.success("บันทึกการตั้งค่าระบบแจ้งเตือน Telegram เรียบร้อยแล้ว ✈️");
+      refetchSettings();
+    } catch (err: any) {
+      toast.error(`บันทึกไม่สำเร็จ: ${err.message || String(err)}`);
+    } finally {
+      setSavingSettings(false);
+    }
+  }
+
   // Sync loaded settings with state
   useEffect(() => {
     if (systemSettings) {
+      const tc = systemSettings["telegram_config"];
+      if (tc && typeof tc === "object") {
+        setTelegramConfig(tc as Partial<TelegramConfig>);
+      }
       const hp = systemSettings["hospital_profile"];
       if (hp && typeof hp === "object") {
         setHospitalForm((prev) => ({ ...prev, ...(hp as object) }));
@@ -314,7 +339,7 @@ function SettingsPage() {
     { id: "hospital", label: "ข้อมูลโรงพยาบาล", icon: Building2, adminOnly: true },
     { id: "certificate", label: "ใบประกาศนียบัตร", icon: Award, adminOnly: true },
     { id: "policy", label: "เกณฑ์การอบรม HA", icon: ShieldCheck, adminOnly: true },
-    { id: "system", label: "การแจ้งเตือนและระบบ", icon: Bell, adminOnly: true },
+    { id: "system", label: "แจ้งเตือน Telegram & ระบบ", icon: Bell, adminOnly: true },
     { id: "ai", label: "ระบบปัญญาประดิษฐ์ (AI)", icon: Sparkles, adminOnly: true },
   ];
 
@@ -493,6 +518,13 @@ function SettingsPage() {
               </div>
             </form>
           </div>
+
+          {/* Personal Telegram Notifications */}
+          {me && (
+            <div className="lg:col-span-12">
+              <PersonalTelegramCard me={me} />
+            </div>
+          )}
 
           {/* Accessibility & Display Settings */}
           <div className="glass space-y-6 rounded-3xl p-6 shadow-sm lg:col-span-12">
@@ -912,117 +944,35 @@ function SettingsPage() {
         </div>
       )}
 
-      {/* TAB 5: Notifications & System Status (Admin Only) */}
+      {/* TAB 5: Telegram Notifications & System Status (Admin Only) */}
       {activeTab === "system" && me?.isAdmin && (
-        <div className="glass space-y-6 rounded-3xl p-6 shadow-sm sm:p-8">
-          <div>
-            <h2 className="flex items-center gap-2 text-lg font-bold text-foreground">
-              <Bell className="size-5 text-primary" />
-              <span>การแจ้งเตือนและสถานะการเชื่อมต่อระบบ</span>
-            </h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              ตั้งค่าการส่งข้อความแจ้งเตือนรอบอบรมและตรวจสอบสถานะการทำงานของโครงสร้างระบบ
-            </p>
+        <div className="space-y-6">
+          <TelegramSettingsTab
+            initialConfig={telegramConfig}
+            onSave={handleSaveTelegram}
+            isSaving={savingSettings}
+          />
+
+          {/* System Status Indicators */}
+          <div className="glass rounded-3xl border border-border/80 bg-background/50 p-6 space-y-3">
+            <div className="text-xs font-semibold text-foreground">
+              สถานะระบบปัจจุบัน (System Health & Infrastructure)
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 text-xs">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="size-4 text-mint" />
+                <span>ฐานข้อมูล Supabase PostgreSQL (เชื่อมต่อแล้ว)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="size-4 text-mint" />
+                <span>ระบบกราฟิก 3D WebGL (พร้อมใช้งาน)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="size-4 text-mint" />
+                <span>การจัดเก็บไฟล์หลักสูตร (Storage Active)</span>
+              </div>
+            </div>
           </div>
-
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              saveSettingBlock("notification_settings", notifyForm, "การตั้งค่าแจ้งเตือน");
-            }}
-            className="space-y-5"
-          >
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="rounded-2xl border border-border/80 bg-card/60 p-4">
-                <label className="flex items-center gap-2.5 text-sm font-semibold text-foreground">
-                  <input
-                    type="checkbox"
-                    checked={notifyForm.email_reminders_enabled}
-                    onChange={(e) =>
-                      setNotifyForm({ ...notifyForm, email_reminders_enabled: e.target.checked })
-                    }
-                    className="size-4 rounded border-input text-primary focus:ring-primary"
-                  />
-                  <span>แจ้งเตือนผ่าน Email อัตโนมัติ</span>
-                </label>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  ส่งอีเมลแจ้งเตือนบุคลากรล่วงหน้าก่อนถึงเวลาเริ่มรอบการอบรม
-                </p>
-                <div className="mt-3">
-                  <label className={labelCls}>แจ้งเตือนล่วงหน้า (ชั่วโมง)</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={72}
-                    value={notifyForm.remind_hours_before}
-                    onChange={(e) =>
-                      setNotifyForm({ ...notifyForm, remind_hours_before: Number(e.target.value) })
-                    }
-                    className={inputCls}
-                  />
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-border/80 bg-card/60 p-4">
-                <label className="flex items-center gap-2.5 text-sm font-semibold text-foreground">
-                  <input
-                    type="checkbox"
-                    checked={notifyForm.line_notify_enabled}
-                    onChange={(e) =>
-                      setNotifyForm({ ...notifyForm, line_notify_enabled: e.target.checked })
-                    }
-                    className="size-4 rounded border-input text-primary focus:ring-primary"
-                  />
-                  <span>เปิดใช้งาน Line Notify</span>
-                </label>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  แจ้งเตือนสรุปผลการอบรมประจำวันเข้ากลุ่มงานพยาบาลหรือกลุ่มผู้บริหาร
-                </p>
-                <div className="mt-3">
-                  <label className={labelCls}>Line Notify Token</label>
-                  <input
-                    type="password"
-                    placeholder="วาง Token จาก Line Notify Service"
-                    value={notifyForm.line_token}
-                    onChange={(e) => setNotifyForm({ ...notifyForm, line_token: e.target.value })}
-                    className={inputCls}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* System Status Indicators */}
-            <div className="rounded-2xl border border-border/80 bg-background/50 p-4">
-              <div className="text-xs font-semibold text-foreground">
-                สถานะระบบปัจจุบัน (System Health & Environment)
-              </div>
-              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3 text-xs">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="size-4 text-mint" />
-                  <span>ฐานข้อมูล Supabase PostgreSQL (เชื่อมต่อแล้ว)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="size-4 text-mint" />
-                  <span>ระบบกราฟิก 3D WebGL (พร้อมใช้งาน)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="size-4 text-mint" />
-                  <span>การจัดเก็บไฟล์หลักสูตร (Storage Active)</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-2">
-              <Button
-                type="submit"
-                disabled={savingSettings}
-                className="rounded-xl bg-primary px-6 font-semibold text-primary-foreground shadow-brand hover:bg-primary/90"
-              >
-                <Save className="mr-2 size-4" />
-                {savingSettings ? "กำลังบันทึก..." : "บันทึกการตั้งค่าการแจ้งเตือน"}
-              </Button>
-            </div>
-          </form>
         </div>
       )}
 
