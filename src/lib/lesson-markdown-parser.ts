@@ -7,6 +7,7 @@ export type ParsedLessonRow = {
   video_url: string | null;
   file_url: string | null;
   errors: string[];
+  selected?: boolean;
 };
 
 /**
@@ -166,6 +167,7 @@ export function parseMarkdownLessons(
       video_url: videoUrl,
       file_url: fileUrl,
       errors,
+      selected: errors.length === 0,
     };
   });
 }

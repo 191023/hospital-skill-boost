@@ -1,7 +1,7 @@
 import { useState } from "react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
-import { Download, FileSpreadsheet, Plus, RefreshCw, Trash2, Upload, AlertCircle, CheckCircle2, ChevronDown, ChevronUp, FileText, Video, FileCheck, FileCode } from "lucide-react";
+import { Download, FileSpreadsheet, Plus, RefreshCw, Trash2, Upload, AlertCircle, CheckCircle2, ChevronDown, ChevronUp, FileText, Video, FileCheck, FileCode, CheckSquare } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { btn } from "./shared";
 import { parseMarkdownLessons, getSampleMarkdownTemplate, type ParsedLessonRow } from "@/lib/lesson-markdown-parser";
@@ -188,6 +188,7 @@ export function ImportLessons({
           video_url: videoUrl || null,
           file_url: fileUrl || null,
           errors,
+          selected: errors.length === 0,
         };
       });
 
@@ -199,11 +200,44 @@ export function ImportLessons({
     }
   };
 
-  // 3. Batch Save to Supabase
+  // Selection helpers
+  const toggleRowSelect = (index: number) => {
+    setRows((prev) =>
+      prev.map((r, i) => (i === index ? { ...r, selected: !r.selected } : r))
+    );
+  };
+
+  const toggleSelectAll = () => {
+    const areAllSelected = validRows.length > 0 && validRows.every((r) => r.selected);
+    setRows((prev) =>
+      prev.map((r) => ({
+        ...r,
+        selected: r.errors.length === 0 ? !areAllSelected : false,
+      }))
+    );
+  };
+
+  const selectAll = () => {
+    setRows((prev) =>
+      prev.map((r) => ({ ...r, selected: r.errors.length === 0 }))
+    );
+  };
+
+  const deselectAll = () => {
+    setRows((prev) => prev.map((r) => ({ ...r, selected: false })));
+  };
+
+  const validRows = rows.filter((r) => !r.errors.length);
+  const invalidRows = rows.filter((r) => r.errors.length);
+  const selectedRows = rows.filter((r) => r.selected);
+  const selectedValidRows = rows.filter((r) => r.selected && !r.errors.length);
+  const allSelected = validRows.length > 0 && validRows.every((r) => r.selected);
+  const isIndeterminate = rows.some((r) => r.selected) && !allSelected;
+
+  // 3. Batch Save to Supabase (Only selected valid rows)
   const handleSave = async () => {
-    const validRows = rows.filter((r) => !r.errors.length);
-    if (!validRows.length) {
-      toast.error("ไม่มีแถวบทเรียนที่ถูกต้องสำหรับบันทึก");
+    if (!selectedValidRows.length) {
+      toast.error("กรุณาเลือกบทเรียนอย่างน้อย 1 บทเรียนที่ต้องการนำเข้า");
       return;
     }
 
@@ -219,7 +253,7 @@ export function ImportLessons({
 
       // Re-normalize positions
       const startingPos = mode === "append" ? existingCount : 0;
-      const insertPayload = validRows.map((r, i) => ({
+      const insertPayload = selectedValidRows.map((r, i) => ({
         course_id: courseId,
         title: r.title,
         kind: r.kind,
@@ -234,8 +268,8 @@ export function ImportLessons({
 
       toast.success(
         mode === "replace"
-          ? `แทนที่บทเรียนทั้งหมดด้วย ${validRows.length} บทเรียนเรียบร้อย`
-          : `เพิ่มบทเรียนต่อท้ายสำเร็จ ${validRows.length} บทเรียน`
+          ? `แทนที่บทเรียนทั้งหมดด้วย ${selectedValidRows.length} บทเรียนเรียบร้อย 🎉`
+          : `เพิ่มบทเรียนต่อท้ายสำเร็จ ${selectedValidRows.length} บทเรียน 🎉`
       );
       setRows([]);
       setIsOpen(false);
@@ -246,9 +280,6 @@ export function ImportLessons({
       setBusy(false);
     }
   };
-
-  const validRows = rows.filter((r) => !r.errors.length);
-  const invalidRows = rows.filter((r) => r.errors.length);
 
   return (
     <div className="glass overflow-hidden rounded-3xl border border-glass-border p-4 shadow-xs">
@@ -333,15 +364,29 @@ export function ImportLessons({
           {rows.length > 0 && (
             <div className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="flex items-center gap-1 rounded-full bg-mint/15 px-2.5 py-1 font-bold text-mint">
-                    <CheckCircle2 className="size-3.5" /> พร้อมนำเข้า {validRows.length} บท
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="flex items-center gap-1.5 rounded-full bg-primary/15 px-3 py-1 font-bold text-primary">
+                    <CheckSquare className="size-3.5" /> เลือกนำเข้า {selectedValidRows.length} จาก {validRows.length} บท
                   </span>
                   {invalidRows.length > 0 && (
                     <span className="flex items-center gap-1 rounded-full bg-coral/15 px-2.5 py-1 font-bold text-coral">
-                      <AlertCircle className="size-3.5" /> ผิดพลาด {invalidRows.length} แถว (จะถูกข้าม)
+                      <AlertCircle className="size-3.5" /> ผิดพลาด {invalidRows.length} แถว (เลือกไม่ได้)
                     </span>
                   )}
+                  <button
+                    type="button"
+                    onClick={selectAll}
+                    className="rounded-lg border border-border/80 bg-background/80 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground hover:bg-card hover:text-foreground transition cursor-pointer"
+                  >
+                    เลือกทั้งหมด
+                  </button>
+                  <button
+                    type="button"
+                    onClick={deselectAll}
+                    className="rounded-lg border border-border/80 bg-background/80 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground hover:bg-card hover:text-foreground transition cursor-pointer"
+                  >
+                    ยกเลิกเลือก
+                  </button>
                 </div>
 
                 {/* MODE TOGGLE */}
@@ -376,6 +421,18 @@ export function ImportLessons({
                 <table className="w-full text-xs">
                   <thead className="sticky top-0 bg-mist/90 backdrop-blur-sm text-left border-b font-semibold text-muted-foreground">
                     <tr>
+                      <th className="p-2.5 w-10 text-center">
+                        <input
+                          type="checkbox"
+                          checked={allSelected}
+                          ref={(el) => {
+                            if (el) el.indeterminate = isIndeterminate;
+                          }}
+                          onChange={toggleSelectAll}
+                          className="size-4 rounded border-input text-primary focus:ring-primary cursor-pointer"
+                          title="เลือกทั้งหมด / ไม่เลือกเลย"
+                        />
+                      </th>
                       <th className="p-2.5 w-12 text-center">ลำดับ</th>
                       <th className="p-2.5">ชื่อบทเรียน</th>
                       <th className="p-2.5 w-24">ประเภท</th>
@@ -387,8 +444,23 @@ export function ImportLessons({
                     {rows.map((r, i) => (
                       <tr
                         key={i}
-                        className={r.errors.length ? "bg-coral/5 text-coral" : "hover:bg-background/50"}
+                        className={`transition-colors ${
+                          r.errors.length
+                            ? "bg-coral/5 text-coral opacity-80"
+                            : r.selected
+                            ? "bg-primary/5 hover:bg-primary/10"
+                            : "opacity-60 hover:opacity-100 hover:bg-background/50"
+                        }`}
                       >
+                        <td className="p-2.5 text-center">
+                          <input
+                            type="checkbox"
+                            checked={!!r.selected}
+                            disabled={r.errors.length > 0}
+                            onChange={() => toggleRowSelect(i)}
+                            className="size-4 rounded border-input text-primary focus:ring-primary cursor-pointer disabled:opacity-30"
+                          />
+                        </td>
                         <td className="p-2.5 text-center font-mono font-bold text-muted-foreground">
                           {r.position}
                         </td>
@@ -428,20 +500,20 @@ export function ImportLessons({
                 <button
                   type="button"
                   onClick={() => setRows([])}
-                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
                 >
                   <Trash2 className="size-3.5" /> ล้างรายการพรีวิว
                 </button>
 
                 <button
                   type="button"
-                  disabled={busy || !validRows.length}
+                  disabled={busy || selectedValidRows.length === 0}
                   onClick={handleSave}
                   className={btn}
                 >
                   {busy
                     ? "กำลังบันทึก..."
-                    : `ยืนยันนำเข้า ${validRows.length} บทเรียน (${
+                    : `ยืนยันนำเข้า ${selectedValidRows.length} บทเรียนที่เลือก (${
                         mode === "replace" ? "แทนที่ทั้งหมด" : "เพิ่มต่อท้าย"
                       })`}
                 </button>

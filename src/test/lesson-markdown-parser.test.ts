@@ -26,6 +26,7 @@ describe("Lesson Markdown Parser", () => {
     expect(rows[0].kind).toBe("text");
     expect(rows[0].body).toContain("เนื้อหาบทที่ 1");
     expect(rows[0].errors).toHaveLength(0);
+    expect(rows[0].selected).toBe(true);
 
     expect(rows[1].title).toBe("บทที่ 2: วิดีโอสาธิตการทำ CPR");
     expect(rows[1].position).toBe(2);
