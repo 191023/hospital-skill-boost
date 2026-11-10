@@ -35,6 +35,9 @@ type Tab = "info" | "access" | "sessions" | "attendees" | "analytics" | "lessons
 
 function Editor() {
   const { courseId } = Route.useParams();
+
+  const notifyCourseFn = useServerFn(notifyCoursePublished);
+  const [broadcasting, setBroadcasting] = useState(false);
   const [classroomHubOpen, setClassroomHubOpen] = useState(false);
   const [tab, setTab] = useState<Tab>(() => {
     if (typeof window !== "undefined") {
@@ -52,8 +55,7 @@ function Editor() {
   if (!course) return <div className="text-muted-foreground">กำลังโหลด...</div>;
 
   const isOnline = (course.training_type || "classroom") === "online";
-  const notifyCourseFn = useServerFn(notifyCoursePublished);
-  const [broadcasting, setBroadcasting] = useState(false);
+
 
   async function handleBroadcastTelegram() {
     if (!confirm(`ต้องการส่งข้อความแจ้งเตือนหลักสูตร "${course.title}" ไปยังกลุ่ม Telegram ที่ตั้งค่าไว้หรือไม่?`)) return;

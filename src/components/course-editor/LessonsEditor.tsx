@@ -46,7 +46,14 @@ function LessonRow({ lesson, courseId }: { lesson: Lesson; courseId: string }) {
   }
   async function del() {
     if (!confirm("ลบบทเรียนนี้?")) return;
-    await supabase.from("lessons").delete().eq("id", lesson.id); refresh();
+    try {
+      const { error } = await supabase.from("lessons").delete().eq("id", lesson.id);
+      if (error) throw error;
+      toast.success("ลบบทเรียนเรียบร้อยแล้ว");
+      refresh();
+    } catch (err: any) {
+      toast.error(`ลบไม่สำเร็จ: ${err.message || String(err)}`);
+    }
   }
   return (
     <div className="glass space-y-3 rounded-3xl p-5">
