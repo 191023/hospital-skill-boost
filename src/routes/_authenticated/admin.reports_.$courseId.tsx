@@ -60,7 +60,7 @@ function CourseReport() {
           .select("id,title,category,hours,pass_score,training_year,audience,organization_name,department_subtitle,instructor_name,instructor_title,instructor_signature_url,hospital_logo_url,course_logo_url")
           .eq("id", courseId)
           .single(),
-        supabase.from("lessons").select("id").eq("course_id", courseId),
+        supabase.from("lessons").select("id").eq("course_id", courseId).is("deleted_at", null),
         supabase.from("enrollments").select("user_id,created_at,session_id").eq("course_id", courseId),
         supabase.from("test_attempts").select("user_id,kind,percent").eq("course_id", courseId),
         supabase.from("certificates").select("user_id,cert_no,issued_at").eq("course_id", courseId),

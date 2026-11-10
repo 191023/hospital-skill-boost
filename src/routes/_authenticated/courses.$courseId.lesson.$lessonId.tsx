@@ -30,8 +30,8 @@ function LessonPage() {
     enabled: !!me,
     queryFn: async () => {
       const [{ data: lesson }, { data: all }, { data: prog }, { data: course }, { data: sess }, { data: att }, { data: preAtt }] = await Promise.all([
-        supabase.from("lessons").select("*").eq("id", lessonId).maybeSingle(),
-        supabase.from("lessons").select("id,title,position").eq("course_id", courseId).order("position"),
+        supabase.from("lessons").select("*").eq("id", lessonId).is("deleted_at", null).maybeSingle(),
+        supabase.from("lessons").select("id,title,position").eq("course_id", courseId).is("deleted_at", null).order("position"),
         supabase.from("lesson_progress").select("lesson_id").eq("user_id", me!.id).eq("lesson_id", lessonId),
         supabase.from("courses").select("require_pretest,require_posttest").eq("id", courseId).maybeSingle(),
         supabase.from("course_sessions").select("id").eq("course_id", courseId).limit(1),

@@ -12,7 +12,7 @@ export function Lessons({ courseId }: { courseId: string }) {
   const qc = useQueryClient();
   const { data = [] } = useQuery({
     queryKey: ["edit-lessons", courseId],
-    queryFn: async () => (await supabase.from("lessons").select("*").eq("course_id", courseId).order("position")).data ?? [],
+    queryFn: async () => (await supabase.from("lessons").select("*").eq("course_id", courseId).is("deleted_at", null).order("position")).data ?? [],
   });
   async function add() {
     const { error } = await supabase.from("lessons").insert({ course_id: courseId, title: `บทที่ ${data.length + 1}`, position: data.length + 1, kind: "text" });
@@ -50,7 +50,7 @@ function LessonRow({ lesson, courseId }: { lesson: Lesson; courseId: string }) {
       const { error } = await supabase.from("lessons").delete().eq("id", lesson.id);
       if (error) throw error;
       toast.success("ลบบทเรียนเรียบร้อยแล้ว");
-      refresh();
+      await qc.invalidateQueries({ queryKey: ["edit-lessons", courseId] });
     } catch (err: any) {
       toast.error(`ลบไม่สำเร็จ: ${err.message || String(err)}`);
     }

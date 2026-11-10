@@ -121,7 +121,7 @@ export function AttendeesManager({ courseId }: { courseId: string }) {
         supabase.from("enrollments").select("*").eq("course_id", courseId),
         supabase.from("attendance").select("*").eq("course_id", courseId),
         supabase.from("course_sessions").select("*").eq("course_id", courseId).order("round_no"),
-        supabase.from("lessons").select("id").eq("course_id", courseId),
+        supabase.from("lessons").select("id").eq("course_id", courseId).is("deleted_at", null),
         supabase.from("test_attempts").select("user_id,kind,percent").eq("course_id", courseId),
         supabase.from("certificates").select("user_id,cert_no").eq("course_id", courseId),
       ]);

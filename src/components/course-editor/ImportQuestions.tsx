@@ -180,6 +180,7 @@ export function ImportQuestions({
         .from("lessons")
         .select("id, title, position, kind, body, file_url")
         .eq("course_id", courseId)
+        .is("deleted_at", null)
         .order("position");
       if (error) throw error;
       return (data || []) as CourseLesson[];

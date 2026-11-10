@@ -34,7 +34,7 @@ function useCourseState(courseId: string, userId?: string) {
     queryFn: async () => {
       const [{ data: course }, { data: lessons }, { data: enr }, { data: prog }, { data: att }, { data: cert }, { data: qs }, { data: atd }, { data: surveyRes }] = await Promise.all([
         supabase.from("courses").select("*").eq("id", courseId).maybeSingle(),
-        supabase.from("lessons").select("id,title,kind,position").eq("course_id", courseId).order("position"),
+        supabase.from("lessons").select("id,title,kind,position").eq("course_id", courseId).is("deleted_at", null).order("position"),
         supabase.from("enrollments").select("id,session_id").eq("course_id", courseId).eq("user_id", userId!).maybeSingle(),
         supabase.from("lesson_progress").select("lesson_id").eq("user_id", userId!),
         supabase.from("test_attempts").select("*").eq("course_id", courseId).eq("user_id", userId!).order("created_at"),
