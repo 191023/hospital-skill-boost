@@ -197,3 +197,4 @@ export const notifyCoursePublished = createServerFn({ method: "POST" })
 
     return result;
   });
+

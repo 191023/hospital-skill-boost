@@ -6,6 +6,7 @@ import { kindLabel } from "@/lib/data";
 import { btn, inp, uploadCourseFile } from "./shared";
 import { ImportLessons } from "./ImportLessons";
 import { ImportQuestions } from "./ImportQuestions";
+import { MarkdownView } from "@/components/MarkdownView";
 
 export function Lessons({ courseId }: { courseId: string }) {
   const qc = useQueryClient();
@@ -36,6 +37,7 @@ type Lesson = { id: string; title: string; kind: string; body: string | null; vi
 function LessonRow({ lesson, courseId }: { lesson: Lesson; courseId: string }) {
   const qc = useQueryClient();
   const [f, setF] = useState(lesson);
+  const [previewMd, setPreviewMd] = useState(false);
   const refresh = () => qc.invalidateQueries({ queryKey: ["edit-lessons", courseId] });
   async function save() {
     const { error } = await supabase.from("lessons").update({ title: f.title, kind: f.kind, body: f.body, video_url: f.video_url, file_url: f.file_url, position: f.position }).eq("id", lesson.id);
@@ -65,7 +67,33 @@ function LessonRow({ lesson, courseId }: { lesson: Lesson; courseId: string }) {
           {f.file_url && <span className="text-mint">✓ มีไฟล์แล้ว</span>}
         </div>
       )}
-      <textarea rows={4} className={inp} placeholder="เนื้อหา / คำอธิบายประกอบ" value={f.body ?? ""} onChange={(e) => setF({ ...f, body: e.target.value })} />
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-muted-foreground font-medium">เนื้อหาบทเรียน (รองรับฟอร์แมต Markdown)</span>
+          {f.body && (
+            <button
+              type="button"
+              onClick={() => setPreviewMd(!previewMd)}
+              className="text-xs text-primary font-semibold hover:underline"
+            >
+              {previewMd ? "✏️ แก้ไขข้อความ" : "👁️ พรีวิว Markdown"}
+            </button>
+          )}
+        </div>
+        {previewMd && f.body ? (
+          <div className="rounded-2xl border border-border/80 bg-background/60 p-4 max-h-60 overflow-y-auto">
+            <MarkdownView content={f.body} />
+          </div>
+        ) : (
+          <textarea
+            rows={4}
+            className={inp}
+            placeholder="เนื้อหา / คำอธิบายประกอบ (รองรับ Markdown: # หัวข้อ, **ตัวหนา**, - รายการ)"
+            value={f.body ?? ""}
+            onChange={(e) => setF({ ...f, body: e.target.value })}
+          />
+        )}
+      </div>
       <div className="flex justify-between">
         <button onClick={del} className="text-sm text-destructive">ลบ</button>
         <button onClick={save} className={btn}>บันทึก</button>

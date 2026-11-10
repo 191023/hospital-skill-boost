@@ -587,3 +587,4 @@ export function TelegramSettingsTab({ initialConfig, onSave, isSaving }: Telegra
     </div>
   );
 }
+

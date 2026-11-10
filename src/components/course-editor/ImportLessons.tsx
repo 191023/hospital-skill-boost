@@ -1,20 +1,10 @@
 import { useState } from "react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
-import { Download, FileSpreadsheet, Plus, RefreshCw, Trash2, Upload, AlertCircle, CheckCircle2, ChevronDown, ChevronUp, FileText, Video, FileCheck } from "lucide-react";
+import { Download, FileSpreadsheet, Plus, RefreshCw, Trash2, Upload, AlertCircle, CheckCircle2, ChevronDown, ChevronUp, FileText, Video, FileCheck, FileCode } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { btn } from "./shared";
-
-type ParsedLessonRow = {
-  line: number;
-  position: number;
-  title: string;
-  kind: "text" | "video" | "pdf";
-  body: string | null;
-  video_url: string | null;
-  file_url: string | null;
-  errors: string[];
-};
+import { parseMarkdownLessons, getSampleMarkdownTemplate, type ParsedLessonRow } from "@/lib/lesson-markdown-parser";
 
 const TEMPLATE_HEADERS = [
   "ลำดับ (Position)",
@@ -103,9 +93,40 @@ export function ImportLessons({
     toast.success("ดาวน์โหลดไฟล์แม่แบบ CSV เรียบร้อย");
   };
 
-  // 2. Parse uploaded file (.xlsx, .xls, .csv)
+  // Download Template as Markdown (.md)
+  const downloadMarkdownTemplate = () => {
+    const mdContent = getSampleMarkdownTemplate();
+    const blob = new Blob([mdContent], { type: "text/markdown;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "lesson-template.md";
+    a.click();
+    toast.success("ดาวน์โหลดไฟล์แม่แบบ Markdown (.md) เรียบร้อย 📄");
+  };
+
+  // 2. Parse uploaded file (.xlsx, .xls, .csv, .md, .txt)
   const handleFileUpload = async (file: File) => {
     try {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "";
+
+      // Handle Markdown or Plain Text file (.md, .markdown, .txt)
+      if (ext === "md" || ext === "markdown" || ext === "txt" || file.type.includes("markdown") || file.type.includes("text/plain")) {
+        const text = await file.text();
+        const fallbackTitle = file.name.replace(/\.[^/.]+$/, "");
+        const parsed = parseMarkdownLessons(text, existingCount, fallbackTitle);
+
+        if (!parsed.length) {
+          toast.error("ไฟล์ Markdown ไม่มีเนื้อหาบทเรียน");
+          return;
+        }
+
+        setRows(parsed);
+        const validCount = parsed.filter((r) => !r.errors.length).length;
+        toast.success(`อ่านไฟล์ Markdown สำเร็จ ตรวจพบ ${parsed.length} บทเรียน (ถูกต้อง ${validCount} บท) 📄`);
+        return;
+      }
+
+      // Handle Spreadsheet file (.xlsx, .xls, .csv)
       const buffer = await file.arrayBuffer();
       const wb = XLSX.read(buffer, { type: "array", codepage: 65001 });
       const firstSheetName = wb.SheetNames[0];
@@ -237,8 +258,8 @@ export function ImportLessons({
             <FileSpreadsheet className="size-5" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-foreground">นำเข้าบทเรียนจากไฟล์ Excel / CSV</h3>
-            <p className="text-xs text-muted-foreground">กรอกข้อมูลบทเรียนจากแม่แบบแล้วอัปโหลดครั้งเดียว</p>
+            <h3 className="text-sm font-bold text-foreground">นำเข้าบทเรียนจากไฟล์ Markdown / Excel / CSV</h3>
+            <p className="text-xs text-muted-foreground">สร้างบทเรียนจากไฟล์ Markdown (.md) หรือตาราง Excel / CSV ได้ในคลิกเดียว</p>
           </div>
         </div>
 
@@ -262,6 +283,14 @@ export function ImportLessons({
               <span className="text-xs font-semibold text-muted-foreground mr-1">ดาวน์โหลดแม่แบบ:</span>
               <button
                 type="button"
+                onClick={downloadMarkdownTemplate}
+                className="flex items-center gap-1.5 rounded-xl bg-sky-500/15 px-3 py-1.5 text-xs font-bold text-sky-700 dark:text-sky-300 hover:bg-sky-500/25 transition border border-sky-500/20"
+              >
+                <Download className="size-3.5" />
+                ไฟล์ Markdown (.md)
+              </button>
+              <button
+                type="button"
                 onClick={downloadExcelTemplate}
                 className="flex items-center gap-1.5 rounded-xl bg-mint/15 px-3 py-1.5 text-xs font-bold text-mint hover:bg-mint/25 transition"
               >
@@ -280,10 +309,10 @@ export function ImportLessons({
 
             <label className="flex items-center gap-2 cursor-pointer rounded-xl bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground shadow-brand hover:opacity-95 transition">
               <Upload className="size-3.5" />
-              <span>เลือกไฟล์เพื่ออัปโหลด</span>
+              <span>เลือกไฟล์เพื่ออัปโหลด (.md / .xlsx / .csv)</span>
               <input
                 type="file"
-                accept=".xlsx,.xls,.csv"
+                accept=".xlsx,.xls,.csv,.md,.markdown,.txt"
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
@@ -291,6 +320,13 @@ export function ImportLessons({
                 }}
               />
             </label>
+          </div>
+
+          <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 px-3.5 py-2.5 text-xs text-muted-foreground leading-relaxed flex items-center gap-2">
+            <span className="font-bold text-sky-600 dark:text-sky-400 shrink-0">💡 เคล็ดลับ Markdown:</span>
+            <span>
+              ใช้หัวข้อ <code># บทที่...</code> เพื่อแยกแต่ละบทเรียน หรือใช้เส้นแบ่ง <code>---</code> คั่นระหว่างบท ระบบจะสร้างบทเรียนย่อยพร้อมตรวจจับลิงก์วิดีโอ YouTube และ PDF ให้อัตโนมัติ
+            </span>
           </div>
 
           {/* PREVIEW & CONFIRMATION */}

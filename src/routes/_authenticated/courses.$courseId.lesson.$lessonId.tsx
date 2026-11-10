@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { fileUrl, useMe } from "@/lib/auth";
 import { kindLabel, youtubeEmbed } from "@/lib/data";
+import { MarkdownView } from "@/components/MarkdownView";
 
 export const Route = createFileRoute("/_authenticated/courses/$courseId/lesson/$lessonId")({
   head: () => ({ meta: [
@@ -149,7 +150,11 @@ function LessonPage() {
             <a href={pdf} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm text-primary">ดาวน์โหลด / เปิดในแท็บใหม่</a>
           </div>
         )}
-        {lesson.body && <div className="mt-5 whitespace-pre-line leading-relaxed">{lesson.body}</div>}
+        {lesson.body && (
+          <div className="mt-6 rounded-2xl bg-card/40 p-5 border border-border/40">
+            <MarkdownView content={lesson.body} />
+          </div>
+        )}
         <div className="mt-8 flex justify-end">
           <button
             onClick={complete}

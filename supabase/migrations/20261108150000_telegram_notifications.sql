@@ -61,3 +61,4 @@ CREATE POLICY "Admins can view notification logs" ON public.notification_logs
 
 CREATE POLICY "Allow insert notification logs" ON public.notification_logs
   FOR INSERT WITH CHECK (true);
+
