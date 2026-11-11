@@ -94,7 +94,7 @@ function RoomContent({ courseId }: { courseId: string }) {
       const [c, s, e, a, permission] = await Promise.all([
         supabase.from("courses").select("id,title,training_year").eq("id", courseId).maybeSingle(),
         supabase.from("course_sessions").select("id,round_no,starts_at,ends_at,location,capacity").eq("course_id", courseId).order("round_no"),
-        supabase.from("enrollments").select("user_id,session_id,created_at").eq("course_id", courseId).order("created_at").order("user_id"),
+        supabase.from("enrollments").select("user_id,session_id,created_at").eq("course_id", courseId).is("deleted_at", null).order("created_at").order("user_id"),
         supabase.from("attendance").select("user_id,session_id,checked_at,is_demo").eq("course_id", courseId),
         supabase.rpc("can_edit_course", { _course: courseId }),
       ]);

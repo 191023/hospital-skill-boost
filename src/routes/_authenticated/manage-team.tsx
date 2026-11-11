@@ -2,7 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, useEffect } from "react";
 import { toast } from "sonner";
-import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/lib/auth";
 import { PageHeader } from "@/components/AppShell";
@@ -854,12 +853,13 @@ function TeamAllocationHub() {
   };
 
   // 1-Click Export: สรุปผลการอบรมของวิชาที่เลือก
-  function exportCourseSummary() {
+  async function exportCourseSummary() {
     if (!activeCourse || !data?.members) {
       toast.error("ไม่มีข้อมูลสำหรับส่งออก");
       return;
     }
 
+    const XLSX = await import("xlsx");
     const rows = data.members.map((m, idx) => {
       const enr = activeCourseEnrollments.get(m.user_id);
       const st = getTrainingProcessStatus(enr);
@@ -890,11 +890,13 @@ function TeamAllocationHub() {
   }
 
   // 1-Click Export: สรุปภาพรวม Matrix ทุกวิชาของแผนก (สำหรับหัวหน้างาน / ตรวจ HA)
-  function exportMatrixSummary() {
+  async function exportMatrixSummary() {
     if (!data?.members || !data?.courses) {
       toast.error("ไม่มีข้อมูลสำหรับส่งออก");
       return;
     }
+
+    const XLSX = await import("xlsx");
 
     // Sheet 1: Matrix รายบุคคล x ทุกวิชา
     const matrixRows = data.members.map((m, idx) => {
