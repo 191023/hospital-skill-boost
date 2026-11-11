@@ -198,3 +198,105 @@ export const notifyCoursePublished = createServerFn({ method: "POST" })
     return result;
   });
 
+/**
+ * 6. Dispatch Certificate Issued Notification
+ */
+export const notifyCertificateIssued = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((d) =>
+    z
+      .object({
+        certId: z.string().uuid(),
+      })
+      .parse(d)
+  )
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase;
+    const { data: cert, error } = await sb
+      .from("certificates")
+      .select("id, cert_no, score, user_id, courses(id, title, category)")
+      .eq("id", data.certId)
+      .maybeSingle();
+
+    if (error || !cert) throw new Error("ไม่พบข้อมูลใบประกาศนียบัตร");
+
+    const appUrl = process.env["SITE_URL"] || "https://fmstraining.ovbhospital.com";
+    const certUrl = `${appUrl}/certificates/${cert.id}`;
+    const courseTitle = (cert.courses as any)?.title || "หลักสูตรฝึกอบรม";
+
+    const title = `🎓 ยินดีด้วย! ท่านสำเร็จการอบรมแล้ว`;
+    const body = `หลักสูตร: <b>${courseTitle}</b>\nเลขที่ใบประกาศ: <code>${cert.cert_no}</code>\nคะแนนที่ได้: <b>${cert.score ?? 100}%</b>\n\nระบบได้ออกใบประกาศนียบัตรอิเล็กทรอนิกส์ให้ท่านเรียบร้อยแล้ว`;
+
+    const result = await dispatchTelegramEvent(sb, {
+      eventType: "certificate_issued",
+      title,
+      body,
+      userId: cert.user_id,
+      metadata: { cert_id: cert.id, cert_no: cert.cert_no, course_id: (cert.courses as any)?.id },
+      buttons: [
+        [
+          {
+            text: "🎖️ ดูและดาวน์โหลดใบประกาศนียบัตร",
+            url: certUrl,
+          },
+        ],
+      ],
+    });
+
+    return result;
+  });
+
+/**
+ * 7. Dispatch Department Allocation Reminder to Leaders
+ */
+export const notifyDepartmentAllocationReminder = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((d) =>
+    z
+      .object({
+        courseId: z.string().uuid(),
+        departmentName: z.string(),
+        unassignedCount: z.number().int().positive(),
+      })
+      .parse(d)
+  )
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase;
+    const { data: isManager } = await sb.rpc("is_team_manager", { _user_id: context.userId });
+    const { data: isAdmin } = await sb.rpc("has_role", { _user_id: context.userId, _role: "admin" });
+    if (!isManager && !isAdmin) {
+      throw new Error("เฉพาะหัวหน้าฝ่าย / หัวหน้าแผนก หรือ Admin เท่านั้น");
+    }
+
+    const { data: course, error } = await sb
+      .from("courses")
+      .select("id, title")
+      .eq("id", data.courseId)
+      .maybeSingle();
+
+    if (error || !course) throw new Error("ไม่พบหลักสูตรที่ระบุ");
+
+    const appUrl = process.env["SITE_URL"] || "https://fmstraining.ovbhospital.com";
+    const teamUrl = `${appUrl}/manage-team`;
+
+    const title = `⚠️ แจ้งเตือนจัดสรรรอบอบรม: แผนก ${data.departmentName}`;
+    const body = `หลักสูตร: <b>${course.title}</b>\n\n📌 มีบุคลากรในสังกัดยังไม่จัดสรรรอบอบรมคงเหลือ <b>${data.unassignedCount} คน</b>\nกรุณาเข้าจัดสรรรอบเพื่อรักษาสิทธิ์โควต้าที่นั่งในระบบ`;
+
+    const result = await dispatchTelegramEvent(sb, {
+      eventType: "dept_allocation_reminder",
+      title,
+      body,
+      metadata: { course_id: course.id, department: data.departmentName, unassigned: data.unassignedCount },
+      buttons: [
+        [
+          {
+            text: "👥 ไปที่หน้าระบบจัดสรรที่นั่งทีม",
+            url: teamUrl,
+          },
+        ],
+      ],
+    });
+
+    return result;
+  });
+

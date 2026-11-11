@@ -161,5 +161,67 @@ describe("Telegram Notification Service", () => {
       })
     );
   });
+
+  it("dispatchTelegramEvent routes to user direct chat for personal certificate", async () => {
+    const mockInsert = vi.fn().mockResolvedValue({ data: null, error: null });
+    const mockSb = {
+      from: vi.fn().mockImplementation((table: string) => {
+        if (table === "system_settings") {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: {
+                    value: {
+                      enabled: true,
+                      bot_token: "bot-token-123",
+                      channels: {},
+                      events: {
+                        certificate_issued: { enabled: true, target: "direct" },
+                      },
+                    },
+                  },
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === "profiles") {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: { telegram_chat_id: "987654321" },
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === "notification_logs") {
+          return { insert: mockInsert };
+        }
+        return {};
+      }),
+    };
+
+    const mockFetch = vi.fn().mockResolvedValue({
+      json: async () => ({
+        ok: true,
+        result: { message_id: 102 },
+      }),
+    });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const res = await dispatchTelegramEvent(mockSb, {
+      eventType: "certificate_issued",
+      title: "ยินดีด้วย!",
+      body: "ท่านได้รับใบประกาศ",
+      userId: "user-123",
+    });
+
+    expect(res.success).toBe(true);
+    const bodySent = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(bodySent.chat_id).toBe("987654321");
+  });
 });
 

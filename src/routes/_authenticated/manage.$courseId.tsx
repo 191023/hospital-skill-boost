@@ -36,8 +36,7 @@ type Tab = "info" | "access" | "sessions" | "attendees" | "analytics" | "lessons
 function Editor() {
   const { courseId } = Route.useParams();
 
-  const notifyCourseFn = useServerFn(notifyCoursePublished);
-  const [broadcasting, setBroadcasting] = useState(false);
+
   const [classroomHubOpen, setClassroomHubOpen] = useState(false);
   const [tab, setTab] = useState<Tab>(() => {
     if (typeof window !== "undefined") {
@@ -166,6 +165,29 @@ function Info({ course }: { course: Course }) {
   const nav = useNavigate();
   const [f, setF] = useState(course);
   const { data: cover } = useQuery({ queryKey: ["cover-url", f.cover_url], queryFn: () => fileUrl(f.cover_url) });
+  const notifyCourseFn = useServerFn(notifyCoursePublished);
+  const [broadcasting, setBroadcasting] = useState(false);
+
+  async function handleBroadcast() {
+    if (!f.published) {
+      toast.error("กรุณาเผยแพร่หลักสูตรและกดบันทึกก่อนส่งประกาศ Telegram");
+      return;
+    }
+    if (!confirm(`ส่งข้อความประกาศหลักสูตร "${f.title}" ไปยังกลุ่ม Telegram ทันที?`)) return;
+    setBroadcasting(true);
+    try {
+      const res = await notifyCourseFn({ data: { courseId: course.id } });
+      if (!res.success) {
+        toast.error(`ส่งไม่สำเร็จ: ${res.error}`);
+      } else {
+        toast.success("ส่งประกาศหลักสูตรเข้ากลุ่ม Telegram เรียบร้อยแล้ว ✈️");
+      }
+    } catch (err: any) {
+      toast.error(`ส่งไม่สำเร็จ: ${err.message || String(err)}`);
+    } finally {
+      setBroadcasting(false);
+    }
+  }
 
   async function save() {
     const { error } = await supabase.from("courses").update({
@@ -261,7 +283,20 @@ function Info({ course }: { course: Course }) {
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.published} onChange={(e) => setF({ ...f, published: e.target.checked })} /> เผยแพร่ให้ผู้เรียนเห็น</label>
       <div className="flex justify-between">
         <button onClick={del} className="text-sm font-semibold text-destructive">ลบหลักสูตร</button>
-        <button onClick={save} className={btn}>บันทึก</button>
+        <div className="flex items-center gap-2">
+          {f.published && (
+            <button
+              type="button"
+              onClick={handleBroadcast}
+              disabled={broadcasting}
+              className="flex items-center gap-1.5 rounded-xl border border-sky-500/30 bg-sky-500/10 px-3.5 py-2 text-xs font-semibold text-sky-600 dark:text-sky-400 hover:bg-sky-500/20 transition-all cursor-pointer disabled:opacity-50"
+            >
+              <Send className="h-3.5 w-3.5" />
+              <span>{broadcasting ? "กำลังส่ง..." : "ประกาศลง Telegram"}</span>
+            </button>
+          )}
+          <button onClick={save} className={btn}>บันทึก</button>
+        </div>
       </div>
     </div>
   );

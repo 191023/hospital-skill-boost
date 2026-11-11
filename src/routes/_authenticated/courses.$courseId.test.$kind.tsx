@@ -4,6 +4,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/lib/auth";
+import { useServerFn } from "@tanstack/react-start";
+import { notifyCertificateIssued } from "@/lib/telegram.functions";
 
 export const Route = createFileRoute("/_authenticated/courses/$courseId/test/$kind")({
   head: () => ({ meta: [
@@ -23,6 +25,7 @@ function TestPage() {
   const { courseId, kind } = Route.useParams();
   const qc = useQueryClient();
   const { data: me } = useMe();
+  const notifyCertFn = useServerFn(notifyCertificateIssued);
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [result, setResult] = useState<Result | null>(null);
   const [busy, setBusy] = useState(false);
@@ -66,8 +69,12 @@ function TestPage() {
     const { data, error } = await supabase.rpc("submit_test", { _course: courseId, _kind: kind, _answers: answers });
     setBusy(false);
     if (error) { toast.error(error.message); return; }
-    setResult(data as unknown as Result);
+    const resData = data as unknown as Result;
+    setResult(resData);
     qc.invalidateQueries();
+    if (resData.certificate_id) {
+      notifyCertFn({ data: { certId: resData.certificate_id } }).catch(() => {});
+    }
   }
 
   if (result) {

@@ -1,10 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, useEffect } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/lib/auth";
 import { PageHeader } from "@/components/AppShell";
+import { notifyDepartmentAllocationReminder } from "@/lib/telegram.functions";
 import {
   Users,
   LayoutGrid,
@@ -30,6 +32,7 @@ import {
   CheckCheck,
   Download,
   FileSpreadsheet,
+  Send,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/manage-team")({
@@ -597,6 +600,9 @@ function TeamAllocationHub() {
   // Context of the most recent batch allocation
   const [recentAllocation, setRecentAllocation] = useState<RecentAllocationInfo | null>(null);
 
+  const notifyReminderFn = useServerFn(notifyDepartmentAllocationReminder);
+  const [sendingReminder, setSendingReminder] = useState(false);
+
   const { data, isLoading } = useQuery({
     queryKey: ["team-allocation-hub", me?.id],
     enabled: !!me?.isTeamManager,
@@ -954,6 +960,35 @@ function TeamAllocationHub() {
     toast.success(`ส่งออกรายงานภาพรวมแผนก ${deptName} เรียบร้อยแล้ว 📑`);
   }
 
+  async function handleSendReminder() {
+    if (!activeCourse) return;
+    if (statusCounts.unassigned === 0) {
+      toast.info("บุคลากรทุกคนได้รับการจัดสรรรอบอบรมเรียบร้อยแล้ว ไม่มียอดคงค้าง 🎉");
+      return;
+    }
+    const dept = me?.department || me?.division || "ทีม";
+    if (!confirm(`ส่งแจ้งเตือนกลุ่ม Telegram เรื่องบุคลากรยังไม่จัดรอบ ${statusCounts.unassigned} คน ในวิชา "${activeCourse.title}"?`)) return;
+    setSendingReminder(true);
+    try {
+      const res = await notifyReminderFn({
+        data: {
+          courseId: activeCourse.id,
+          departmentName: dept,
+          unassignedCount: statusCounts.unassigned,
+        },
+      });
+      if (!res.success) {
+        toast.error(`ส่งไม่สำเร็จ: ${res.error}`);
+      } else {
+        toast.success("ส่งข้อความแจ้งเตือนเข้ากลุ่ม Telegram เรียบร้อยแล้ว ✈️");
+      }
+    } catch (err: any) {
+      toast.error(`ส่งไม่สำเร็จ: ${err.message || String(err)}`);
+    } finally {
+      setSendingReminder(false);
+    }
+  }
+
   if (!me?.isTeamManager) {
     return (
       <div className="glass rounded-3xl p-12 text-center space-y-2">
@@ -1001,6 +1036,17 @@ function TeamAllocationHub() {
               <Download className="h-3.5 w-3.5 text-primary" />
               <span>Export ภาพรวมแผนก (.xlsx)</span>
             </button>
+            {statusCounts.unassigned > 0 && (
+              <button
+                onClick={handleSendReminder}
+                disabled={sendingReminder}
+                title="ส่งแจ้งเตือนบุคลากรที่ยังไม่จัดรอบเข้ากลุ่ม Telegram"
+                className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 transition cursor-pointer disabled:opacity-50"
+              >
+                <Send className="h-3.5 w-3.5" />
+                <span>{sendingReminder ? "กำลังส่ง..." : `เตือน Telegram (${statusCounts.unassigned})`}</span>
+              </button>
+            )}
           </div>
 
           {/* View Mode Toggle */}

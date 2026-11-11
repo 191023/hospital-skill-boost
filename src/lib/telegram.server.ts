@@ -182,8 +182,22 @@ export async function dispatchTelegramEvent(
     if (targetType === "announcement") targetChatId = config.channels.announcement;
     else if (targetType === "leaders") targetChatId = config.channels.leaders;
     else if (targetType === "admin_hr") targetChatId = config.channels.admin_hr;
+    else if (targetType === "direct" && event.userId) {
+      const { data: profile } = await sbClient
+        .from("profiles")
+        .select("telegram_chat_id")
+        .eq("id", event.userId)
+        .maybeSingle();
+      if (profile?.telegram_chat_id) {
+        targetChatId = profile.telegram_chat_id.trim();
+      } else {
+        return { success: false, error: "ผู้ใช้ยังไม่ได้ผูกบัญชี Telegram Chat ID" };
+      }
+    }
 
-    targetChatId = targetChatId || config.default_chat_id;
+    if (!targetChatId && targetType !== "direct") {
+      targetChatId = config.default_chat_id;
+    }
   }
 
   if (!targetChatId) {
