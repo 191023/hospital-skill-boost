@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { testAiConnection } from "@/lib/ai.functions";
+import { getDisplayIdentifier, isSyntheticEmail } from "@/lib/auth-identifier";
 import { FontSizeControl } from "@/components/FontSizeControl";
 import { ThemeControl } from "@/components/ThemeControl";
 import { TelegramSettingsTab } from "@/components/settings/TelegramSettingsTab";
@@ -385,10 +386,18 @@ function SettingsPage() {
           {/* Personal & Professional Profile */}
           <div className="glass space-y-6 rounded-3xl p-6 shadow-sm lg:col-span-7 sm:p-8">
             <div>
-              <h2 className="flex items-center gap-2 text-lg font-bold text-foreground">
-                <User className="size-5 text-primary" />
-                <span>ข้อมูลบุคลากรทางการแพทย์</span>
-              </h2>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="flex items-center gap-2 text-lg font-bold text-foreground">
+                  <User className="size-5 text-primary" />
+                  <span>ข้อมูลบุคลากรทางการแพทย์</span>
+                </h2>
+                {me && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                    {isSyntheticEmail(me.email) ? "รหัสผู้ใช้: " : "อีเมล: "}
+                    <span className="font-mono">{getDisplayIdentifier(me.email, me.employee_id)}</span>
+                  </span>
+                )}
+              </div>
               <p className="mt-1 text-xs text-muted-foreground">
                 ข้อมูลนี้จะนำไปแสดงบนบัตรประจำตัว 3D และเอกสารใบประกาศนียบัตร
               </p>
@@ -464,6 +473,11 @@ function SettingsPage() {
               </h2>
               <p className="mt-1 text-xs text-muted-foreground">
                 ควรกำหนดรหัสผ่านที่มีความยาวอย่างน้อย 6 ตัวอักษร
+                {me && isSyntheticEmail(me.email) && (
+                  <span className="mt-1 block text-sky-600 dark:text-sky-400 font-medium">
+                    (บัญชีรหัสผู้ใช้: <span className="font-mono font-bold">{getDisplayIdentifier(me.email, me.employee_id)}</span>)
+                  </span>
+                )}
               </p>
             </div>
 

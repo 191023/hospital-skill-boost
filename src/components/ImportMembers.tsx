@@ -29,7 +29,7 @@ const roleMap: Record<string, Row["role"]> = {
   ผู้ดูแลระบบ: "admin",
 };
 
-const HEAD = ["ชื่อ-นามสกุล", "รหัสพนักงาน หรือ อีเมล", "ฝ่าย", "แผนก", "ตำแหน่ง", "บทบาท", "รหัสผ่าน"];
+const HEAD = ["ชื่อ-นามสกุล", "รหัสผู้ใช้ หรือ อีเมล", "ฝ่าย", "แผนก", "ตำแหน่ง", "บทบาท", "รหัสผ่าน"];
 
 export function ImportMembers({ existingEmails, onDone }: { existingEmails: string[]; onDone: () => void }) {
   const run = useServerFn(importMembers);
@@ -155,7 +155,7 @@ export function ImportMembers({ existingEmails, onDone }: { existingEmails: stri
         />
       </div>
       <p className="mt-1 text-xs text-muted-foreground">
-        รองรับทั้ง <b>อีเมล</b> และ <b>รหัสพนักงาน / เบอร์โทร</b> (สำหรับผู้ที่ไม่มีอีเมล) — คอลัมน์: {HEAD.join(", ")}
+        รองรับทั้ง <b>อีเมล</b> และ <b>รหัสผู้ใช้ (รหัสพนักงาน / นศ. / เบอร์โทร)</b> — คอลัมน์: {HEAD.join(", ")}
       </p>
       {rows.length > 0 && (
         <>
@@ -188,7 +188,7 @@ export function ImportMembers({ existingEmails, onDone }: { existingEmails: stri
                 <tr>
                   <th className="p-2">แถว</th>
                   <th>ชื่อ</th>
-                  <th>รหัสพนักงาน / อีเมล</th>
+                  <th>รหัสผู้ใช้ / อีเมล</th>
                   <th>ฝ่าย / แผนก</th>
                   <th>บทบาท</th>
                   <th>ผลตรวจ</th>

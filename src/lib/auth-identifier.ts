@@ -86,3 +86,4 @@ export function getDisplayIdentifier(email?: string | null, employeeId?: string 
   }
   return email;
 }
+

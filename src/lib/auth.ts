@@ -11,6 +11,7 @@ export type Me = {
   department: string;
   position: string;
   license_no?: string;
+  employee_id?: string;
   approved: boolean;
   roles: Role[];
   isAdmin: boolean;
@@ -40,6 +41,7 @@ export function useMe() {
         department: p?.department ?? "",
         position: p?.position ?? "",
         license_no: (p as { license_no?: string })?.license_no ?? "",
+        employee_id: (p as any)?.employee_id ?? "",
         approved: p?.approved ?? false,
         roles,
         isAdmin: roles.includes("admin"),

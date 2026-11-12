@@ -227,7 +227,7 @@ function Users() {
         </button>
         <input
           className="rounded-xl border bg-card px-3 py-1.5 text-xs"
-          placeholder="ค้นหาชื่อ, รหัสพนักงาน, อีเมล, แผนก..."
+          placeholder="ค้นหาชื่อ, รหัสผู้ใช้, อีเมล, แผนก..."
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
@@ -287,7 +287,7 @@ function Users() {
                     <div className="font-semibold">{u.full_name}</div>
                     {isSynthetic ? (
                       <div className="mt-1 inline-flex items-center gap-1 rounded-md bg-sky-500/10 px-2 py-0.5 text-[11px] font-mono font-semibold text-sky-600 dark:text-sky-400">
-                        <span>รหัสพนักงาน:</span>
+                        <span>รหัสผู้ใช้:</span>
                         <span>{displayId}</span>
                       </div>
                     ) : (
@@ -428,7 +428,7 @@ function AddMember({ onDone }: { onDone: () => void }) {
       <input
         className={inp}
         type="text"
-        placeholder="รหัสพนักงาน (เช่น 660142) หรือ อีเมล"
+        placeholder="รหัสผู้ใช้ (รหัสพนักงาน / เบอร์โทร) หรือ อีเมล"
         required
         value={f.identifier}
         onChange={(e) => setF({ ...f, identifier: e.target.value })}

@@ -7,6 +7,7 @@ import { btn, inp, uploadCourseFile } from "./shared";
 import { ImportLessons } from "./ImportLessons";
 import { ImportQuestions } from "./ImportQuestions";
 import { MarkdownView } from "@/components/MarkdownView";
+import { Trash2, Save } from "lucide-react";
 
 export function Lessons({ courseId }: { courseId: string }) {
   const qc = useQueryClient();
@@ -101,9 +102,19 @@ function LessonRow({ lesson, courseId }: { lesson: Lesson; courseId: string }) {
           />
         )}
       </div>
-      <div className="flex justify-between">
-        <button onClick={del} className="text-sm text-destructive">ลบ</button>
-        <button onClick={save} className={btn}>บันทึก</button>
+      <div className="flex items-center justify-between pt-2">
+        <button
+          type="button"
+          onClick={del}
+          className="inline-flex items-center gap-1.5 rounded-xl border border-destructive/20 bg-destructive/5 px-3.5 py-2 text-xs font-semibold text-destructive transition-all hover:bg-destructive hover:text-destructive-foreground focus:outline-none focus:ring-2 focus:ring-destructive/30 cursor-pointer"
+        >
+          <Trash2 className="size-3.5" />
+          <span>ลบบทเรียน</span>
+        </button>
+        <button type="button" onClick={save} className={btn}>
+          <Save className="mr-1.5 size-4" />
+          <span>บันทึก</span>
+        </button>
       </div>
     </div>
   );
@@ -165,7 +176,15 @@ export function Questions({ courseId, onOpenAnalytics }: { courseId: string; onO
         <div key={x.id} className="glass rounded-3xl p-5">
           <div className="flex justify-between gap-4">
             <div className="font-semibold">{i + 1}. {x.question}</div>
-            <button onClick={() => del(x.id)} className="text-sm text-destructive">ลบ</button>
+            <button
+              type="button"
+              onClick={() => del(x.id)}
+              className="inline-flex items-center gap-1 rounded-lg border border-destructive/20 bg-destructive/5 px-2.5 py-1 text-xs font-medium text-destructive transition-all hover:bg-destructive hover:text-destructive-foreground focus:outline-none focus:ring-2 focus:ring-destructive/30 cursor-pointer"
+              title="ลบคำถามข้อนี้"
+            >
+              <Trash2 className="size-3.5" />
+              <span>ลบ</span>
+            </button>
           </div>
           <ul className="mt-2 space-y-1 text-sm">
             {(x.options as string[]).map((o, oi) => (

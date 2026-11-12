@@ -25,6 +25,7 @@ import {
   testTelegramBotConnection,
   sendTestTelegramMessage,
   getTelegramNotificationLogs,
+  runScheduledReminders,
 } from "@/lib/telegram.functions";
 import type { TelegramConfig, TelegramEventKey, TelegramChannelTarget } from "@/lib/telegram.server";
 
@@ -118,6 +119,8 @@ export function TelegramSettingsTab({ initialConfig, onSave, isSaving }: Telegra
   const testBotFn = useServerFn(testTelegramBotConnection);
   const sendTestFn = useServerFn(sendTestTelegramMessage);
   const getLogsFn = useServerFn(getTelegramNotificationLogs);
+  const runRemindersFn = useServerFn(runScheduledReminders);
+  const [runningReminders, setRunningReminders] = useState(false);
 
   useEffect(() => {
     if (initialConfig) {
@@ -204,6 +207,22 @@ export function TelegramSettingsTab({ initialConfig, onSave, isSaving }: Telegra
       toast.error(`โหลดประวัติไม่สำเร็จ: ${err.message || String(err)}`);
     } finally {
       setLoadingLogs(false);
+    }
+  }
+
+  // Handler: Trigger Scheduled Reminders Simulator
+  async function handleRunReminders() {
+    setRunningReminders(true);
+    try {
+      const res = await runRemindersFn();
+      toast.success(
+        `ประมวลผลระบบเตือนสำเร็จ: ส่งเตือนล่วงหน้า 24 ชม. (${res.reminded24h} ท่าน), ส่งเตือนล่วงหน้า 3 ชม. (${res.reminded3h} ท่าน)`
+      );
+      await handleLoadLogs();
+    } catch (err: any) {
+      toast.error(`ประมวลผลไม่สำเร็จ: ${err.message || String(err)}`);
+    } finally {
+      setRunningReminders(false);
     }
   }
 
@@ -515,21 +534,34 @@ export function TelegramSettingsTab({ initialConfig, onSave, isSaving }: Telegra
 
         {/* SECTION 4: Audit Logs Drawer / Viewer */}
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
               <History className="size-4 text-mint" />
               <span>4. ตรวจสอบประวัติการส่งแจ้งเตือน (Audit Logs)</span>
             </h3>
-            <Button
-              type="button"
-              onClick={handleLoadLogs}
-              disabled={loadingLogs}
-              variant="outline"
-              className="rounded-xl text-xs"
-            >
-              <RefreshCw className={`mr-1.5 size-3.5 ${loadingLogs ? "animate-spin" : ""}`} />
-              {loadingLogs ? "กำลังโหลด..." : showLogs ? "รีเฟรชประวัติ" : "ดูประวัติการส่งล่าสุด"}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                onClick={handleRunReminders}
+                disabled={runningReminders}
+                variant="outline"
+                className="rounded-xl text-xs border-amber-500/30 text-amber-600 hover:bg-amber-500/10 dark:text-amber-400"
+                title="จำลองให้ระบบตรวจสอบรอบอบรมที่มีการเปิดเรียนใน 24 ชม. และ 3 ชม. ข้างหน้า แล้วส่งเตือนทันที"
+              >
+                <Calendar className={`mr-1.5 size-3.5 ${runningReminders ? "animate-spin" : ""}`} />
+                {runningReminders ? "กำลังส่งเตือน..." : "⚡ สั่งยิงเตือนรอบอบรม (Simulator)"}
+              </Button>
+              <Button
+                type="button"
+                onClick={handleLoadLogs}
+                disabled={loadingLogs}
+                variant="outline"
+                className="rounded-xl text-xs"
+              >
+                <RefreshCw className={`mr-1.5 size-3.5 ${loadingLogs ? "animate-spin" : ""}`} />
+                {loadingLogs ? "กำลังโหลด..." : showLogs ? "รีเฟรชประวัติ" : "ดูประวัติการส่งล่าสุด"}
+              </Button>
+            </div>
           </div>
 
           {showLogs && (

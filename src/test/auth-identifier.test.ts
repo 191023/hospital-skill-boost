@@ -53,3 +53,4 @@ describe("Auth Identifier Normalization", () => {
     expect(getDisplayIdentifier(null, null)).toBe("-");
   });
 });
+

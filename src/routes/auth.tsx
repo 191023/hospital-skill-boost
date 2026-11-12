@@ -130,13 +130,13 @@ function AuthPage() {
   async function forgot() {
     const parsed = parseAuthIdentifier(f.identifier);
     if (!parsed.authEmail) {
-      toast.error("กรุณากรอกรหัสพนักงาน หรือ อีเมล ก่อนกดลืมรหัสผ่าน");
+      toast.error("กรุณากรอกรหัสผู้ใช้ หรือ อีเมล ก่อนกดลืมรหัสผ่าน");
       return;
     }
 
     if (parsed.type !== "email") {
       toast.info(
-        `สำหรับบุคลากรที่เข้าใช้งานด้วยรหัสพนักงาน (${parsed.displayIdentifier}): กรุณาติดต่อหัวหน้าฝ่าย/แผนก หรือผู้ดูแลระบบ HR เพื่อขอรีเซ็ตรหัสผ่าน 🔑`,
+        `สำหรับผู้เข้าใช้งานด้วยรหัสผู้ใช้ (${parsed.displayIdentifier}): กรุณาติดต่อหัวหน้าฝ่าย/แผนก หรือผู้ดูแลระบบ HR เพื่อขอรีเซ็ตรหัสผ่าน 🔑`,
         { duration: 8000 }
       );
       return;
@@ -156,7 +156,7 @@ function AuthPage() {
     const parsed = parseAuthIdentifier(f.identifier);
 
     if (!parsed.authEmail) {
-      toast.error("กรุณาระบุรหัสพนักงาน หรือ อีเมล");
+      toast.error("กรุณาระบุรหัสผู้ใช้ หรือ อีเมล");
       return;
     }
 
@@ -171,7 +171,7 @@ function AuthPage() {
           if (error.message.includes("Invalid login credentials")) {
             throw new Error(
               parsed.type === "employee_id" || parsed.type === "phone"
-                ? `รหัสพนักงาน (${parsed.displayIdentifier}) หรือรหัสผ่านไม่ถูกต้อง (หากยังไม่มีบัญชี กรุณาสมัครสมาชิก)`
+                ? `รหัสผู้ใช้ (${parsed.displayIdentifier}) หรือรหัสผ่านไม่ถูกต้อง (หากยังไม่มีบัญชี กรุณาสมัครสมาชิก)`
                 : "อีเมลหรือรหัสผ่านไม่ถูกต้อง"
             );
           }
@@ -223,7 +223,7 @@ function AuthPage() {
         <h1 className="mt-6 text-2xl font-bold">{mode === "in" ? "เข้าสู่ระบบ" : "สมัครสมาชิก"}</h1>
         <p className="mt-1 text-xs text-muted-foreground">
           {mode === "in"
-            ? "รองรับทั้งอีเมลโรงพยาบาล และรหัสพนักงานสำหรับผู้ที่ไม่มีอีเมล"
+            ? "รองรับรหัสพนักงาน, รหัสนักศึกษา, เบอร์โทร หรืออีเมล"
             : "กรอกข้อมูลบุคลากรเพื่อลงทะเบียนเข้าสู่ระบบฝึกอบรม"}
         </p>
 
@@ -242,7 +242,7 @@ function AuthPage() {
               }`}
             >
               <User className="h-3.5 w-3.5" />
-              <span>ใช้รหัสพนักงาน (ไม่มีอีเมล)</span>
+              <span>ใช้รหัสผู้ใช้ (ไม่มีอีเมล)</span>
             </button>
             <button
               type="button"
@@ -280,7 +280,7 @@ function AuthPage() {
               />
               <input
                 className={input}
-                placeholder="ตำแหน่ง (เช่น พนักงานบริการทั่วไป, รปภ., ช่างเทคนิค)"
+                placeholder="ตำแหน่ง (เช่น พนักงานบริการทั่วไป, รปภ., ช่างเทคนิค, นศ.ฝึกงาน)"
                 value={f.position}
                 onChange={(e) => setF({ ...f, position: e.target.value })}
               />
@@ -293,9 +293,9 @@ function AuthPage() {
               type={mode === "up" && signupType === "email" ? "email" : "text"}
               placeholder={
                 mode === "in"
-                  ? "รหัสพนักงาน หรือ อีเมล"
+                  ? "รหัสผู้ใช้ หรือ อีเมล"
                   : signupType === "staff_id"
-                  ? "รหัสพนักงาน (เช่น 660142, EMP1024) หรือเบอร์โทร"
+                  ? "รหัสผู้ใช้ (รหัสพนักงาน / นศ. / เบอร์โทร)"
                   : "อีเมล (เช่น somchai@gmail.com)"
               }
               required
@@ -308,7 +308,7 @@ function AuthPage() {
                   ? "อีเมล"
                   : detected.type === "phone"
                   ? "เบอร์โทร"
-                  : "รหัสพนักงาน"}
+                  : "รหัสผู้ใช้"}
               </span>
             )}
           </div>
