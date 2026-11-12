@@ -300,3 +300,86 @@ export const notifyDepartmentAllocationReminder = createServerFn({ method: "POST
     return result;
   });
 
+/**
+ * 8. Dispatch Scheduled Reminders (Session 24h Reminder & Post-test Pending Reminder)
+ */
+export const runScheduledReminders = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const sb = context.supabase;
+    const { data: isAdmin } = await sb.rpc("has_role", { _user_id: context.userId, _role: "admin" });
+    if (!isAdmin) throw new Error("เฉพาะผู้ดูแลระบบ (Admin) เท่านั้น");
+
+    const appUrl = process.env["SITE_URL"] || "https://fmstraining.ovbhospital.com";
+    let sentCount = 0;
+    const errors: string[] = [];
+
+    // Session 24h Reminders: sessions starting between now+20h and now+28h
+    const now = new Date();
+    const in20h = new Date(now.getTime() + 20 * 60 * 60 * 1000).toISOString();
+    const in28h = new Date(now.getTime() + 28 * 60 * 60 * 1000).toISOString();
+
+    const { data: upcomingSessions } = await sb
+      .from("course_sessions")
+      .select("id, round_no, starts_at, ends_at, location, course_id, courses(id, title)")
+      .gte("starts_at", in20h)
+      .lte("starts_at", in28h)
+      .is("deleted_at", null);
+
+    if (upcomingSessions && upcomingSessions.length > 0) {
+      for (const sess of upcomingSessions) {
+        const { data: enrs } = await sb
+          .from("enrollments")
+          .select("user_id, profiles(id, full_name, telegram_chat_id)")
+          .eq("session_id", sess.id)
+          .is("deleted_at", null);
+
+        const courseTitle = (sess.courses as any)?.title || "หลักสูตรอบรม";
+        const timeStr = new Date(sess.starts_at).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" });
+
+        for (const enr of enrs || []) {
+          const profile = enr.profiles as any;
+          if (!profile?.telegram_chat_id) continue;
+
+          // Check if already sent for this session
+          const { count } = await sb
+            .from("notification_logs")
+            .select("id", { count: "exact", head: true })
+            .eq("event_type", "session_reminder_24h")
+            .eq("recipient_chat_id", profile.telegram_chat_id)
+            .contains("metadata", { session_id: sess.id });
+
+          if (count && count > 0) continue;
+
+          const title = `⏰ แจ้งเตือนรอบอบรมวันพรุ่งนี้`;
+          const body = `หลักสูตร: <b>${courseTitle}</b>\nรอบที่: <b>${sess.round_no}</b>\nวันเวลา: <b>${timeStr}</b>\nสถานที่: <b>${sess.location || "ห้องอบรมโรงพยาบาล"}</b>\n\nกรุณาเตรียมพร้อมและแสดง QR Code เพื่อเช็คชื่อเข้าห้องอบรม`;
+
+          const res = await dispatchTelegramEvent(sb, {
+            eventType: "session_reminder_24h",
+            title,
+            body,
+            userId: profile.id,
+            metadata: { session_id: sess.id, course_id: sess.course_id },
+            buttons: [
+              [
+                {
+                  text: "🎫 เปิดบัตรเช็คชื่อ / คอร์สของฉัน",
+                  url: `${appUrl}/courses/${sess.course_id}`,
+                },
+              ],
+            ],
+          });
+
+          if (res.success) sentCount++;
+          else if (res.error) errors.push(res.error);
+        }
+      }
+    }
+
+    return {
+      success: true,
+      sentCount,
+      errors: errors.slice(0, 5),
+    };
+  });
+

@@ -4,6 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const member = z.object({
   email: z.string().email(),
+  employee_id: z.string().optional(),
   password: z.string().min(6),
   full_name: z.string().min(1).max(200),
   division: z.string().max(100),
@@ -19,11 +20,17 @@ async function createOne(adminId: string, data: Member) {
     email: data.email,
     password: data.password,
     email_confirm: true,
-    user_metadata: { full_name: data.full_name, division: data.division, department: data.department, position: data.position },
+    user_metadata: {
+      full_name: data.full_name,
+      division: data.division,
+      department: data.department,
+      position: data.position,
+      employee_id: data.employee_id,
+    },
   });
   if (error) throw new Error(error.message);
   const id = created.user.id;
-  await supabaseAdmin.from("profiles").update({ approved: true }).eq("id", id);
+  await supabaseAdmin.from("profiles").update({ approved: true, ...(data.employee_id ? { employee_id: data.employee_id } : {}) }).eq("id", id);
   if (data.role !== "learner") await supabaseAdmin.from("user_roles").insert({ user_id: id, role: data.role });
   await supabaseAdmin.from("member_audit_log").update({ actor_id: adminId, action: "created_by_admin" }).eq("target_id", id).eq("action", "created");
   return id;
@@ -57,4 +64,32 @@ export const importMembers = createServerFn({ method: "POST" })
       }
     }
     return { results };
+  });
+
+export const resetUserPassword = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((d) =>
+    z
+      .object({
+        userId: z.string().uuid(),
+        newPassword: z.string().min(6, "รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร"),
+      })
+      .parse(d)
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(data.userId, {
+      password: data.newPassword,
+    });
+    if (error) throw new Error(error.message);
+
+    await supabaseAdmin.from("member_audit_log").insert({
+      actor_id: context.userId,
+      target_id: data.userId,
+      action: "password_reset_by_admin",
+      metadata: { reset_at: new Date().toISOString() },
+    });
+
+    return { success: true };
   });

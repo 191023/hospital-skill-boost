@@ -1,14 +1,35 @@
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { importMembers } from "@/lib/admin.functions";
 import { orgChart } from "@/lib/org";
+import { parseAuthIdentifier } from "@/lib/auth-identifier";
 
-type Row = { line: number; full_name: string; email: string; division: string; department: string; position: string; role: "learner" | "instructor" | "admin"; password: string; errors: string[] };
+type Row = {
+  line: number;
+  full_name: string;
+  email: string;
+  employee_id?: string;
+  display_id: string;
+  division: string;
+  department: string;
+  position: string;
+  role: "learner" | "instructor" | "admin";
+  password: string;
+  errors: string[];
+};
 
-const roleMap: Record<string, Row["role"]> = { "": "learner", learner: "learner", "ผู้เรียน": "learner", instructor: "instructor", "วิทยากร": "instructor", admin: "admin", "ผู้ดูแลระบบ": "admin" };
-const HEAD = ["ชื่อ-นามสกุล", "อีเมล", "ฝ่าย", "แผนก", "ตำแหน่ง", "บทบาท", "รหัสผ่าน"];
+const roleMap: Record<string, Row["role"]> = {
+  "": "learner",
+  learner: "learner",
+  ผู้เรียน: "learner",
+  instructor: "instructor",
+  วิทยากร: "instructor",
+  admin: "admin",
+  ผู้ดูแลระบบ: "admin",
+};
+
+const HEAD = ["ชื่อ-นามสกุล", "รหัสพนักงาน หรือ อีเมล", "ฝ่าย", "แผนก", "ตำแหน่ง", "บทบาท", "รหัสผ่าน"];
 
 export function ImportMembers({ existingEmails, onDone }: { existingEmails: string[]; onDone: () => void }) {
   const run = useServerFn(importMembers);
@@ -18,35 +39,73 @@ export function ImportMembers({ existingEmails, onDone }: { existingEmails: stri
   const [result, setResult] = useState<{ email: string; ok: boolean; error?: string }[] | null>(null);
 
   function template() {
-    const csv = "\uFEFF" + HEAD.join(",") + "\nสมชาย ใจดี,somchai@example.com,ฝ่ายการพยาบาล,ICU,พยาบาลวิชาชีพ,ผู้เรียน,\n";
+    const csv =
+      "\uFEFF" +
+      HEAD.join(",") +
+      "\n" +
+      "สมชาย ใจดี,somchai@example.com,ฝ่ายการพยาบาล,ICU,พยาบาลวิชาชีพ,ผู้เรียน,\n" +
+      "สมศรี รักบริการ,660142,ฝ่ายบริหารทั่วไป,งานบริการทั่วไป,พนักงานบริการทั่วไป,ผู้เรียน,OBH123456\n" +
+      "สมศักดิ์ ปลอดภัย,0812345678,ฝ่ายบริหารทั่วไป,งานรักษาความปลอดภัย,เจ้าหน้าที่ รปภ.,ผู้เรียน,OBH123456\n";
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-    a.download = "member-template.csv"; a.click();
+    a.download = "member-template.csv";
+    a.click();
   }
 
   async function load(file: File) {
     setResult(null);
+    const XLSX = await import("xlsx");
     const wb = XLSX.read(await file.arrayBuffer(), { type: "array", codepage: 65001 });
     const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets[wb.SheetNames[0]!]!, { defval: "" });
     const existing = new Set(existingEmails.map((e) => e.toLowerCase()));
     const seen = new Map<string, number>();
+
     const parsed: Row[] = raw.map((r, i) => {
-      const g = (k: string) => String(r[k] ?? "").trim();
+      const g = (k: string) => String(r[k] ?? r[k.toLowerCase()] ?? "").trim();
+      const rawId =
+        g("รหัสพนักงาน หรือ อีเมล") ||
+        g("อีเมล หรือ รหัสพนักงาน") ||
+        g("รหัสพนักงาน") ||
+        g("อีเมล") ||
+        g("email");
+      const parsedId = parseAuthIdentifier(rawId);
+
       const row: Row = {
-        line: i + 2, full_name: g("ชื่อ-นามสกุล"), email: g("อีเมล").toLowerCase(), division: g("ฝ่าย"), department: g("แผนก"),
-        position: g("ตำแหน่ง"), role: roleMap[g("บทบาท").toLowerCase()] ?? ("?" as Row["role"]), password: g("รหัสผ่าน"), errors: [],
+        line: i + 2,
+        full_name: g("ชื่อ-นามสกุล") || g("ชื่อ"),
+        email: parsedId.authEmail,
+        employee_id: parsedId.employeeId,
+        display_id: parsedId.displayIdentifier,
+        division: g("ฝ่าย"),
+        department: g("แผนก"),
+        position: g("ตำแหน่ง"),
+        role: roleMap[g("บทบาท").toLowerCase()] ?? ("?" as Row["role"]),
+        password: g("รหัสผ่าน"),
+        errors: [],
       };
+
       if (!row.full_name) row.errors.push("ไม่มีชื่อ");
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.email)) row.errors.push("อีเมลไม่ถูกต้อง");
-      else if (existing.has(row.email)) row.errors.push("อีเมลซ้ำกับสมาชิกเดิม");
-      else if (seen.has(row.email)) row.errors.push(`อีเมลซ้ำกับแถว ${seen.get(row.email)}`);
-      else seen.set(row.email, row.line);
+      if (!rawId) {
+        row.errors.push("ไม่มีรหัสพนักงานหรืออีเมล");
+      } else if (!parsedId.authEmail) {
+        row.errors.push("รหัสพนักงานหรืออีเมลไม่ถูกต้อง");
+      } else if (existing.has(parsedId.authEmail)) {
+        row.errors.push("รหัสพนักงาน/อีเมลซ้ำกับสมาชิกเดิม");
+      } else if (seen.has(parsedId.authEmail)) {
+        row.errors.push(`ซ้ำกับแถว ${seen.get(parsedId.authEmail)}`);
+      } else {
+        seen.set(parsedId.authEmail, row.line);
+      }
+
       if (row.division && !orgChart[row.division]) row.errors.push("ไม่พบฝ่าย");
-      else if (row.department && !(orgChart[row.division] ?? []).includes(row.department)) row.errors.push("แผนกไม่อยู่ในฝ่าย");
+      else if (row.department && !(orgChart[row.division] ?? []).includes(row.department)) {
+        row.errors.push("แผนกไม่อยู่ในฝ่าย");
+      }
       if ((row.role as string) === "?") row.errors.push("บทบาทไม่ถูกต้อง");
       if (row.password && row.password.length < 6) row.errors.push("รหัสผ่านสั้นกว่า 6 ตัว");
       return row;
     });
+
     setRows(parsed);
   }
 
@@ -55,51 +114,112 @@ export function ImportMembers({ existingEmails, onDone }: { existingEmails: stri
   const needPw = valid.some((r) => !r.password);
 
   async function save() {
-    if (needPw && defaultPw.length < 6) { toast.error("กรุณาตั้งรหัสผ่านเริ่มต้น (อย่างน้อย 6 ตัว) สำหรับแถวที่ไม่ได้ระบุ"); return; }
+    if (needPw && defaultPw.length < 6) {
+      toast.error("กรุณาตั้งรหัสผ่านเริ่มต้น (อย่างน้อย 6 ตัว) สำหรับแถวที่ไม่ได้ระบุ");
+      return;
+    }
     setBusy(true);
     try {
-      const { results } = await run({ data: { rows: valid.map(({ line: _l, errors: _e, ...r }) => ({ ...r, password: r.password || defaultPw })) } });
+      const { results } = await run({
+        data: {
+          rows: valid.map(({ line: _l, errors: _e, display_id: _d, ...r }) => ({
+            ...r,
+            password: r.password || defaultPw,
+          })),
+        },
+      });
       setResult(results);
       const ok = results.filter((r) => r.ok).length;
       toast.success(`นำเข้าสำเร็จ ${ok} คน`);
       setRows([]);
       onDone();
-    } catch (e) { toast.error((e as Error).message); } finally { setBusy(false); }
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
     <div className="glass mb-6 rounded-3xl p-5">
       <div className="flex flex-wrap items-center gap-3">
         <h3 className="font-bold">นำเข้าสมาชิกจากไฟล์ CSV / Excel</h3>
-        <button onClick={template} className="text-sm text-primary underline">ดาวน์โหลดไฟล์ตัวอย่าง</button>
-        <input type="file" accept=".csv,.xlsx" onChange={(e) => e.target.files?.[0] && load(e.target.files[0])} className="text-sm" />
+        <button onClick={template} className="text-sm text-primary underline cursor-pointer">
+          ดาวน์โหลดไฟล์ตัวอย่าง
+        </button>
+        <input
+          type="file"
+          accept=".csv,.xlsx"
+          onChange={(e) => e.target.files?.[0] && load(e.target.files[0])}
+          className="text-sm"
+        />
       </div>
-      <p className="mt-1 text-xs text-muted-foreground">คอลัมน์: {HEAD.join(", ")} — ระบบจะตรวจอีเมลซ้ำและข้อมูลผิดพลาดก่อนบันทึก</p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        รองรับทั้ง <b>อีเมล</b> และ <b>รหัสพนักงาน / เบอร์โทร</b> (สำหรับผู้ที่ไม่มีอีเมล) — คอลัมน์: {HEAD.join(", ")}
+      </p>
       {rows.length > 0 && (
         <>
           <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
-            <span className="rounded-full bg-mint/15 px-3 py-1 font-semibold text-mint">พร้อมนำเข้า {valid.length}</span>
-            <span className="rounded-full bg-coral/15 px-3 py-1 font-semibold text-coral">ผิดพลาด {invalid} (จะไม่ถูกบันทึก)</span>
-            {needPw && <input className="rounded-xl border bg-card px-3 py-1.5 text-sm" placeholder="รหัสผ่านเริ่มต้นสำหรับแถวที่ว่าง" value={defaultPw} onChange={(e) => setDefaultPw(e.target.value)} />}
-            <button disabled={busy || !valid.length} onClick={save} className="ml-auto rounded-xl bg-primary px-4 py-2 font-semibold text-primary-foreground disabled:opacity-60">{busy ? "กำลังนำเข้า..." : `บันทึก ${valid.length} คน`}</button>
+            <span className="rounded-full bg-mint/15 px-3 py-1 font-semibold text-mint">
+              พร้อมนำเข้า {valid.length}
+            </span>
+            <span className="rounded-full bg-coral/15 px-3 py-1 font-semibold text-coral">
+              ผิดพลาด {invalid} (จะไม่ถูกบันทึก)
+            </span>
+            {needPw && (
+              <input
+                className="rounded-xl border bg-card px-3 py-1.5 text-sm"
+                placeholder="รหัสผ่านเริ่มต้นสำหรับแถวที่ว่าง (อย่างน้อย 6 ตัว)"
+                value={defaultPw}
+                onChange={(e) => setDefaultPw(e.target.value)}
+              />
+            )}
+            <button
+              disabled={busy || !valid.length}
+              onClick={save}
+              className="ml-auto rounded-xl bg-primary px-4 py-2 font-semibold text-primary-foreground disabled:opacity-60 cursor-pointer"
+            >
+              {busy ? "กำลังนำเข้า..." : `บันทึก ${valid.length} คน`}
+            </button>
           </div>
           <div className="mt-3 max-h-80 overflow-auto rounded-2xl border">
             <table className="w-full text-xs">
-              <thead className="sticky top-0 bg-mist text-left"><tr><th className="p-2">แถว</th><th>ชื่อ</th><th>อีเมล</th><th>ฝ่าย / แผนก</th><th>บทบาท</th><th>ผลตรวจ</th></tr></thead>
+              <thead className="sticky top-0 bg-mist text-left">
+                <tr>
+                  <th className="p-2">แถว</th>
+                  <th>ชื่อ</th>
+                  <th>รหัสพนักงาน / อีเมล</th>
+                  <th>ฝ่าย / แผนก</th>
+                  <th>บทบาท</th>
+                  <th>ผลตรวจ</th>
+                </tr>
+              </thead>
               <tbody>
-                {[...rows].sort((a, b) => b.errors.length - a.errors.length).map((r) => (
-                  <tr key={r.line} className={`border-t ${r.errors.length ? "bg-coral/10" : ""}`}>
-                    <td className="p-2">{r.line}</td><td>{r.full_name}</td><td>{r.email}</td><td>{r.division} / {r.department}</td><td>{r.role}</td>
-                    <td className={r.errors.length ? "font-semibold text-coral" : "text-mint"}>{r.errors.length ? r.errors.join(", ") : "✓ ผ่าน"}</td>
-                  </tr>
-                ))}
+                {[...rows]
+                  .sort((a, b) => b.errors.length - a.errors.length)
+                  .map((r) => (
+                    <tr key={r.line} className={`border-t ${r.errors.length ? "bg-coral/10" : ""}`}>
+                      <td className="p-2">{r.line}</td>
+                      <td>{r.full_name}</td>
+                      <td className="font-mono">{r.display_id}</td>
+                      <td>
+                        {r.division} / {r.department}
+                      </td>
+                      <td>{r.role}</td>
+                      <td className={r.errors.length ? "font-semibold text-coral" : "text-mint"}>
+                        {r.errors.length ? r.errors.join(", ") : "✓ ผ่าน"}
+                      </td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>
         </>
       )}
       {result && result.some((r) => !r.ok) && (
-        <div className="mt-3 text-xs text-coral">บันทึกไม่สำเร็จ: {result.filter((r) => !r.ok).map((r) => `${r.email} (${r.error})`).join(", ")}</div>
+        <div className="mt-3 text-xs text-coral">
+          บันทึกไม่สำเร็จ: {result.filter((r) => !r.ok).map((r) => `${r.email} (${r.error})`).join(", ")}
+        </div>
       )}
     </div>
   );
