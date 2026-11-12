@@ -203,3 +203,103 @@ ${data.content.slice(0, 30000)}
       throw new Error("AI ส่งข้อมูลรูปแบบไม่ถูกต้อง กรุณากดลองสร้างใหม่อีกครั้ง");
     }
   });
+
+export const generateCourseLessons = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((d) =>
+    z
+      .object({
+        courseId: z.string().uuid(),
+        content: z.string().min(20, "กรุณากรอกเนื้อหาอย่างน้อย 20 ตัวอักษร"),
+        count: z.number().min(0).max(20).default(0), // 0 = Auto natural chunking
+        topic: z.string().optional(),
+      })
+      .parse(d)
+  )
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase;
+    const { data: canEdit } = await sb.rpc("can_edit_course", { _course: data.courseId });
+    if (!canEdit) throw new Error("ไม่มีสิทธิ์จัดการหลักสูตรนี้");
+
+    const { data: course } = await sb
+      .from("courses")
+      .select("title,category")
+      .eq("id", data.courseId)
+      .maybeSingle();
+
+    const chunkingInstruction =
+      data.count > 0
+        ? `แบ่งเนื้อหาออกเป็นประมาณ ${data.count} บทเรียนที่มีลำดับการเรียนรู้ต่อเนื่องและเข้าใจง่าย`
+        : `วิเคราะห์โครงสร้างเนื้อหา หัวข้อย่อย หรือสไลด์ในเอกสาร แล้วแบ่งออกเป็นบทเรียนตามธรรมชาติของเนื้อหา (โดยทั่วไปประมาณ 3–8 บทเรียนต่อหลักสูตร แต่ละบทมีเนื้อหาพอเหมาะ ใช้เวลาเรียน 3–8 นาที ไม่สั้นหรือยาวจนเกินไป)`;
+
+    const systemPrompt = `คุณเป็นผู้เชี่ยวชาญด้านการออกแบบหลักสูตรและการเรียนรู้ทางการแพทย์ (Hospital Instructional Designer) สำหรับโรงพยาบาลมาตรฐานระดับสากล (HA / JCI)
+หน้าที่ของคุณคือแปลงเนื้อหาหรือเอกสารอ้างอิงที่ได้รับ ให้กลายเป็น "ชุดบทเรียน e-Learning (Lessons)" คุณภาพสูง
+
+หลักเกณฑ์การออกแบบบทเรียน:
+1. การแบ่งบท (Chunking): ${chunkingInstruction}
+2. ระดับภาษา (Standard Hospital Tone): ใช้โทนภาษามาตรฐานโรงพยาบาลที่สุภาพ ชัดเจน เข้าใจง่าย ครอบคลุมบุคลากรทุกสายงาน (ทั้งสายวิชาชีพแพทย์ พยาบาล เภสัชกร และสายสนับสนุน เช่น บริการทั่วไป ช่าง รปภ.) ถ่ายทอดขั้นตอนการปฏิบัติ กฎระเบียบความปลอดภัย และข้อควรระวังตามมาตรฐานโรงพยาบาลให้ทุกคนสามารถนำไปปฏิบัติจริงได้อย่างถูกต้อง
+3. โครงสร้างของแต่ละบทเรียน:
+   - ชื่อบทเรียน (title): ระบุ 'บทที่ X: [ชื่อหัวข้อที่น่าสนใจและตรงประเด็น]'
+   - ประเภท (kind): กำหนดเป็น 'text'
+   - เวลาโดยประมาณ (estimated_minutes): ตัวเลขจำนวนนาทีที่ใช้อ่าน (เช่น 3, 5, 7)
+   - สรุปสั้น (summary): สรุปใจความสั้น 1 ประโยคของบทนี้
+   - เนื้อหาบทเรียน (body): เขียนด้วยฟอร์แมต Markdown ที่จัดระเบียบอย่างสวยงาม ประกอบด้วย:
+     * ### วัตถุประสงค์การเรียนรู้ (Learning Objectives) แบบ bullet point
+     * ### เนื้อหาหลัก (Core Content) มีหัวข้อย่อย, ตัวหนาเน้นคำสำคัญ, รายการลำดับขั้นตอน หรือตารางสรุป
+     * กล่องแจ้งเตือนเน้นย้ำตามรูปแบบ GitHub Alerts เช่น > [!IMPORTANT] หรือ > [!WARNING] สำหรับข้อควรระวังวิกฤติตามมาตรฐานความปลอดภัย รพ.
+     * ### สรุปใจความสำคัญ (Key Takeaways) 2-4 ข้อท้ายบท
+4. ตอบกลับเป็น JSON Array ตามรูปแบบนี้เท่านั้น ห้ามใส่ข้อความเกริ่นนำหรือปิดท้าย:
+[
+  {
+    "title": "บทที่ 1: ...",
+    "kind": "text",
+    "estimated_minutes": 5,
+    "summary": "สรุปสั้น 1 ประโยคของบทนี้",
+    "body": "เนื้อหาบทเรียนในรูปแบบ Markdown..."
+  }
+]`;
+
+    const userPrompt = `หลักสูตร: ${course?.title || "-"}
+หัวข้อเฉพาะ: ${data.topic || course?.title || "-"}
+แนวทางการแบ่งบท: ${data.count > 0 ? `กำหนดตายตัว ${data.count} บท` : "วิเคราะห์แบ่งตามหัวข้อธรรมชาติของเอกสาร"}
+ระดับภาษา: โทนภาษามาตรฐานโรงพยาบาล เหมาะกับบุคลากรทุกสายงาน (HA/JCI)
+
+เนื้อหาเอกสารอ้างอิง:
+${data.content.slice(0, 35000)}
+
+สร้างชุดบทเรียนตามรูปแบบ JSON ที่กำหนดเท่านั้น:`;
+
+    const rawResponse = await gatewayText(systemPrompt, userPrompt, undefined, sb);
+
+    // Extract JSON block from response
+    let jsonStr = rawResponse.trim();
+    if (jsonStr.startsWith("```json")) {
+      jsonStr = jsonStr.replace(/^```json/, "").replace(/```$/, "").trim();
+    } else if (jsonStr.startsWith("```")) {
+      jsonStr = jsonStr.replace(/^```/, "").replace(/```$/, "").trim();
+    }
+
+    const startIdx = jsonStr.indexOf("[");
+    const endIdx = jsonStr.lastIndexOf("]");
+    if (startIdx !== -1 && endIdx !== -1) {
+      jsonStr = jsonStr.substring(startIdx, endIdx + 1);
+    }
+
+    try {
+      const parsed = JSON.parse(jsonStr);
+      if (!Array.isArray(parsed)) throw new Error("Invalid output format: not an array");
+
+      const validated = parsed.map((item, idx) => ({
+        title: String(item.title || `บทที่ ${idx + 1}`),
+        kind: (item.kind === "video" || item.kind === "pdf" ? item.kind : "text") as "text" | "video" | "pdf",
+        estimated_minutes: Number(item.estimated_minutes) || 5,
+        summary: String(item.summary || ""),
+        body: String(item.body || ""),
+      }));
+
+      return { lessons: validated };
+    } catch (err) {
+      console.error("Failed to parse AI lessons response:", rawResponse, err);
+      throw new Error("AI ส่งข้อมูลรูปแบบไม่ถูกต้อง กรุณากดลองสร้างใหม่อีกครั้ง");
+    }
+  });

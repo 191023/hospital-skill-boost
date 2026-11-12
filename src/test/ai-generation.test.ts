@@ -50,4 +50,44 @@ describe("AI Response Parser logic", () => {
     expect(parsed).toHaveLength(1);
     expect(parsed[0].correct_answer).toBe(0);
   });
+
+  it("parses and normalizes AI generated lessons array", () => {
+    const rawLessons = `\`\`\`json
+[
+  {
+    "title": "บทที่ 1: การจำแนกประเภทสารเคมีอันตราย",
+    "kind": "text",
+    "estimated_minutes": 5,
+    "summary": "ทำความเข้าใจระบบ GHS และป้ายเตือนความปลอดภัย",
+    "body": "### วัตถุประสงค์\\n- อ่านสัญลักษณ์ความปลอดภัยได้\\n\\n### เนื้อหา\\nสารเคมีในโรงพยาบาลแบ่งออกเป็น...\\n\\n> [!IMPORTANT]\\n> ห้ามผสมสารทำความสะอาดโดยเด็ดขาด"
+  },
+  {
+    "title": "บทที่ 2: ขั้นตอนเมื่อเกิดสารเคมีหกรั่วไหล",
+    "summary": "คู่มือปฏิบัติการ Spill Kit",
+    "body": "### ขั้นตอนปฏิบัติ\\n1. กั้นพื้นที่\\n2. สวมอุปกรณ์ PPE"
+  }
+]
+\`\`\``;
+
+    const parsed = cleanAndParseAiJson(rawLessons);
+    expect(parsed).toHaveLength(2);
+
+    const normalized = parsed.map((item: any, idx: number) => ({
+      title: String(item.title || `บทที่ ${idx + 1}`),
+      kind: (item.kind === "video" || item.kind === "pdf" ? item.kind : "text") as "text" | "video" | "pdf",
+      estimated_minutes: Number(item.estimated_minutes) || 5,
+      summary: String(item.summary || ""),
+      body: String(item.body || ""),
+    }));
+
+    expect(normalized[0].title).toBe("บทที่ 1: การจำแนกประเภทสารเคมีอันตราย");
+    expect(normalized[0].kind).toBe("text");
+    expect(normalized[0].estimated_minutes).toBe(5);
+    expect(normalized[0].body).toContain("> [!IMPORTANT]");
+
+    // Fallback defaults test for item 2
+    expect(normalized[1].title).toBe("บทที่ 2: ขั้นตอนเมื่อเกิดสารเคมีหกรั่วไหล");
+    expect(normalized[1].kind).toBe("text");
+    expect(normalized[1].estimated_minutes).toBe(5);
+  });
 });

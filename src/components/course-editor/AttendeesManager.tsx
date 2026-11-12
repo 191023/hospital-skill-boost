@@ -21,7 +21,6 @@ import {
   Monitor,
 } from "lucide-react";
 import { ClassroomHubModal } from "./ClassroomHubModal";
-import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 import { thaiDate } from "@/lib/data";
 import { Button } from "@/components/ui/button";
@@ -450,7 +449,8 @@ export function AttendeesManager({ courseId }: { courseId: string }) {
   }
 
   // Export Attendees to Excel
-  function exportAttendeesExcel() {
+  async function exportAttendeesExcel() {
+    const XLSX = await import("xlsx");
     const wb = XLSX.utils.book_new();
     const rows = filteredRows.map((r, i) => [
       i + 1,
