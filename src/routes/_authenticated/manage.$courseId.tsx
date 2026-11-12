@@ -38,6 +38,8 @@ function Editor() {
 
 
   const [classroomHubOpen, setClassroomHubOpen] = useState(false);
+  const [broadcasting, setBroadcasting] = useState(false);
+  const notifyCourseFn = useServerFn(notifyCoursePublished);
   const [tab, setTab] = useState<Tab>(() => {
     if (typeof window !== "undefined") {
       const q = new URLSearchParams(window.location.search).get("tab") as Tab;
@@ -57,6 +59,10 @@ function Editor() {
 
 
   async function handleBroadcastTelegram() {
+    if (!course.published) {
+      toast.error("กรุณาเผยแพร่หลักสูตรก่อนส่งประกาศ Telegram");
+      return;
+    }
     if (!confirm(`ต้องการส่งข้อความแจ้งเตือนหลักสูตร "${course.title}" ไปยังกลุ่ม Telegram ที่ตั้งค่าไว้หรือไม่?`)) return;
     setBroadcasting(true);
     try {
