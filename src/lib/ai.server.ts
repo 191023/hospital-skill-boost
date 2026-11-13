@@ -85,15 +85,20 @@ export async function resolveAiConfig(sbClient?: any): Promise<AiConfig> {
 function sanitizeGeminiModel(m?: string): string {
   if (!m) return "gemini-2.5-flash";
   const trimmed = m.trim().toLowerCase();
-  // Map non-existent or legacy aliases to the official Google Gemini 2.5 Flash model
+  if (trimmed === "gemini-1.5-pro" || trimmed === "gemini-2.0-pro") {
+    return "gemini-2.5-pro";
+  }
+  // Map non-existent or retired 1.5 aliases to the official Google Gemini 2.5 Flash model
   if (
-    trimmed === "gemini-flash-latest" ||
     trimmed === "gemini-flash" ||
+    trimmed === "gemini-1.5-flash" ||
     trimmed === "gemini-3.5-flash" ||
-    trimmed === "gemini-3.5-flash-lite" ||
     trimmed === "gemini-3.8-flash"
   ) {
     return "gemini-2.5-flash";
+  }
+  if (trimmed === "gemini-3.5-flash-lite") {
+    return "gemini-2.5-flash-lite";
   }
   return trimmed.startsWith("gemini-") ? trimmed : "gemini-2.5-flash";
 }
@@ -146,7 +151,7 @@ export async function gatewayText(
 
       // Auto-fallback retry with official Google Gemini models on 503 overload or 404
       if (isUnavailableOrNotFound) {
-        const fallbacks = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"].filter((fb) => fb !== targetModel);
+        const fallbacks = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-flash-latest"].filter((fb) => fb !== targetModel);
         for (const fbModel of fallbacks) {
           try {
             const fallbackResult = await generateText({

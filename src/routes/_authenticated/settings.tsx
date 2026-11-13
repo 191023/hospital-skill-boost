@@ -242,11 +242,14 @@ function SettingsPage() {
         const rawModel = ac["model"];
         const validModel =
           rawModel === "gemini-3.5-flash" ||
-          rawModel === "gemini-3.5-flash-lite" ||
           rawModel === "gemini-3.8-flash" ||
-          rawModel === "gemini-flash-latest" ||
+          rawModel === "gemini-1.5-flash" ||
           !rawModel
             ? "gemini-2.5-flash"
+            : rawModel === "gemini-3.5-flash-lite"
+            ? "gemini-2.5-flash-lite"
+            : rawModel === "gemini-1.5-pro"
+            ? "gemini-2.5-pro"
             : rawModel;
         setAiForm((prev) => ({
           ...prev,
@@ -1183,16 +1186,22 @@ function SettingsPage() {
                 {aiForm.provider === "gemini" && (
                   <>
                     <option value="gemini-2.5-flash">
-                      gemini-2.5-flash (แนะนำ: เสถียรสูง รวดเร็ว ฟรี 100%)
+                      gemini-2.5-flash (แนะนำ: ฉลาดและสมดุลสูงสุด รองรับภาษาไทยดีเยี่ยม)
+                    </option>
+                    <option value="gemini-2.5-flash-lite">
+                      gemini-2.5-flash-lite (เร็วพิเศษ & โควต้าฟรีสูงสุด 30 ครั้ง/นาที)
+                    </option>
+                    <option value="gemini-2.5-pro">
+                      gemini-2.5-pro (รุ่นเรือธง วิเคราะห์คู่มือแพทย์ CPG / เคสซับซ้อนเชิงลึก)
                     </option>
                     <option value="gemini-2.0-flash">
-                      gemini-2.0-flash (รุ่นมาตรฐาน เสถียรสูง)
+                      gemini-2.0-flash (รุ่นมาตรฐาน เสถียรสูง โควต้า 1,500 ครั้ง/วัน)
                     </option>
-                    <option value="gemini-1.5-flash">
-                      gemini-1.5-flash (รุ่นคลาสสิก รองรับกว้าง)
+                    <option value="gemini-2.0-flash-lite">
+                      gemini-2.0-flash-lite (รุ่นเบาความเร็วสูง ประหยัดโควต้า)
                     </option>
-                    <option value="gemini-1.5-pro">
-                      gemini-1.5-pro (วิเคราะห์เนื้อหาซับซ้อนเชิงลึก)
+                    <option value="gemini-flash-latest">
+                      gemini-flash-latest (ใช้รุ่น Flash ล่าสุดของ Google อัตโนมัติ)
                     </option>
                   </>
                 )}
