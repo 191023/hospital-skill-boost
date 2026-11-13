@@ -1160,6 +1160,16 @@ function SettingsPage() {
               <p className="mt-1 text-[11px] text-muted-foreground">
                 * คีย์จะถูกจัดเก็บอย่างปลอดภัยในระบบและเรียกใช้งานเฉพาะบนเซิร์ฟเวอร์เท่านั้น
               </p>
+              {aiForm.api_key.trim().startsWith("AIzaSyDEIGudSbY2") && (
+                <div className="mt-2.5 rounded-xl border border-destructive/40 bg-destructive/10 p-3.5 text-xs text-destructive leading-relaxed">
+                  <div className="font-bold mb-1">
+                    ⚠️ คีย์ชุดเดิมนี้ (AIzaSyDEIG...IdbA) ถูก Google สั่งระงับถาวรแล้ว (Reported as leaked)
+                  </div>
+                  <div>
+                    คีย์เดิมไม่สามารถใช้งานได้ไม่ว่าจะเลือกโมเดลใด — <strong>วิธีแก้ไข:</strong> กรุณากดปุ่มสีน้ำเงิน <strong>"รับ API Key ฟรีที่ Google AI Studio"</strong> ด้านบน แล้วกด <strong>Create API key</strong> เพื่อคัดลอกคีย์ชุดใหม่มาวางทับในช่องนี้ แล้วกดปุ่ม <strong>"บันทึกการตั้งค่า AI"</strong> ครับ
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Model Selector */}

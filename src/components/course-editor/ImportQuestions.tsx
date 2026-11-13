@@ -1,5 +1,4 @@
 import { useState } from "react";
-import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import {
   Download,
@@ -303,7 +302,8 @@ export function ImportQuestions({
   };
 
   // 1. Download Template as Excel (.xlsx)
-  const downloadExcelTemplate = () => {
+  const downloadExcelTemplate = async () => {
+    const XLSX = await import("xlsx");
     const wsData = [TEMPLATE_HEADERS, ...SAMPLE_ROWS];
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     ws["!cols"] = [
@@ -377,6 +377,7 @@ export function ImportQuestions({
   const handleFileUpload = async (file: File) => {
     try {
       const buffer = await file.arrayBuffer();
+      const XLSX = await import("xlsx");
       const wb = XLSX.read(buffer, { type: "array", codepage: 65001 });
       const firstSheetName = wb.SheetNames[0];
       if (!firstSheetName) {
