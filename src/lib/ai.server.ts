@@ -38,7 +38,7 @@ export async function resolveAiConfig(sbClient?: any): Promise<AiConfig> {
       return {
         provider: (val["provider"] as AiProvider) || "gemini",
         apiKey: val["api_key"].trim(),
-        model: val["model"] || (val["provider"] === "openai" ? "gpt-4o-mini" : "gemini-1.5-flash"),
+        model: val["model"] || (val["provider"] === "openai" ? "gpt-4o-mini" : "gemini-2.5-flash"),
         enabled: val["enabled"] ?? true,
       };
     }
@@ -52,7 +52,7 @@ export async function resolveAiConfig(sbClient?: any): Promise<AiConfig> {
     return {
       provider: "gemini",
       apiKey: geminiEnv,
-      model: process.env["GEMINI_MODEL"]?.trim() || "gemini-3.5-flash",
+      model: process.env["GEMINI_MODEL"]?.trim() || "gemini-2.5-flash",
       enabled: true,
     };
   }
@@ -83,24 +83,19 @@ export async function resolveAiConfig(sbClient?: any): Promise<AiConfig> {
 }
 
 function sanitizeGeminiModel(m?: string): string {
-  if (!m) return "gemini-3.5-flash";
+  if (!m) return "gemini-2.5-flash";
   const trimmed = m.trim().toLowerCase();
-  // Models that are deprecated or frequently experience 503 high-demand overload
+  // Map non-existent or legacy aliases to the official Google Gemini 2.5 Flash model
   if (
     trimmed === "gemini-flash-latest" ||
     trimmed === "gemini-flash" ||
-    trimmed === "gemini-3.8-flash" ||
-    trimmed === "gemini-1.5-flash" ||
-    trimmed === "gemini-2.0-flash" ||
-    trimmed === "gemini-2.5-flash" ||
-    trimmed === "gemini-2.5-flash-lite" ||
-    trimmed === "gemini-1.5-pro" ||
-    trimmed === "gemini-2.0-pro" ||
-    trimmed === "gemini-2.5-pro"
+    trimmed === "gemini-3.5-flash" ||
+    trimmed === "gemini-3.5-flash-lite" ||
+    trimmed === "gemini-3.8-flash"
   ) {
-    return "gemini-3.5-flash";
+    return "gemini-2.5-flash";
   }
-  return trimmed.startsWith("gemini-") ? trimmed : "gemini-3.5-flash";
+  return trimmed.startsWith("gemini-") ? trimmed : "gemini-2.5-flash";
 }
 
 /**
@@ -117,7 +112,7 @@ export async function gatewayText(
     ? {
         provider: overrideConfig.provider || "gemini",
         apiKey: overrideConfig.apiKey,
-        model: overrideConfig.model || (overrideConfig.provider === "openai" ? "gpt-4o-mini" : "gemini-3.5-flash"),
+        model: overrideConfig.model || (overrideConfig.provider === "openai" ? "gpt-4o-mini" : "gemini-2.5-flash"),
       }
     : await resolveAiConfig(sbClient);
 
@@ -149,9 +144,9 @@ export async function gatewayText(
         errStr.includes("high demand") ||
         errStr.includes("not found");
 
-      // Auto-fallback retry with gemini-3.5-flash / gemini-3.5-flash-lite on 503 overload or 404
+      // Auto-fallback retry with official Google Gemini models on 503 overload or 404
       if (isUnavailableOrNotFound) {
-        const fallbacks = ["gemini-3.5-flash", "gemini-3.5-flash-lite"].filter((fb) => fb !== targetModel);
+        const fallbacks = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"].filter((fb) => fb !== targetModel);
         for (const fbModel of fallbacks) {
           try {
             const fallbackResult = await generateText({
@@ -168,6 +163,11 @@ export async function gatewayText(
       }
 
       const body = String(err?.responseBody || err?.message || "");
+      if (body.toLowerCase().includes("leaked")) {
+        throw new Error(
+          "Google ได้ระงับ API Key นี้แล้ว เนื่องจากตรวจพบว่าคีย์รั่วไหลสู่สาธารณะ (Leaked API Key) — กรุณาไปที่เมนู 'ศูนย์การตั้งค่าระบบ' -> แท็บ 'ระบบปัญญาประดิษฐ์' แล้วคลิกสร้าง API Key ชุดใหม่จาก Google AI Studio มาแทนที่ครับ"
+        );
+      }
       if (
         body.includes("Please pass a valid API key") ||
         body.includes("API_KEY_INVALID") ||
@@ -176,7 +176,7 @@ export async function gatewayText(
         throw new Error("Google Gemini API Key ไม่ถูกต้อง (กรุณาตรวจสอบว่าคัดลอกคีย์มาครบถ้วนและสร้างจาก Google AI Studio)");
       }
       if (err?.statusCode === 403 || err?.statusCode === 401) {
-        throw new Error("Google Gemini API Key ไม่มีสิทธิ์เข้าถึงโมเดลนี้ กรุณาตรวจสอบ API Key ใน Google AI Studio");
+        throw new Error("Google Gemini API Key ถูกระงับหรือไม่มีสิทธิ์ใช้งาน กรุณาสร้าง API Key ใหม่ใน Google AI Studio");
       }
       if (err?.statusCode === 404) {
         throw new Error(`ไม่พบโมเดล ${targetModel} ใน Google Gemini`);

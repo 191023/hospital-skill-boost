@@ -187,8 +187,8 @@ function SettingsPage() {
   // State: Tab 6 (AI Settings)
   const [aiForm, setAiForm] = useState({
     provider: "gemini" as "gemini" | "openai" | "lovable",
-    api_key: "AIzaSyDEIGudSbY2-g7mK_CDk-ik7wH7o49IdbA",
-    model: "gemini-3.5-flash",
+    api_key: "",
+    model: "gemini-2.5-flash",
     enabled: true,
   });
   const [testingAi, setTestingAi] = useState(false);
@@ -241,11 +241,12 @@ function SettingsPage() {
       if (ac && typeof ac === "object") {
         const rawModel = ac["model"];
         const validModel =
-          rawModel === "gemini-1.5-flash" ||
-          rawModel === "gemini-2.0-flash" ||
-          rawModel === "gemini-2.5-flash" ||
+          rawModel === "gemini-3.5-flash" ||
+          rawModel === "gemini-3.5-flash-lite" ||
+          rawModel === "gemini-3.8-flash" ||
+          rawModel === "gemini-flash-latest" ||
           !rawModel
-            ? "gemini-3.5-flash"
+            ? "gemini-2.5-flash"
             : rawModel;
         setAiForm((prev) => ({
           ...prev,
@@ -1171,17 +1172,17 @@ function SettingsPage() {
               >
                 {aiForm.provider === "gemini" && (
                   <>
-                    <option value="gemini-3.5-flash">
-                      gemini-3.5-flash (แนะนำ: เสถียรสูง รวดเร็ว ฟรี 100% ไม่ติดคิว)
+                    <option value="gemini-2.5-flash">
+                      gemini-2.5-flash (แนะนำ: เสถียรสูง รวดเร็ว ฟรี 100%)
                     </option>
-                    <option value="gemini-3.5-flash-lite">
-                      gemini-3.5-flash-lite (ประมวลผลเร็วพิเศษ ฟรี 100%)
+                    <option value="gemini-2.0-flash">
+                      gemini-2.0-flash (รุ่นมาตรฐาน เสถียรสูง)
                     </option>
-                    <option value="gemini-flash-latest">
-                      gemini-flash-latest (โมเดลล่าสุด)
+                    <option value="gemini-1.5-flash">
+                      gemini-1.5-flash (รุ่นคลาสสิก รองรับกว้าง)
                     </option>
-                    <option value="gemini-3.8-flash">
-                      gemini-3.8-flash (รุ่นทดสอบล่าสุด)
+                    <option value="gemini-1.5-pro">
+                      gemini-1.5-pro (วิเคราะห์เนื้อหาซับซ้อนเชิงลึก)
                     </option>
                   </>
                 )}
