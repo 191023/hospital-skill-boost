@@ -591,15 +591,13 @@ function QuestionMediaFields({
     if (!file) return;
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop() || "jpg";
-      const path = await uploadCourseFile(
-        `${courseId}/question-${Date.now()}.${ext}`,
-        file
-      );
+      const path = await uploadCourseFile(file, courseId);
       if (path) {
         onChange({ image_url: path, video_url: videoUrl });
         toast.success("อัปโหลดรูปภาพประกอบข้อสอบแล้ว");
       }
+    } catch (err: any) {
+      toast.error(`อัปโหลดรูปไม่สำเร็จ: ${err.message || String(err)}`);
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
