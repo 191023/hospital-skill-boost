@@ -1,8 +1,3 @@
-import * as XLSX from "xlsx";
-import mammoth from "mammoth";
-import JSZip from "jszip";
-import { extractText as extractPdfText } from "unpdf";
-
 export type ParsedDocumentResult = {
   text: string;
   filename: string;
@@ -45,6 +40,8 @@ export async function parseTrainingDocument(file: File): Promise<ParsedDocumentR
   // 1. Word Document (.docx)
   if (ext === "docx") {
     const arrayBuffer = await getFileArrayBuffer(file);
+    const mammothMod = await import("mammoth");
+    const mammoth = mammothMod.default || mammothMod;
     const result = await mammoth.extractRawText({ arrayBuffer });
     const text = result.value.trim();
     if (!text) {
@@ -62,6 +59,8 @@ export async function parseTrainingDocument(file: File): Promise<ParsedDocumentR
   // 2. PowerPoint Slides (.pptx)
   if (ext === "pptx") {
     const arrayBuffer = await getFileArrayBuffer(file);
+    const JSZipMod = await import("jszip");
+    const JSZip = JSZipMod.default || JSZipMod;
     const zip = await JSZip.loadAsync(arrayBuffer);
 
     // Locate slide XML files: ppt/slides/slide1.xml, slide2.xml ...
@@ -119,6 +118,7 @@ export async function parseTrainingDocument(file: File): Promise<ParsedDocumentR
   // 3. PDF Document (.pdf)
   if (ext === "pdf") {
     const arrayBuffer = await getFileArrayBuffer(file);
+    const { extractText: extractPdfText } = await import("unpdf");
     const pdfData = await extractPdfText(new Uint8Array(arrayBuffer));
     
     let combinedText = "";
@@ -154,6 +154,7 @@ export async function parseTrainingDocument(file: File): Promise<ParsedDocumentR
   // 4. Excel (.xlsx, .xls)
   if (ext === "xlsx" || ext === "xls") {
     const arrayBuffer = await getFileArrayBuffer(file);
+    const XLSX = await import("xlsx");
     const wb = XLSX.read(arrayBuffer, { type: "array" });
     let combined = "";
 
