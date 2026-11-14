@@ -332,6 +332,9 @@ function SettingsPage() {
       if (error) throw error;
       toast.success(`บันทึก${label}เรียบร้อย`);
       refetchSettings();
+      if (key === "hospital_profile") {
+        qc.invalidateQueries({ queryKey: ["hospital-profile-brand"] });
+      }
     } catch (err) {
       toast.error(`บันทึกไม่สำเร็จ: ${(err as Error).message}`);
     } finally {

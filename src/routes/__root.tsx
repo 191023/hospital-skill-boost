@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import {
   Outlet,
   Link,
@@ -11,6 +11,8 @@ import {
 import { useEffect, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { fileUrl } from "@/lib/auth";
+import obhLogo from "@/assets/obh-logo.png";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -79,7 +81,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap",
       },
       { rel: "stylesheet", href: appCss },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: "/favicon.png", type: "image/png" },
+      { rel: "shortcut icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "apple-touch-icon", href: "/favicon.png" },
     ],
   }),
   shellComponent: RootShell,
@@ -125,6 +129,45 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+function FaviconSync() {
+  const { data: profile } = useQuery({
+    queryKey: ["hospital-profile-brand"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("system_settings")
+        .select("value")
+        .eq("key", "hospital_profile")
+        .maybeSingle();
+      return (data?.value ?? null) as { logo_url?: string } | null;
+    },
+    staleTime: 1000 * 60 * 5,
+  });
+
+  useEffect(() => {
+    let active = true;
+    async function syncFavicon() {
+      let href = obhLogo || "/favicon.png";
+      if (profile?.logo_url) {
+        const resolved = await fileUrl(profile.logo_url);
+        if (resolved) href = resolved;
+      }
+      if (!active || typeof document === "undefined") return;
+      const icons = document.querySelectorAll<HTMLLinkElement>(
+        "link[rel='icon'], link[rel='shortcut icon'], link[rel='apple-touch-icon']"
+      );
+      icons.forEach((link) => {
+        link.href = href;
+      });
+    }
+    syncFavicon();
+    return () => {
+      active = false;
+    };
+  }, [profile?.logo_url]);
+
+  return null;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
@@ -160,6 +203,7 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <FaviconSync />
       <Outlet />
       <Toaster richColors position="top-center" />
     </QueryClientProvider>
