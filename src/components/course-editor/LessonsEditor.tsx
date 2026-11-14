@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { kindLabel, youtubeEmbed } from "@/lib/data";
+import { fileUrl, kindLabel, youtubeEmbed } from "@/lib/data";
 import { btn, inp, uploadCourseFile } from "./shared";
 import { ImportLessons } from "./ImportLessons";
 import { ImportQuestions } from "./ImportQuestions";
@@ -502,6 +502,193 @@ function LessonRow({ lesson, courseId }: { lesson: Lesson; courseId: string }) {
   );
 }
 
+function QuestionMediaPreview({
+  imageUrl,
+  videoUrl,
+}: {
+  imageUrl?: string | null;
+  videoUrl?: string | null;
+}) {
+  const { data: signedImg } = useQuery({
+    queryKey: ["question-img", imageUrl],
+    enabled: !!imageUrl,
+    queryFn: () => fileUrl(imageUrl),
+    staleTime: 1000 * 60 * 30,
+  });
+  const ytEmbed = youtubeEmbed(videoUrl);
+
+  if (!imageUrl && !videoUrl) return null;
+
+  return (
+    <div className="mt-2.5 grid gap-3 sm:grid-cols-2">
+      {imageUrl && (
+        <div className="overflow-hidden rounded-2xl border border-glass-border bg-card/60 p-2">
+          <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-primary">
+            <ImagePlus className="size-3.5" />
+            <span>รูปภาพประกอบโจทย์</span>
+          </div>
+          {signedImg ? (
+            <img
+              src={signedImg}
+              alt="รูปประกอบข้อสอบ"
+              className="max-h-44 w-full rounded-xl object-contain bg-background/60"
+            />
+          ) : (
+            <div className="flex h-28 items-center justify-center rounded-xl bg-muted/40 text-xs text-muted-foreground">
+              กำลังโหลดรูปภาพ...
+            </div>
+          )}
+        </div>
+      )}
+      {videoUrl && (
+        <div className="overflow-hidden rounded-2xl border border-glass-border bg-card/60 p-2">
+          <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-coral">
+            <Youtube className="size-3.5" />
+            <span>คลิปวิดีโอประกอบโจทย์</span>
+          </div>
+          {ytEmbed ? (
+            <div className="aspect-video w-full overflow-hidden rounded-xl bg-black">
+              <iframe
+                src={ytEmbed}
+                title="วิดีโอประกอบข้อสอบ"
+                className="h-full w-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+          ) : (
+            <a
+              href={videoUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="block truncate rounded-xl bg-muted/40 px-3 py-2 text-xs text-primary underline"
+            >
+              {videoUrl}
+            </a>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function QuestionMediaFields({
+  courseId,
+  imageUrl,
+  videoUrl,
+  onChange,
+}: {
+  courseId: string;
+  imageUrl: string | null;
+  videoUrl: string | null;
+  onChange: (next: { image_url: string | null; video_url: string | null }) => void;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [showYoutubeInput, setShowYoutubeInput] = useState(Boolean(videoUrl));
+
+  async function handleImageSelect(file: File | undefined) {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop() || "jpg";
+      const path = await uploadCourseFile(
+        `${courseId}/question-${Date.now()}.${ext}`,
+        file
+      );
+      if (path) {
+        onChange({ image_url: path, video_url: videoUrl });
+        toast.success("อัปโหลดรูปภาพประกอบข้อสอบแล้ว");
+      }
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+  return (
+    <div className="space-y-2.5 rounded-2xl border border-glass-border bg-card/40 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-[11px] font-semibold text-muted-foreground">
+          สื่อประกอบโจทย์คำถาม (ตัวเลือกเสริม — ไม่บังคับ)
+        </span>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => handleImageSelect(e.target.files?.[0])}
+          />
+          <button
+            type="button"
+            disabled={uploading}
+            onClick={() => fileRef.current?.click()}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-primary/25 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary hover:text-primary-foreground transition-all cursor-pointer disabled:opacity-50"
+          >
+            {uploading ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <ImagePlus className="size-3.5" />
+            )}
+            <span>{imageUrl ? "เปลี่ยนรูปภาพ" : "+ แนบรูปภาพ"}</span>
+          </button>
+          {imageUrl && (
+            <button
+              type="button"
+              onClick={() => onChange({ image_url: null, video_url: videoUrl })}
+              className="inline-flex items-center gap-1 rounded-lg border border-destructive/25 bg-destructive/10 px-2 py-1 text-xs font-medium text-destructive hover:bg-destructive hover:text-primary-foreground transition-all cursor-pointer"
+            >
+              <X className="size-3" />
+              <span>ลบรูป</span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setShowYoutubeInput((v) => !v)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-coral/30 bg-coral/10 px-2.5 py-1 text-xs font-medium text-coral hover:bg-coral hover:text-white transition-all cursor-pointer"
+          >
+            <Youtube className="size-3.5" />
+            <span>{videoUrl ? "แก้ไขลิงก์ YouTube" : "+ แนบคลิป YouTube"}</span>
+          </button>
+          {videoUrl && (
+            <button
+              type="button"
+              onClick={() => {
+                onChange({ image_url: imageUrl, video_url: null });
+                setShowYoutubeInput(false);
+              }}
+              className="inline-flex items-center gap-1 rounded-lg border border-destructive/25 bg-destructive/10 px-2 py-1 text-xs font-medium text-destructive hover:bg-destructive hover:text-primary-foreground transition-all cursor-pointer"
+            >
+              <X className="size-3" />
+              <span>ลบคลิป</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {(showYoutubeInput || videoUrl) && (
+        <div className="flex items-center gap-2">
+          <Youtube className="size-4 shrink-0 text-coral" />
+          <input
+            className={inp}
+            placeholder="วางลิงก์ YouTube เช่น https://www.youtube.com/watch?v=... หรือ Shorts"
+            value={videoUrl ?? ""}
+            onChange={(e) =>
+              onChange({
+                image_url: imageUrl,
+                video_url: e.target.value.trim() ? e.target.value : null,
+              })
+            }
+          />
+        </div>
+      )}
+
+      <QuestionMediaPreview imageUrl={imageUrl} videoUrl={videoUrl} />
+    </div>
+  );
+}
+
 export function Questions({ courseId, onOpenAnalytics }: { courseId: string; onOpenAnalytics?: () => void }) {
   const qc = useQueryClient();
   const { data = [] } = useQuery({
@@ -516,14 +703,35 @@ export function Questions({ courseId, onOpenAnalytics }: { courseId: string; onO
           .order("position")
       ).data ?? [],
   });
-  const [q, setQ] = useState({ question: "", options: ["", "", "", ""], correct: 0 });
+  const [q, setQ] = useState<{
+    question: string;
+    options: string[];
+    correct: number;
+    image_url: string | null;
+    video_url: string | null;
+  }>({
+    question: "",
+    options: ["", "", "", ""],
+    correct: 0,
+    image_url: null,
+    video_url: null,
+  });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{
     position: number;
     question: string;
     options: string[];
     correct: number;
-  }>({ position: 1, question: "", options: ["", "", "", ""], correct: 0 });
+    image_url: string | null;
+    video_url: string | null;
+  }>({
+    position: 1,
+    question: "",
+    options: ["", "", "", ""],
+    correct: 0,
+    image_url: null,
+    video_url: null,
+  });
   const [savingEdit, setSavingEdit] = useState(false);
 
   function startEdit(item: any, idx: number) {
@@ -535,6 +743,8 @@ export function Questions({ courseId, onOpenAnalytics }: { courseId: string; onO
       question: item.question ?? "",
       options: paddedOpts,
       correct: Math.min(Math.max(Number(item.correct_index) || 0, 0), paddedOpts.length - 1),
+      image_url: item.image_url ?? null,
+      video_url: item.video_url ?? null,
     });
   }
 
@@ -565,6 +775,8 @@ export function Questions({ courseId, onOpenAnalytics }: { courseId: string; onO
           options: cleaned,
           correct_index: Math.min(mappedCorrect, cleaned.length - 1),
           position: editForm.position,
+          image_url: editForm.image_url || null,
+          video_url: editForm.video_url?.trim() || null,
         })
         .eq("id", id);
       if (error) throw error;
@@ -598,12 +810,21 @@ export function Questions({ courseId, onOpenAnalytics }: { courseId: string; onO
       options: cleaned,
       correct_index: Math.min(mappedCorrect, cleaned.length - 1),
       position: data.length + 1,
+      image_url: q.image_url || null,
+      video_url: q.video_url?.trim() || null,
     });
     if (error) {
       toast.error(error.message);
       return;
     }
-    setQ({ question: "", options: ["", "", "", ""], correct: 0 });
+    toast.success("เพิ่มข้อสอบเรียบร้อยแล้ว");
+    setQ({
+      question: "",
+      options: ["", "", "", ""],
+      correct: 0,
+      image_url: null,
+      video_url: null,
+    });
     qc.invalidateQueries({ queryKey: ["edit-questions", courseId] });
   }
 
@@ -704,6 +925,13 @@ export function Questions({ courseId, onOpenAnalytics }: { courseId: string; onO
                   </div>
                 </div>
 
+                <QuestionMediaFields
+                  courseId={courseId}
+                  imageUrl={editForm.image_url}
+                  videoUrl={editForm.video_url}
+                  onChange={(media) => setEditForm({ ...editForm, ...media })}
+                />
+
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-semibold text-muted-foreground">
@@ -797,8 +1025,24 @@ export function Questions({ courseId, onOpenAnalytics }: { courseId: string; onO
             ) : (
               <>
                 <div className="flex items-start justify-between gap-4">
-                  <div className="font-semibold leading-relaxed">
-                    {i + 1}. {x.question}
+                  <div className="space-y-1">
+                    <div className="font-semibold leading-relaxed">
+                      {i + 1}. {x.question}
+                    </div>
+                    {(x.image_url || x.video_url) && (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {x.image_url && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary">
+                            <ImagePlus className="size-3" /> รูปภาพประกอบ
+                          </span>
+                        )}
+                        {x.video_url && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-coral/10 px-2.5 py-0.5 text-[11px] font-medium text-coral">
+                            <Youtube className="size-3" /> คลิป YouTube
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <button
@@ -821,7 +1065,8 @@ export function Questions({ courseId, onOpenAnalytics }: { courseId: string; onO
                     </button>
                   </div>
                 </div>
-                <ul className="mt-2 space-y-1 text-sm">
+                <QuestionMediaPreview imageUrl={x.image_url} videoUrl={x.video_url} />
+                <ul className="mt-2.5 space-y-1 text-sm">
                   {(x.options as string[]).map((o, oi) => (
                     <li
                       key={oi}
@@ -839,16 +1084,50 @@ export function Questions({ courseId, onOpenAnalytics }: { courseId: string; onO
         );
       })}
       <div className="glass space-y-3 rounded-3xl p-5">
-        <div className="font-semibold">เพิ่มข้อสอบ</div>
-        <input className={inp} placeholder="คำถาม" value={q.question} onChange={(e) => setQ({ ...q, question: e.target.value })} />
+        <div className="font-semibold">เพิ่มข้อสอบใหม่</div>
+        <input
+          className={inp}
+          placeholder="ระบุโจทย์คำถาม..."
+          value={q.question}
+          onChange={(e) => setQ({ ...q, question: e.target.value })}
+        />
+        <QuestionMediaFields
+          courseId={courseId}
+          imageUrl={q.image_url}
+          videoUrl={q.video_url}
+          onChange={(media) => setQ({ ...q, ...media })}
+        />
         {q.options.map((o, i) => (
           <div key={i} className="flex items-center gap-2">
-            <input type="radio" name="correct" checked={q.correct === i} onChange={() => setQ({ ...q, correct: i })} title="คำตอบที่ถูก" />
-            <input className={inp} placeholder={`ตัวเลือก ${"กขคง"[i]}`} value={o} onChange={(e) => { const opts = [...q.options]; opts[i] = e.target.value; setQ({ ...q, options: opts }); }} />
+            <input
+              type="radio"
+              name="correct"
+              checked={q.correct === i}
+              onChange={() => setQ({ ...q, correct: i })}
+              title="คำตอบที่ถูก"
+              className="cursor-pointer accent-primary"
+            />
+            <span className="w-5 text-xs font-bold text-muted-foreground">
+              {"กขคง"[i]}.
+            </span>
+            <input
+              className={inp}
+              placeholder={`ตัวเลือก ${"กขคง"[i]}`}
+              value={o}
+              onChange={(e) => {
+                const opts = [...q.options];
+                opts[i] = e.target.value;
+                setQ({ ...q, options: opts });
+              }}
+            />
           </div>
         ))}
-        <div className="text-[11px] text-muted-foreground">เลือกวงกลมหน้าคำตอบที่ถูกต้อง</div>
-        <div className="flex justify-end"><button onClick={add} className={btn}>+ เพิ่มข้อสอบ</button></div>
+        <div className="text-[11px] text-muted-foreground">คลิกเลือกวงกลมหน้าข้อที่เป็นคำตอบที่ถูกต้อง</div>
+        <div className="flex justify-end">
+          <button onClick={add} className={btn}>
+            + เพิ่มข้อสอบ
+          </button>
+        </div>
       </div>
     </div>
   );

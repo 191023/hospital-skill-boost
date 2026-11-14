@@ -650,11 +650,13 @@ export type Database = {
           deleted_at: string | null
           deleted_by: string | null
           id: string
+          image_url: string | null
           options: Json
           position: number
           question: string
           updated_at: string | null
           updated_by: string | null
+          video_url: string | null
         }
         Insert: {
           correct_index?: number
@@ -664,11 +666,13 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           id?: string
+          image_url?: string | null
           options?: Json
           position?: number
           question: string
           updated_at?: string | null
           updated_by?: string | null
+          video_url?: string | null
         }
         Update: {
           correct_index?: number
@@ -678,11 +682,13 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           id?: string
+          image_url?: string | null
           options?: Json
           position?: number
           question?: string
           updated_at?: string | null
           updated_by?: string | null
+          video_url?: string | null
         }
         Relationships: [
           {
@@ -927,8 +933,10 @@ export type Database = {
         Args: { _course: string }
         Returns: {
           id: string
+          image_url: string | null
           options: Json
           question: string
+          video_url: string | null
         }[]
       }
       has_role: {

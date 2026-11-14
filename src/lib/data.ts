@@ -450,6 +450,15 @@ export function youtubeEmbed(url?: string | null) {
   return m ? `https://www.youtube.com/embed/${m[1]}` : null;
 }
 
+export async function fileUrl(path?: string | null): Promise<string | null> {
+  if (!path) return null;
+  if (/^(https?:|data:|blob:)/i.test(path)) return path;
+  const { data } = await supabase.storage
+    .from("course-files")
+    .createSignedUrl(path, 3600);
+  return data?.signedUrl ?? null;
+}
+
 export function thaiDate(d: string) {
   return new Date(d).toLocaleDateString("th-TH", { year: "numeric", month: "long", day: "numeric" });
 }

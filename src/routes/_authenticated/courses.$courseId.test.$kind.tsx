@@ -4,8 +4,10 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/lib/auth";
+import { fileUrl, youtubeEmbed } from "@/lib/data";
 import { useServerFn } from "@tanstack/react-start";
 import { notifyCertificateIssued } from "@/lib/telegram.functions";
+import { ZoomIn, X } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/courses/$courseId/test/$kind")({
   head: () => ({ meta: [
@@ -21,6 +23,74 @@ export const Route = createFileRoute("/_authenticated/courses/$courseId/test/$ki
 
 type Result = { score: number; total: number; percent: number; passed: boolean; certificate_id: string | null };
 
+function TestQuestionMedia({
+  imageUrl,
+  videoUrl,
+  onZoom,
+}: {
+  imageUrl?: string | null;
+  videoUrl?: string | null;
+  onZoom: (src: string) => void;
+}) {
+  const { data: signedImg } = useQuery({
+    queryKey: ["test-q-img", imageUrl],
+    enabled: !!imageUrl,
+    queryFn: () => fileUrl(imageUrl),
+    staleTime: 1000 * 60 * 30,
+  });
+  const ytEmbed = youtubeEmbed(videoUrl);
+
+  if (!imageUrl && !videoUrl) return null;
+
+  return (
+    <div className="mt-3 space-y-3">
+      {imageUrl && (
+        <div className="overflow-hidden rounded-2xl border border-glass-border bg-card/60 p-2">
+          {signedImg ? (
+            <div className="group relative flex flex-col items-center">
+              <img
+                src={signedImg}
+                alt="ภาพประกอบคำถาม"
+                onClick={() => onZoom(signedImg)}
+                className="max-h-72 w-full cursor-zoom-in rounded-xl object-contain bg-background/60 transition hover:opacity-95"
+              />
+              <button
+                type="button"
+                onClick={() => onZoom(signedImg)}
+                className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-[11px] font-medium text-primary hover:bg-primary/20 cursor-pointer"
+              >
+                <ZoomIn className="size-3.5" />
+                <span>คลิกที่รูปเพื่อขยายใหญ่</span>
+              </button>
+            </div>
+          ) : (
+            <div className="flex h-36 items-center justify-center rounded-xl bg-muted/40 text-xs text-muted-foreground">
+              กำลังโหลดรูปภาพประกอบคำถาม...
+            </div>
+          )}
+        </div>
+      )}
+      {videoUrl && (
+        <div className="overflow-hidden rounded-2xl border border-glass-border bg-black shadow-sm">
+          {ytEmbed ? (
+            <div className="aspect-video w-full">
+              <iframe
+                src={ytEmbed}
+                title="วิดีโอประกอบคำถาม"
+                className="h-full w-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+          ) : (
+            <video src={videoUrl} controls className="max-h-80 w-full" />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TestPage() {
   const { courseId, kind } = Route.useParams();
   const qc = useQueryClient();
@@ -29,6 +99,7 @@ function TestPage() {
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [result, setResult] = useState<Result | null>(null);
   const [busy, setBusy] = useState(false);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const { data: qs = [] } = useQuery({
     queryKey: ["test", courseId],
     queryFn: async () => (await supabase.rpc("get_test_questions", { _course: courseId })).data ?? [],
@@ -104,9 +175,14 @@ function TestPage() {
       <h1 className="mt-3 text-3xl font-bold">{title}</h1>
       <p className="text-sm text-muted-foreground">{qs.length} ข้อ · ตอบแล้ว {Object.keys(answers).length}</p>
       <div className="mt-6 space-y-4">
-        {qs.map((q, i) => (
+        {qs.map((q: any, i) => (
           <div key={q.id} className="glass rounded-3xl p-5">
-            <div className="font-semibold">{i + 1}. {q.question}</div>
+            <div className="font-semibold leading-relaxed">{i + 1}. {q.question}</div>
+            <TestQuestionMedia
+              imageUrl={q.image_url}
+              videoUrl={q.video_url}
+              onZoom={(src) => setLightboxSrc(src)}
+            />
             <div className="mt-3 grid gap-2">
               {(q.options as string[]).map((o, oi) => (
                 <button key={oi} onClick={() => setAnswers({ ...answers, [q.id]: oi })}
@@ -121,6 +197,28 @@ function TestPage() {
       <button disabled={busy} onClick={submit} className="mt-6 w-full rounded-xl bg-primary py-3 font-semibold text-primary-foreground shadow-brand disabled:opacity-60">
         {busy ? "กำลังตรวจ..." : "ส่งคำตอบ"}
       </button>
+
+      {lightboxSrc && (
+        <div
+          onClick={() => setLightboxSrc(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm animate-in fade-in duration-150"
+        >
+          <button
+            type="button"
+            onClick={() => setLightboxSrc(null)}
+            className="absolute right-4 top-4 inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/25 cursor-pointer"
+          >
+            <X className="size-4" />
+            <span>ปิด</span>
+          </button>
+          <img
+            src={lightboxSrc}
+            alt="ขยายภาพประกอบข้อสอบ"
+            onClick={(e) => e.stopPropagation()}
+            className="max-h-[90vh] max-w-[95vw] rounded-2xl object-contain shadow-2xl"
+          />
+        </div>
+      )}
     </div>
   );
 }
