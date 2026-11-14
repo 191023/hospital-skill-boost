@@ -132,27 +132,52 @@ function LessonPage() {
     ? "เรียนจบครบทุกบท · ทำ Post-test →"
     : "เรียนจบบทนี้";
 
+  const hasInlineYoutube = Boolean(lesson.body && /(?:youtube\.com|youtu\.be|!\[youtube)/i.test(lesson.body));
+  const hasInlineImage = Boolean(lesson.body && /!\[(?!youtube)[^\]]*\]\([^)]+\)/i.test(lesson.body));
+  const mediaBadges: string[] = [];
+  if (embed || lesson.video_url || hasInlineYoutube) mediaBadges.push("🎬 วิดีโอ");
+  if (hasInlineImage) mediaBadges.push("🖼️ ภาพประกอบ");
+  if (pdf) mediaBadges.push("📄 เอกสาร PDF");
+  if (lesson.body) mediaBadges.push("📖 เนื้อหาบทเรียน");
+
   return (
     <div className="mx-auto max-w-4xl">
       <Link to="/courses/$courseId" params={{ courseId }} className="text-sm text-primary">← กลับไปหน้าหลักสูตร</Link>
       <div className="glass mt-4 rounded-3xl p-6">
-        <div className="text-[11px] font-semibold text-primary">บทที่ {idx + 1} · {kindLabel[lesson.kind]}</div>
-        <h1 className="mt-1 text-2xl font-bold">{lesson.title}</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-semibold text-primary">
+            บทที่ {idx + 1} · {kindLabel[lesson.kind] || "บทเรียน"}
+          </span>
+          {mediaBadges.map((b) => (
+            <span
+              key={b}
+              className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold text-primary"
+            >
+              {b}
+            </span>
+          ))}
+        </div>
+        <h1 className="mt-1.5 text-2xl font-bold">{lesson.title}</h1>
         {embed && (
-          <div className="mt-5 aspect-video overflow-hidden rounded-2xl">
+          <div className="mt-5 aspect-video overflow-hidden rounded-2xl border border-border/60 bg-black shadow-sm">
             <iframe src={embed} title={lesson.title} className="h-full w-full" allowFullScreen allow="accelerometer; autoplay; encrypted-media; picture-in-picture" />
           </div>
         )}
         {lesson.video_url && !embed && <a href={lesson.video_url} target="_blank" rel="noreferrer" className="mt-4 inline-block text-primary underline">เปิดวิดีโอ</a>}
-        {pdf && (
-          <div className="mt-5">
-            <iframe src={pdf} title="PDF" className="h-[70vh] w-full rounded-2xl border bg-card" />
-            <a href={pdf} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm text-primary">ดาวน์โหลด / เปิดในแท็บใหม่</a>
-          </div>
-        )}
         {lesson.body && (
           <div className="mt-6 rounded-2xl bg-card/40 p-5 border border-border/40">
             <MarkdownView content={lesson.body} />
+          </div>
+        )}
+        {pdf && (
+          <div className="mt-6 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-foreground/85">📄 เอกสารประกอบประจำบทเรียน (PDF)</span>
+              <a href={pdf} target="_blank" rel="noreferrer" className="text-xs font-semibold text-primary hover:underline">
+                ดาวน์โหลด / เปิดในแท็บใหม่ ↗
+              </a>
+            </div>
+            <iframe src={pdf} title="PDF" className="h-[70vh] w-full rounded-2xl border bg-card" />
           </div>
         )}
         <div className="mt-8 flex justify-end">
