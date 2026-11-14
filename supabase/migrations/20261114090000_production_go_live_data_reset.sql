@@ -2,7 +2,7 @@
 -- Preserves:
 --   1. Organization structure (public.org_units)
 --   2. System settings & branding (public.system_settings + storage system/hospital-logo.png)
---   3. 5 Main course templates (Fire Safety, Chemical Safety, CPR/AED, IC, Cybersecurity/PDPA)
+--   3. 2 Main FMS course templates (Fire Safety, Chemical Safety)
 --   4. 2 Admin accounts: aoaa.supinda@gmail.com and naturelife19@gmail.com (both granted admin, instructor, learner)
 -- Wipes:
 --   All test accounts, enrollments, attendance, test attempts, issued certificates, survey responses, test activity photos, and logs.
@@ -33,14 +33,11 @@ TRUNCATE TABLE
   public.member_audit_log
 RESTART IDENTITY CASCADE;
 
--- 3. Remove draft/test courses (keep only the 5 main published hospital courses)
+-- 3. Remove draft/test and non-FMS courses (keep only the 2 main FMS courses)
 DELETE FROM public.courses
 WHERE id NOT IN (
   'c319aeb6-c2da-4660-b5cd-35a9257ebab9', -- การดับเพลิงขั้นต้นและการใช้ถังดับเพลิง
-  'e7b233f4-b927-4859-bc6e-e50ce9d81e5c', -- การใช้และการจัดเก็บสารเคมีอย่างปลอดภัย
-  'b1000000-0000-4000-8000-000000000001', -- การช่วยฟื้นคืนชีพขั้นพื้นฐานและการใช้เครื่อง AED
-  'b1000000-0000-4000-8000-000000000002', -- มาตรฐานการป้องกันและควบคุมการติดเชื้อในโรงพยาบาล (IC)
-  'b1000000-0000-4000-8000-000000000003'  -- ความมั่นคงปลอดภัยไซเบอร์และคุ้มครองข้อมูลผู้ป่วย (Cybersecurity & PDPA)
+  'e7b233f4-b927-4859-bc6e-e50ce9d81e5c'  -- การใช้และการจัดเก็บสารเคมีอย่างปลอดภัย
 );
 
 -- Physically purge any soft-deleted items inside the 5 kept courses
