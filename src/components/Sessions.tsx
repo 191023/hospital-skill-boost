@@ -31,7 +31,7 @@ export function useSessions(courseId: string) {
     queryKey: ["sessions", courseId],
     queryFn: async () => {
       const [{ data: s }, { data: seats }] = await Promise.all([
-        supabase.from("course_sessions").select("*").eq("course_id", courseId).order("round_no"),
+        supabase.from("course_sessions").select("*").eq("course_id", courseId).is("deleted_at", null).order("round_no"),
         supabase.rpc("session_seats", { _course: courseId }),
       ]);
       const taken = new Map((seats ?? []).map((x) => [x.session_id, x.taken]));

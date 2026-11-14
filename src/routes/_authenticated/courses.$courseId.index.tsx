@@ -91,8 +91,17 @@ function CoursePage() {
     if (new URLSearchParams(window.location.search).get("join") !== "1") return;
     joined.current = true;
     sessionStorage.removeItem("after-auth");
-    // Check if course has sessions before enrolling
-    supabase.from("course_sessions").select("id").eq("course_id", courseId).limit(1).then(({ data: sess }) => {
+    const isClassroom = (data.course.training_type || "classroom") === "classroom";
+    if (!isClassroom) {
+      supabase.from("enrollments").insert({ course_id: courseId, user_id: me.id }).then(({ error }) => {
+        if (error) { toast.error("ลงทะเบียนไม่สำเร็จ: " + error.message); return; }
+        toast.success("ลงทะเบียนหลักสูตรออนไลน์เรียบร้อย เริ่มทำ Pre-test ได้ทันที");
+        qc.invalidateQueries();
+      });
+      return;
+    }
+    // Check if classroom course has active sessions before enrolling
+    supabase.from("course_sessions").select("id").eq("course_id", courseId).is("deleted_at", null).limit(1).then(({ data: sess }) => {
       if (sess && sess.length > 0) {
         toast.info("กรุณาเลือกรอบการอบรมที่ต้องการเพื่อลงทะเบียน", { duration: 6000 });
         const el = document.getElementById("course-sessions-section");
@@ -112,7 +121,8 @@ function CoursePage() {
   const tried = useRef("");
   useEffect(() => {
     if (!data?.course || !data.enrolled || data.cert || !data.course.issue_certificate) return;
-    if (sessions.length > 0 && !data.attended) return;
+    const isClassroom = (data.course.training_type || "classroom") === "classroom";
+    if (isClassroom && sessions.length > 0 && !data.attended) return;
     if (data.lessons.length && !data.allDone) return;
     const key = `${data.done.size}-${data.posts.length}`;
     if (tried.current === key) return;
@@ -438,7 +448,7 @@ function CoursePage() {
                 onClick={enroll}
                 className="mt-4 w-full rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground shadow-brand"
               >
-                {sessions.length > 0 ? "เลือกรอบอบรมเพื่อลงทะเบียน" : "ลงทะเบียนเรียน"}
+                {isClassroomCourse && sessions.length > 0 ? "เลือกรอบอบรมเพื่อลงทะเบียน" : "ลงทะเบียนเรียน"}
               </button>
             </>
           ) : (
@@ -459,7 +469,7 @@ function CoursePage() {
           )}
         </div>
 
-        {enrolled && sessions.length > 0 && (
+        {isClassroomCourse && enrolled && sessions.length > 0 && (
           <div className="glass rounded-3xl p-6">
             <h3 className="font-bold">รอบอบรมของคุณ</h3>
             {data.sessionId ? (

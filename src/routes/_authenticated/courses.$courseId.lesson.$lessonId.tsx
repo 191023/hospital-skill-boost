@@ -33,13 +33,14 @@ function LessonPage() {
         supabase.from("lessons").select("*").eq("id", lessonId).is("deleted_at", null).maybeSingle(),
         supabase.from("lessons").select("id,title,position").eq("course_id", courseId).is("deleted_at", null).order("position"),
         supabase.from("lesson_progress").select("lesson_id").eq("user_id", me!.id).eq("lesson_id", lessonId),
-        supabase.from("courses").select("require_pretest,require_posttest").eq("id", courseId).maybeSingle(),
-        supabase.from("course_sessions").select("id").eq("course_id", courseId).limit(1),
+        supabase.from("courses").select("training_type,require_pretest,require_posttest").eq("id", courseId).maybeSingle(),
+        supabase.from("course_sessions").select("id").eq("course_id", courseId).is("deleted_at", null).limit(1),
         supabase.from("attendance").select("id").eq("course_id", courseId).eq("user_id", me!.id).maybeSingle(),
         supabase.from("test_attempts").select("id").eq("course_id", courseId).eq("user_id", me!.id).eq("kind", "pre").maybeSingle(),
       ]);
       const pdf = lesson?.file_url ? await fileUrl(lesson.file_url) : null;
-      const hasSessions = (sess ?? []).length > 0;
+      const isClassroom = (course?.training_type || "classroom") === "classroom";
+      const hasSessions = isClassroom && (sess ?? []).length > 0;
       const checkedIn = !hasSessions || !!att;
       const needPre = !!course?.require_pretest && !preAtt;
       const hasPostTest = !!course?.require_posttest;

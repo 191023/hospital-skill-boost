@@ -37,11 +37,13 @@ function TestPage() {
     queryKey: ["test-access", courseId, me?.id],
     enabled: !!me,
     queryFn: async () => {
-      const [{ data: sess }, { data: att }] = await Promise.all([
-        supabase.from("course_sessions").select("id").eq("course_id", courseId).limit(1),
+      const [{ data: course }, { data: sess }, { data: att }] = await Promise.all([
+        supabase.from("courses").select("training_type").eq("id", courseId).maybeSingle(),
+        supabase.from("course_sessions").select("id").eq("course_id", courseId).is("deleted_at", null).limit(1),
         supabase.from("attendance").select("id").eq("course_id", courseId).eq("user_id", me!.id).limit(1),
       ]);
-      const hasSessions = (sess ?? []).length > 0;
+      const isClassroom = (course?.training_type || "classroom") === "classroom";
+      const hasSessions = isClassroom && (sess ?? []).length > 0;
       const checkedIn = !hasSessions || (att ?? []).length > 0;
       return { hasSessions, checkedIn };
     },

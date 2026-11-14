@@ -111,8 +111,9 @@ export function getCourseAction(c: {
       href: c.certId ? `/certificates/${c.certId}` : `/courses/${c.id}`,
     };
   }
+  const isClassroom = (c.training_type || "classroom") === "classroom";
   if (!c.enrolled) {
-    if (c.training_type === "classroom" && c.has_sessions) {
+    if (isClassroom && c.has_sessions) {
       return {
         label: "เลือกรอบการอบรม",
         tone: "amber",
@@ -127,7 +128,7 @@ export function getCourseAction(c: {
       href: `/courses/${c.id}`,
     };
   }
-  if (c.has_sessions && !c.session_id) {
+  if (isClassroom && c.has_sessions && !c.session_id) {
     return {
       label: "เลือกรอบการอบรม",
       tone: "amber",
@@ -143,7 +144,7 @@ export function getCourseAction(c: {
       href: `/courses/${c.id}/test/pre`,
     };
   }
-  if (c.has_sessions && !c.attended) {
+  if (isClassroom && c.has_sessions && !c.attended) {
     return {
       label: "รอสแกนเช็คชื่อเข้าห้องอบรม",
       tone: "primary",
@@ -201,8 +202,9 @@ export function useAssignedCourses(userId?: string) {
       // 1. Fetch published courses accessible to user (RLS automatically scopes to all + user department)
       const { data: rawCourses, error: coursesError } = await supabase
         .from("courses")
-        .select("*, lessons(count), questions(count), course_sessions(id)")
+        .select("*, lessons(id, deleted_at), questions(id, deleted_at), course_sessions(id, deleted_at)")
         .eq("published", true)
+        .is("deleted_at", null)
         .order("training_year", { ascending: false })
         .order("created_at", { ascending: false });
 
@@ -218,7 +220,11 @@ export function useAssignedCourses(userId?: string) {
       const enrMap = new Map<string, CourseProgress>();
       if (enrollmentsData) {
         for (const r of enrollmentsData) {
-          const pct = r.total_lessons ? Math.round((r.lessons_done / r.total_lessons) * 100) : 0;
+          const pct = r.has_cert
+            ? 100
+            : r.total_lessons
+            ? Math.min(100, Math.round((r.lessons_done / r.total_lessons) * 100))
+            : 0;
           enrMap.set(r.course_id, {
             id: r.course_id,
             course_id: r.course_id,
@@ -261,15 +267,28 @@ export function useAssignedCourses(userId?: string) {
       const courses: AssignedCourse[] = rawCourses.map((c) => {
         const enr = enrMap.get(c.id);
         const enrolled = !!enr;
-        const hasSessions = Array.isArray(c.course_sessions) ? c.course_sessions.length > 0 : false;
-        const totalLessons = Array.isArray(c.lessons) && c.lessons[0] ? (c.lessons[0] as { count: number }).count : 0;
-        const hasQuestions = Array.isArray(c.questions) && c.questions[0] ? (c.questions[0] as { count: number }).count > 0 : false;
-        const requirePretest = (c.require_pretest ?? true) && hasQuestions;
-        const requirePosttest = (c.require_posttest ?? true) && hasQuestions;
+        const isClassroom = (c.training_type || "classroom") === "classroom";
+        const activeSessions = Array.isArray(c.course_sessions)
+          ? (c.course_sessions as { id: string; deleted_at?: string | null }[]).filter((s) => !s.deleted_at)
+          : [];
+        const activeLessons = Array.isArray(c.lessons)
+          ? (c.lessons as { id: string; deleted_at?: string | null }[]).filter((l) => !l.deleted_at)
+          : [];
+        const activeQuestions = Array.isArray(c.questions)
+          ? (c.questions as { id: string; deleted_at?: string | null }[]).filter((q) => !q.deleted_at)
+          : [];
+
+        const hasSessions = isClassroom && (enr ? enr.has_sessions : activeSessions.length > 0);
+        const totalLessons = enr ? enr.total_lessons : activeLessons.length;
+        const hasQuestions = enr
+          ? enr.require_pretest || enr.require_posttest
+          : activeQuestions.length > 0 || (c.require_pretest ?? true) || (c.require_posttest ?? true);
+        const requirePretest = enr ? enr.require_pretest : (c.require_pretest ?? true) && hasQuestions;
+        const requirePosttest = enr ? enr.require_posttest : (c.require_posttest ?? true) && hasQuestions;
 
         const has_cert = enr?.has_cert ?? false;
         const pre_done = enr?.pre_done ?? false;
-        const attended = enr?.attended ?? false;
+        const attended = !isClassroom || (enr?.attended ?? false);
         const lessons_done = enr?.lessons_done ?? 0;
         const post_done = enr?.post_done ?? false;
         const survey_done = enr?.survey_done ?? false;
