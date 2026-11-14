@@ -40,14 +40,18 @@ function AuthPage() {
   });
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) goNext();
+    supabase.auth.getUser().then(({ data, error }) => {
+      if (data.user && !error) {
+        goNext();
+      } else if (error) {
+        supabase.auth.signOut({ scope: "local" }).catch(() => {});
+      }
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && session) {
+      if (event === "SIGNED_IN" && session) {
         goNext();
       }
     });
