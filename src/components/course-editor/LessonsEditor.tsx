@@ -506,21 +506,118 @@ export function Questions({ courseId, onOpenAnalytics }: { courseId: string; onO
   const qc = useQueryClient();
   const { data = [] } = useQuery({
     queryKey: ["edit-questions", courseId],
-    queryFn: async () => (await supabase.from("questions").select("*").eq("course_id", courseId).order("position")).data ?? [],
+    queryFn: async () =>
+      (
+        await supabase
+          .from("questions")
+          .select("*")
+          .eq("course_id", courseId)
+          .is("deleted_at", null)
+          .order("position")
+      ).data ?? [],
   });
   const [q, setQ] = useState({ question: "", options: ["", "", "", ""], correct: 0 });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{
+    position: number;
+    question: string;
+    options: string[];
+    correct: number;
+  }>({ position: 1, question: "", options: ["", "", "", ""], correct: 0 });
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  function startEdit(item: any, idx: number) {
+    const rawOpts = Array.isArray(item.options) ? (item.options as string[]) : [];
+    const paddedOpts = rawOpts.length >= 2 ? [...rawOpts] : ["", "", "", ""];
+    setEditingId(item.id);
+    setEditForm({
+      position: item.position ?? idx + 1,
+      question: item.question ?? "",
+      options: paddedOpts,
+      correct: Math.min(Math.max(Number(item.correct_index) || 0, 0), paddedOpts.length - 1),
+    });
+  }
+
+  async function saveEdit(id: string) {
+    const cleaned: string[] = [];
+    let mappedCorrect = 0;
+    editForm.options.forEach((opt, idx) => {
+      const trimmed = opt.trim();
+      if (trimmed) {
+        if (idx === editForm.correct) {
+          mappedCorrect = cleaned.length;
+        }
+        cleaned.push(trimmed);
+      }
+    });
+
+    if (!editForm.question.trim() || cleaned.length < 2) {
+      toast.error("กรุณากรอกคำถามและตัวเลือกอย่างน้อย 2 ข้อ");
+      return;
+    }
+
+    setSavingEdit(true);
+    try {
+      const { error } = await supabase
+        .from("questions")
+        .update({
+          question: editForm.question.trim(),
+          options: cleaned,
+          correct_index: Math.min(mappedCorrect, cleaned.length - 1),
+          position: editForm.position,
+        })
+        .eq("id", id);
+      if (error) throw error;
+      toast.success("บันทึกการแก้ไขข้อสอบเรียบร้อยแล้ว");
+      setEditingId(null);
+      await qc.invalidateQueries({ queryKey: ["edit-questions", courseId] });
+    } catch (err: any) {
+      toast.error(`บันทึกไม่สำเร็จ: ${err.message || String(err)}`);
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
   async function add() {
-    const opts = q.options.filter((o) => o.trim());
-    if (!q.question.trim() || opts.length < 2) { toast.error("กรอกคำถามและตัวเลือกอย่างน้อย 2 ข้อ"); return; }
-    const { error } = await supabase.from("questions").insert({ course_id: courseId, question: q.question, options: opts, correct_index: Math.min(q.correct, opts.length - 1), position: data.length + 1 });
-    if (error) { toast.error(error.message); return; }
+    const cleaned: string[] = [];
+    let mappedCorrect = 0;
+    q.options.forEach((opt, idx) => {
+      const trimmed = opt.trim();
+      if (trimmed) {
+        if (idx === q.correct) mappedCorrect = cleaned.length;
+        cleaned.push(trimmed);
+      }
+    });
+    if (!q.question.trim() || cleaned.length < 2) {
+      toast.error("กรอกคำถามและตัวเลือกอย่างน้อย 2 ข้อ");
+      return;
+    }
+    const { error } = await supabase.from("questions").insert({
+      course_id: courseId,
+      question: q.question.trim(),
+      options: cleaned,
+      correct_index: Math.min(mappedCorrect, cleaned.length - 1),
+      position: data.length + 1,
+    });
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     setQ({ question: "", options: ["", "", "", ""], correct: 0 });
     qc.invalidateQueries({ queryKey: ["edit-questions", courseId] });
   }
+
   async function del(id: string) {
-    await supabase.from("questions").delete().eq("id", id);
+    if (!confirm("ยืนยันการลบข้อสอบข้อนี้?")) return;
+    const { error } = await supabase.from("questions").delete().eq("id", id);
+    if (error) {
+      toast.error(`ลบไม่สำเร็จ: ${error.message}`);
+      return;
+    }
+    toast.success("ลบข้อสอบเรียบร้อยแล้ว");
     qc.invalidateQueries({ queryKey: ["edit-questions", courseId] });
   }
+
   return (
     <div className="space-y-4">
       {onOpenAnalytics && (
@@ -554,27 +651,193 @@ export function Questions({ courseId, onOpenAnalytics }: { courseId: string; onO
         onDone={() => qc.invalidateQueries({ queryKey: ["edit-questions", courseId] })}
       />
 
-      {data.map((x, i) => (
-        <div key={x.id} className="glass rounded-3xl p-5">
-          <div className="flex justify-between gap-4">
-            <div className="font-semibold">{i + 1}. {x.question}</div>
-            <button
-              type="button"
-              onClick={() => del(x.id)}
-              className="inline-flex items-center gap-1 rounded-lg border border-destructive/20 bg-destructive/5 px-2.5 py-1 text-xs font-medium text-destructive transition-all hover:bg-destructive hover:text-destructive-foreground focus:outline-none focus:ring-2 focus:ring-destructive/30 cursor-pointer"
-              title="ลบคำถามข้อนี้"
-            >
-              <Trash2 className="size-3.5" />
-              <span>ลบ</span>
-            </button>
+      {data.map((x, i) => {
+        const isEditing = editingId === x.id;
+        return (
+          <div
+            key={x.id}
+            className={`glass rounded-3xl p-5 transition-all ${
+              isEditing ? "ring-2 ring-primary/40 bg-primary/5 space-y-3.5" : ""
+            }`}
+          >
+            {isEditing ? (
+              <>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-bold text-primary">
+                    ✏️ แก้ไขข้อสอบข้อที่ {i + 1}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setEditingId(null)}
+                    className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer"
+                  >
+                    <X className="size-3.5" />
+                    <span>ยกเลิก</span>
+                  </button>
+                </div>
+
+                <div className="grid gap-2.5 sm:grid-cols-[90px_1fr]">
+                  <div>
+                    <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">
+                      ลำดับข้อ
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      className={inp}
+                      value={editForm.position}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, position: Number(e.target.value) || 1 })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">
+                      คำถาม
+                    </label>
+                    <input
+                      className={inp}
+                      placeholder="ระบุโจทย์คำถาม..."
+                      value={editForm.question}
+                      onChange={(e) => setEditForm({ ...editForm, question: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-semibold text-muted-foreground">
+                      ตัวเลือกคำตอบ (คลิกวงกลมหน้าข้อที่เป็นคำตอบที่ถูกต้อง)
+                    </span>
+                    {editForm.options.length < 6 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditForm({ ...editForm, options: [...editForm.options, ""] })
+                        }
+                        className="text-xs font-semibold text-primary hover:underline cursor-pointer"
+                      >
+                        + เพิ่มตัวเลือก
+                      </button>
+                    )}
+                  </div>
+                  {editForm.options.map((opt, oi) => (
+                    <div key={oi} className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name={`edit-correct-${x.id}`}
+                        checked={editForm.correct === oi}
+                        onChange={() => setEditForm({ ...editForm, correct: oi })}
+                        title="เลือกเป็นคำตอบที่ถูกต้อง"
+                        className="cursor-pointer accent-primary"
+                      />
+                      <span className="w-5 text-xs font-bold text-muted-foreground">
+                        {"กขคงจฉ"[oi] || oi + 1}.
+                      </span>
+                      <input
+                        className={inp}
+                        placeholder={`ตัวเลือก ${"กขคงจฉ"[oi] || oi + 1}`}
+                        value={opt}
+                        onChange={(e) => {
+                          const nextOpts = [...editForm.options];
+                          nextOpts[oi] = e.target.value;
+                          setEditForm({ ...editForm, options: nextOpts });
+                        }}
+                      />
+                      {editForm.options.length > 2 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const nextOpts = editForm.options.filter((_, idx) => idx !== oi);
+                            const nextCorrect =
+                              editForm.correct === oi
+                                ? 0
+                                : editForm.correct > oi
+                                ? editForm.correct - 1
+                                : editForm.correct;
+                            setEditForm({
+                              ...editForm,
+                              options: nextOpts,
+                              correct: nextCorrect,
+                            });
+                          }}
+                          className="rounded-lg p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive cursor-pointer"
+                          title="ลบตัวเลือกนี้"
+                        >
+                          <X className="size-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setEditingId(null)}
+                    className="rounded-xl border border-border bg-card px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer"
+                  >
+                    ยกเลิก
+                  </button>
+                  <button
+                    type="button"
+                    disabled={savingEdit}
+                    onClick={() => saveEdit(x.id)}
+                    className={btn}
+                  >
+                    {savingEdit ? (
+                      <Loader2 className="mr-1.5 size-4 animate-spin" />
+                    ) : (
+                      <Save className="mr-1.5 size-4" />
+                    )}
+                    <span>บันทึกการแก้ไข</span>
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="font-semibold leading-relaxed">
+                    {i + 1}. {x.question}
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => startEdit(x, i)}
+                      className="inline-flex items-center gap-1 rounded-lg border border-primary/25 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary transition-all hover:bg-primary hover:text-primary-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 cursor-pointer"
+                      title="แก้ไขคำถามและตัวเลือกข้อนี้"
+                    >
+                      <Pencil className="size-3.5" />
+                      <span>แก้ไข</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => del(x.id)}
+                      className="inline-flex items-center gap-1 rounded-lg border border-destructive/20 bg-destructive/5 px-2.5 py-1 text-xs font-medium text-destructive transition-all hover:bg-destructive hover:text-destructive-foreground focus:outline-none focus:ring-2 focus:ring-destructive/30 cursor-pointer"
+                      title="ลบคำถามข้อนี้"
+                    >
+                      <Trash2 className="size-3.5" />
+                      <span>ลบ</span>
+                    </button>
+                  </div>
+                </div>
+                <ul className="mt-2 space-y-1 text-sm">
+                  {(x.options as string[]).map((o, oi) => (
+                    <li
+                      key={oi}
+                      className={
+                        oi === x.correct_index ? "font-semibold text-mint" : "text-muted-foreground"
+                      }
+                    >
+                      {"กขคงจฉ"[oi]}. {o} {oi === x.correct_index && "✓"}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
           </div>
-          <ul className="mt-2 space-y-1 text-sm">
-            {(x.options as string[]).map((o, oi) => (
-              <li key={oi} className={oi === x.correct_index ? "font-semibold text-mint" : "text-muted-foreground"}>{"กขคงจฉ"[oi]}. {o} {oi === x.correct_index && "✓"}</li>
-            ))}
-          </ul>
-        </div>
-      ))}
+        );
+      })}
       <div className="glass space-y-3 rounded-3xl p-5">
         <div className="font-semibold">เพิ่มข้อสอบ</div>
         <input className={inp} placeholder="คำถาม" value={q.question} onChange={(e) => setQ({ ...q, question: e.target.value })} />
