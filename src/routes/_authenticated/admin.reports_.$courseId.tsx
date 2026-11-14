@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe, fileUrl } from "@/lib/auth";
 import { thaiDate } from "@/lib/data";
@@ -219,8 +218,9 @@ function CourseReport() {
     }
   }
 
-  function exportExcel() {
+  async function exportExcel() {
     if (!data) return;
+    const XLSX = await import("xlsx");
     const wb = XLSX.utils.book_new();
     const summary: (string | number)[][] = [
       ["แบบรายงานสรุปผลการจัดฝึกอบรมหลักสูตรอย่างเป็นทางการ"],
