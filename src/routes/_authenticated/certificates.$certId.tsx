@@ -4,11 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { thaiDate } from "@/lib/data";
 import { origin } from "@/components/QR";
 import { CertificateDesign } from "@/components/CertificateDesign";
-import { fileUrl } from "@/lib/auth";
+import { fileUrl, useMe } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { HolographicSeal3D } from "@/components/HolographicSeal3D";
 import { CelebrationConfetti, CelebrationHandle } from "@/components/CelebrationConfetti";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Sparkles, Printer, Copy, PartyPopper, ShieldCheck, Download, Loader2 } from "lucide-react";
 
@@ -28,8 +28,10 @@ export const Route = createFileRoute("/_authenticated/certificates/$certId")({
 
 function CertView() {
   const { certId } = Route.useParams();
+  const { data: me } = useMe();
   const confettiRef = useRef<CelebrationHandle>(null);
   const [generating, setGenerating] = useState(false);
+  const autoPrinted = useRef(false);
 
   const { data } = useQuery({
     queryKey: ["cert", certId],
@@ -37,23 +39,60 @@ function CertView() {
       const { data: c } = await supabase
         .from("certificates")
         .select(
-          "*, courses(title,hours,training_year,hospital_logo_url,course_logo_url,instructor_signature_url,instructor_name,instructor_title,certificate_background_url,organization_name,department_subtitle)"
+          "*, courses(title,hours,training_year,hospital_logo_url,course_logo_url,instructor_signature_url,instructor_name,instructor_title,director_signature_url,director_name,director_title,show_instructor_signature,show_director_signature,certificate_background_url,organization_name,department_subtitle)"
         )
         .eq("id", certId)
         .maybeSingle();
       if (!c) return null;
-      const { data: p } = await supabase
-        .from("profiles")
-        .select("full_name,division,department,position")
-        .eq("id", c.user_id)
-        .maybeSingle();
-      const [hospitalLogoUrl, courseLogoUrl, signatureUrl, backgroundUrl] = await Promise.all([
-        fileUrl(c.courses?.hospital_logo_url),
+      const [{ data: p }, { data: certRulesRow }] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("full_name,division,department,position")
+          .eq("id", c.user_id)
+          .maybeSingle(),
+        supabase
+          .from("system_settings")
+          .select("value")
+          .eq("key", "certificate_rules")
+          .maybeSingle(),
+      ]);
+      const certRules = (certRulesRow?.value ?? {}) as {
+        director_name?: string;
+        director_title?: string;
+        director_signature_url?: string | null;
+      };
+      const rawDirectorSigUrl =
+        c.courses?.director_signature_url || certRules.director_signature_url || null;
+      const [
+        hospitalLogoUrl,
+        courseLogoUrl,
+        signatureUrl,
+        directorSignatureUrl,
+        backgroundUrl,
+      ] = await Promise.all([
+        fileUrl(c.courses?.hospital_logo_url || "system/hospital-logo.png"),
         fileUrl(c.courses?.course_logo_url),
         fileUrl(c.courses?.instructor_signature_url),
-        fileUrl(c.courses?.certificate_background_url),
+        fileUrl(rawDirectorSigUrl),
+        fileUrl(c.courses?.certificate_background_url || "system/certificate-background.png"),
       ]);
-      return { c, p, hospitalLogoUrl, courseLogoUrl, signatureUrl, backgroundUrl };
+      const directorName =
+        c.courses?.director_name || certRules.director_name || "นพ. กฤษณ์ วงศ์วิวัฒน์";
+      const directorTitle =
+        c.courses?.director_title ||
+        certRules.director_title ||
+        "ผู้อำนวยการโรงพยาบาลโอเวอร์บรุ๊ค";
+      return {
+        c,
+        p,
+        hospitalLogoUrl,
+        courseLogoUrl,
+        signatureUrl,
+        directorSignatureUrl,
+        directorName,
+        directorTitle,
+        backgroundUrl,
+      };
     },
   });
 
@@ -121,6 +160,17 @@ function CertView() {
     window.print();
   };
 
+  useEffect(() => {
+    if (!data || autoPrinted.current) return;
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("print") === "1") {
+      autoPrinted.current = true;
+      const t = window.setTimeout(() => {
+        handlePrint();
+      }, 650);
+      return () => window.clearTimeout(t);
+    }
+  }, [data]);
+
   if (!data) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
@@ -132,22 +182,43 @@ function CertView() {
     );
   }
 
-  const { c, p, hospitalLogoUrl, courseLogoUrl, signatureUrl, backgroundUrl } = data;
+  const {
+    c,
+    p,
+    hospitalLogoUrl,
+    courseLogoUrl,
+    signatureUrl,
+    directorSignatureUrl,
+    directorName,
+    directorTitle,
+    backgroundUrl,
+  } = data;
   const verifyUrl = `${origin()}/verify/${c.cert_no}`;
+  const isSubordinateView = Boolean(me && c.user_id !== me.id);
 
   return (
     <div className="mx-auto max-w-5xl pb-16">
       {/* Celebration Confetti & Ribbon Particle System */}
-      <CelebrationConfetti ref={confettiRef} autoTrigger={true} />
+      <CelebrationConfetti ref={confettiRef} autoTrigger={!isSubordinateView} />
 
       {/* Top Navigation & Action Controls */}
       <div className="no-print mb-6 flex flex-wrap items-center justify-between gap-3">
-        <Link
-          to="/certificates"
-          className="inline-flex items-center text-sm font-medium text-primary hover:underline"
-        >
-          ← ใบประกาศทั้งหมด
-        </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          {isSubordinateView && (
+            <Link
+              to="/manage-team"
+              className="inline-flex items-center rounded-xl border border-primary/30 bg-primary/10 px-3 py-1.5 text-sm font-bold text-primary hover:bg-primary/20 transition"
+            >
+              ← กลับหน้าทีมของฉัน
+            </Link>
+          )}
+          <Link
+            to="/certificates"
+            className="inline-flex items-center text-sm font-medium text-primary hover:underline"
+          >
+            ← ใบประกาศทั้งหมด
+          </Link>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
@@ -276,6 +347,11 @@ function CertView() {
             signatureUrl={signatureUrl}
             instructorName={c.courses?.instructor_name}
             instructorTitle={c.courses?.instructor_title}
+            directorSignatureUrl={directorSignatureUrl}
+            directorName={directorName}
+            directorTitle={directorTitle}
+            showInstructorSignature={c.courses?.show_instructor_signature ?? Boolean(c.courses?.instructor_name)}
+            showDirectorSignature={c.courses?.show_director_signature ?? true}
             backgroundUrl={backgroundUrl}
             verifyUrl={verifyUrl}
           />

@@ -307,7 +307,7 @@ export function useAssignedCourses(userId?: string) {
           status = "not_started";
         }
 
-        const pct = enr ? enr.pct : 0;
+        const pct = has_cert || post_done ? 100 : (enr ? enr.pct : 0);
         const isMandatoryForDepartment = c.audience === "restricted";
 
         const action = getCourseAction({
@@ -401,7 +401,8 @@ export function useMyCourses(userId?: string) {
       const { data, error } = await supabase.rpc("get_my_enrollments");
       if (error || !data) return [];
       return data.map((r) => {
-        const pct = r.total_lessons ? Math.round((r.lessons_done / r.total_lessons) * 100) : 0;
+        const effectiveDone = r.has_cert || r.post_done ? Math.max(r.lessons_done, r.total_lessons) : r.lessons_done;
+        const pct = r.has_cert || r.post_done ? 100 : (r.total_lessons ? Math.round((effectiveDone / r.total_lessons) * 100) : 0);
         return {
           id: r.course_id,
           course_id: r.course_id,
@@ -422,9 +423,9 @@ export function useMyCourses(userId?: string) {
           pre_done: r.pre_done,
           attended: r.attended,
           total_lessons: r.total_lessons,
-          lessons_done: r.lessons_done,
+          lessons_done: effectiveDone,
           lessonCount: r.total_lessons,
-          done: r.lessons_done,
+          done: effectiveDone,
           pct,
           require_posttest: r.require_posttest,
           post_done: r.post_done,

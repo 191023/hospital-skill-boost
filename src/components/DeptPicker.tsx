@@ -1,6 +1,7 @@
-import { divisions, orgChart } from "@/lib/org";
+import { useOrgChart } from "@/lib/org";
 
 export function DeptPicker({ division, department, onChange, className }: { division: string; department: string; onChange: (division: string, department: string) => void; className: string }) {
+  const { divisions, orgChart } = useOrgChart();
   return (
     <>
       <select required className={className} value={division} onChange={(e) => onChange(e.target.value, "")}>

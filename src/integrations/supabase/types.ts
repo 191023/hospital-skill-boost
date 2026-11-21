@@ -297,6 +297,9 @@ export type Database = {
           deleted_by: string | null
           department_subtitle: string | null
           description: string | null
+          director_name: string | null
+          director_signature_url: string | null
+          director_title: string | null
           hospital_logo_url: string | null
           hours: number | null
           id: string
@@ -310,6 +313,8 @@ export type Database = {
           require_posttest: boolean
           require_pretest: boolean
           require_survey: boolean
+          show_director_signature: boolean
+          show_instructor_signature: boolean
           title: string
           training_type: string
           training_year: number
@@ -329,6 +334,9 @@ export type Database = {
           deleted_by?: string | null
           department_subtitle?: string | null
           description?: string | null
+          director_name?: string | null
+          director_signature_url?: string | null
+          director_title?: string | null
           hospital_logo_url?: string | null
           hours?: number | null
           id?: string
@@ -342,6 +350,8 @@ export type Database = {
           require_posttest?: boolean
           require_pretest?: boolean
           require_survey?: boolean
+          show_director_signature?: boolean
+          show_instructor_signature?: boolean
           title: string
           training_type?: string
           training_year?: number
@@ -361,6 +371,9 @@ export type Database = {
           deleted_by?: string | null
           department_subtitle?: string | null
           description?: string | null
+          director_name?: string | null
+          director_signature_url?: string | null
+          director_title?: string | null
           hospital_logo_url?: string | null
           hours?: number | null
           id?: string
@@ -374,6 +387,8 @@ export type Database = {
           require_posttest?: boolean
           require_pretest?: boolean
           require_survey?: boolean
+          show_director_signature?: boolean
+          show_instructor_signature?: boolean
           title?: string
           training_type?: string
           training_year?: number
@@ -1053,6 +1068,12 @@ export type Database = {
           survey_done: boolean
           issue_certificate: boolean
           has_cert: boolean
+          pre_score: number | null
+          post_score: number | null
+          checked_at: string | null
+          cert_id: string | null
+          cert_no: string | null
+          cert_issued_at: string | null
         }[]
       }
       is_team_manager: { Args: { _user: string }; Returns: boolean }

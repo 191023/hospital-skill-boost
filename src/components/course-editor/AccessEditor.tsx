@@ -2,11 +2,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { divisions, orgChart } from "@/lib/org";
+import { useOrgChart } from "@/lib/org";
 import { inp } from "./shared";
 
 export function Access({ courseId, audience: initial }: { courseId: string; audience: string }) {
   const qc = useQueryClient();
+  const { divisions, orgChart } = useOrgChart();
   const [audience, setAudience] = useState(initial);
   const [search, setSearch] = useState("");
   const { data: rules = [] } = useQuery({

@@ -1,7 +1,7 @@
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import { arrivalPath, roomFirstName, type RoomSeat } from "@/lib/training-room";
+import { arrivalPath, getLearnerStage, getStageMeta, roomFirstName, type RoomSeat } from "@/lib/training-room";
 import { fitFont, useDrawnTexture, type OfficeFinishes, type OfficeTones } from "./RoomOffice";
 
 // Stylized seated figures for the office theme. One neutral skin/hair token for everyone:
@@ -203,38 +203,131 @@ function OfficePerson({ seat, geo, mats, shirt, faded, pulse, delay, back, reduc
   </group>;
 }
 
-function StatusPill({ seat, finishes, tones, faded, onSelect }: { seat: RoomSeat; finishes: OfficeFinishes; tones: OfficeTones; faded: boolean; onSelect: (index: number) => void }) {
-  const checked = Boolean(seat.attendee?.checkedAt);
-  const accent = checked ? tones.checked : tones.waiting;
-  const text = `${roomFirstName(seat.attendee?.name ?? "")} · ${checked ? "เช็คชื่อแล้ว" : "รอเช็คชื่อ"}`;
-  const texture = useDrawnTexture(560, 112, (ctx) => {
-    ctx.fillStyle = finishes.screen; ctx.strokeStyle = accent; ctx.lineWidth = 6;
-    ctx.beginPath(); ctx.roundRect(6, 6, 548, 100, 50); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = accent; ctx.beginPath(); ctx.arc(56, 56, 13, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#ffffff"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
-    fitFont(ctx, text, "600", 42, 22, 450); ctx.fillText(text, 84, 58);
-  }, `${text}|${accent}|${finishes.screen}`);
-  return <sprite position={[seat.x, 1.86, seat.z]} scale={[1.4, 0.28, 1]} onClick={(e) => { e.stopPropagation(); onSelect(seat.index); }}>
-    <spriteMaterial map={texture} transparent opacity={faded ? 0.3 : 1} depthWrite={false} toneMapped={false} />
-  </sprite>;
+function StatusPill({
+  seat,
+  finishes,
+  tones,
+  faded,
+  selected,
+  onSelect,
+}: {
+  seat: RoomSeat;
+  finishes: OfficeFinishes;
+  tones: OfficeTones;
+  faded: boolean;
+  selected?: boolean;
+  onSelect: (index: number) => void;
+}) {
+  const spriteRef = useRef<THREE.Sprite>(null);
+  const stage = getLearnerStage(seat.attendee);
+  const meta = getStageMeta(stage);
+  const accent =
+    stage === "certified"
+      ? "#10b981"
+      : stage === "post_pending"
+      ? "#f59e0b"
+      : stage === "learning"
+      ? "#38bdf8"
+      : stage === "checked"
+      ? tones.checked
+      : tones.waiting;
+  const text = `${roomFirstName(seat.attendee?.name ?? "")} · ${meta.shortLabel}`;
+  const texture = useDrawnTexture(
+    560,
+    112,
+    (ctx) => {
+      ctx.fillStyle = finishes.screen;
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.roundRect(6, 6, 548, 100, 50);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = accent;
+      ctx.beginPath();
+      ctx.arc(52, 56, 13, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      fitFont(ctx, text, "600", 40, 20, 455);
+      ctx.fillText(text, 80, 58);
+    },
+    `${text}|${accent}|${finishes.screen}`,
+  );
+
+  useFrame(({ camera }) => {
+    const s = spriteRef.current;
+    if (!s) return;
+    if (selected) {
+      s.visible = true;
+      return;
+    }
+    if (camera instanceof THREE.OrthographicCamera) {
+      s.visible = camera.zoom >= 22;
+    }
+  });
+
+  return (
+    <sprite
+      ref={spriteRef}
+      position={[seat.x, 1.86, seat.z]}
+      scale={[1.4, 0.28, 1]}
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect(seat.index);
+      }}
+    >
+      <spriteMaterial map={texture} transparent opacity={faded ? 0.25 : 1} depthWrite={false} toneMapped={false} />
+    </sprite>
+  );
 }
 
 function SpeechBubble({ seat, tones }: { seat: RoomSeat; tones: OfficeTones }) {
   const person = seat.attendee;
+  const stage = getLearnerStage(person);
+  const meta = getStageMeta(stage);
   const line1 = person?.name ?? "";
-  const line2 = person ? `${person.department || person.division || "บุคลากร"} · ${person.checkedAt ? "เช็คชื่อแล้ว" : "รอเช็คชื่อ"}` : "";
-  const texture = useDrawnTexture(768, 264, (ctx) => {
-    ctx.fillStyle = tones.white; ctx.strokeStyle = tones.primary; ctx.lineWidth = 6;
-    ctx.beginPath(); ctx.roundRect(8, 8, 752, 188, 36); ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(354, 193); ctx.lineTo(384, 252); ctx.lineTo(414, 193); ctx.closePath(); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(354, 196); ctx.lineTo(384, 252); ctx.lineTo(414, 196); ctx.stroke();
-    ctx.fillStyle = tones.foreground; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    fitFont(ctx, line1, "700", 52, 26, 700); ctx.fillText(line1, 384, 76);
-    ctx.globalAlpha = 0.7; fitFont(ctx, line2, "500", 36, 20, 700); ctx.fillText(line2, 384, 140); ctx.globalAlpha = 1;
-  }, `${line1}|${line2}|${tones.white}|${tones.primary}`);
-  return <sprite position={[seat.x, 2.5, seat.z]} scale={[2.2, 0.756, 1]} renderOrder={20}>
-    <spriteMaterial map={texture} transparent depthTest={false} depthWrite={false} toneMapped={false} />
-  </sprite>;
+  const line2 = person ? `${person.department || person.division || "บุคลากร"} · ${meta.label}` : "";
+  const texture = useDrawnTexture(
+    768,
+    264,
+    (ctx) => {
+      ctx.fillStyle = tones.white;
+      ctx.strokeStyle = meta.color || tones.primary;
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.roundRect(8, 8, 752, 188, 36);
+      ctx.fill();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(354, 193);
+      ctx.lineTo(384, 252);
+      ctx.lineTo(414, 193);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(354, 196);
+      ctx.lineTo(384, 252);
+      ctx.lineTo(414, 196);
+      ctx.stroke();
+      ctx.fillStyle = tones.foreground;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      fitFont(ctx, line1, "700", 52, 26, 700);
+      ctx.fillText(line1, 384, 76);
+      ctx.globalAlpha = 0.78;
+      fitFont(ctx, line2, "500", 34, 18, 700);
+      ctx.fillText(line2, 384, 140);
+      ctx.globalAlpha = 1;
+    },
+    `${line1}|${line2}|${tones.white}|${meta.color}`,
+  );
+  return (
+    <sprite position={[seat.x, 2.5, seat.z]} scale={[2.2, 0.756, 1]} renderOrder={20}>
+      <spriteMaterial map={texture} transparent depthTest={false} depthWrite={false} toneMapped={false} />
+    </sprite>
+  );
 }
 
 export function RoomOfficePeople({ seats, highlighted, selected, pulseMap, onSelect, shirts, finishes, tones, reduced }: {
@@ -282,7 +375,7 @@ export function RoomOfficePeople({ seats, highlighted, selected, pulseMap, onSel
             onSelect={onSelect}
           />
         )}
-        <StatusPill seat={seat} finishes={finishes} tones={tones} faded={faded} onSelect={onSelect} />
+        <StatusPill seat={seat} finishes={finishes} tones={tones} faded={faded} selected={seat.index === selected} onSelect={onSelect} />
       </group>;
     })}
     {chosen && <SpeechBubble key={chosen.index} seat={chosen} tones={tones} />}

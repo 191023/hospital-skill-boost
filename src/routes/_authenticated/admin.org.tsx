@@ -41,7 +41,10 @@ function OrgPage() {
     },
   });
 
-  const refresh = () => qc.invalidateQueries({ queryKey: ["org-admin"] });
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ["org-admin"] });
+    qc.invalidateQueries({ queryKey: ["org-chart"] });
+  };
   const byId = useMemo(() => new Map((data?.people ?? []).map((p) => [p.id, p])), [data]);
 
   if (!me?.isAdmin) return <div className="glass rounded-3xl p-10 text-center">เฉพาะผู้ดูแลระบบ</div>;

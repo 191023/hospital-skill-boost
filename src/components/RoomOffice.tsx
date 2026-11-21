@@ -1,7 +1,7 @@
 import { useFrame } from "@react-three/fiber";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import type { RoomSeat } from "@/lib/training-room";
+import { getLearnerStage, type RoomSeat, type RoomZone } from "@/lib/training-room";
 import { RoomWallFade } from "./RoomWallFade";
 
 export type OfficeFinishes = {
@@ -299,41 +299,205 @@ export function OfficeEnvironment({ depth, seats, finishes, tones, stats, roomNa
   </>;
 }
 
-/** Per-seat desks and laptops; laptop screens glow when checked in, dim while waiting, dark when empty. */
+/** Per-seat desks, laptops, and 3D progress folders; laptop screens and folders reflect real-time learning & exam status. */
 export function OfficeDesks({ seats, finishes, tones }: { seats: RoomSeat[]; finishes: OfficeFinishes; tones: OfficeTones }) {
   const top = useRef<THREE.InstancedMesh>(null);
   const panel = useRef<THREE.InstancedMesh>(null);
   const legs = useRef<THREE.InstancedMesh>(null);
   const base = useRef<THREE.InstancedMesh>(null);
   const screen = useRef<THREE.InstancedMesh>(null);
+  const folders = useRef<THREE.InstancedMesh>(null);
   const n = seats.length;
+
   useLayoutEffect(() => {
     const t = top.current;
     const p = panel.current;
     const l = legs.current;
     const b = base.current;
     const s = screen.current;
-    if (!t || !p || !l || !b || !s) return;
-    const d = new THREE.Object3D(); const c = new THREE.Color();
-    const put = (mesh: THREE.InstancedMesh, i: number, x: number, y: number, z: number, rx = 0) => { d.position.set(x, y, z); d.rotation.set(rx, 0, 0); d.updateMatrix(); mesh.setMatrixAt(i, d.matrix); };
+    const f = folders.current;
+    if (!t || !p || !l || !b || !s || !f) return;
+
+    const d = new THREE.Object3D();
+    const c = new THREE.Color();
+    const put = (mesh: THREE.InstancedMesh, i: number, x: number, y: number, z: number, rx = 0, ry = 0, scale = 1) => {
+      d.position.set(x, y, z);
+      d.rotation.set(rx, ry, 0);
+      d.scale.setScalar(scale);
+      d.updateMatrix();
+      mesh.setMatrixAt(i, d.matrix);
+    };
+
     seats.forEach((seat, i) => {
       put(t, i, seat.x, 0.74, seat.z - 0.62);
       put(p, i, seat.x, 0.4, seat.z - 0.86);
       put(l, i * 2, seat.x - 0.5, 0.36, seat.z - 0.62);
       put(l, i * 2 + 1, seat.x + 0.5, 0.36, seat.z - 0.62);
-      put(b, i, seat.x, 0.775, seat.z - 0.58);
-      put(s, i, seat.x, 0.9, seat.z - 0.71, -0.22);
-      c.set(seat.attendee ? (seat.attendee.checkedAt ? finishes.glow : finishes.laptop) : finishes.screen);
+      put(b, i, seat.x - 0.08, 0.775, seat.z - 0.58);
+      put(s, i, seat.x - 0.08, 0.9, seat.z - 0.71, -0.22);
+
+      const stage = getLearnerStage(seat.attendee);
+      const screenColor =
+        stage === "certified"
+          ? "#10b981"
+          : stage === "post_pending"
+          ? "#f59e0b"
+          : stage === "learning"
+          ? "#38bdf8"
+          : stage === "checked"
+          ? finishes.glow
+          : stage === "waiting"
+          ? finishes.laptop
+          : finishes.screen;
+      c.set(screenColor);
       s.setColorAt(i, c);
+
+      // Stack up to 4 folders on the right side of the desk based on progress
+      const person = seat.attendee;
+      const folderColors: string[] = [];
+      if (person?.checkedAt) {
+        folderColors.push("#38bdf8"); // Check-in & workbook
+        if (person.preDone) folderColors.push("#6366f1"); // Pre-test completed
+        if ((person.lessonsDone ?? 0) > 0) folderColors.push(stage === "post_pending" ? "#f59e0b" : "#0ea5e9");
+        if (person.hasCert || person.postPassed) folderColors.push("#10b981"); // Certificate / Post-test passed
+      }
+
+      for (let slot = 0; slot < 4; slot++) {
+        const idx = i * 4 + slot;
+        const fc = folderColors[slot];
+        if (fc) {
+          put(f, idx, seat.x + 0.31, 0.774 + slot * 0.022, seat.z - 0.58, 0, (slot % 2 === 0 ? 1 : -1) * 0.08, 1);
+          c.set(fc);
+          f.setColorAt(idx, c);
+        } else {
+          put(f, idx, 0, -10, 0, 0, 0, 0);
+          c.set("#000000");
+          f.setColorAt(idx, c);
+        }
+      }
     });
-    [t, p, l, b, s].forEach((m) => { m.instanceMatrix.needsUpdate = true; });
+
+    [t, p, l, b, s, f].forEach((m) => {
+      m.instanceMatrix.needsUpdate = true;
+    });
     if (s.instanceColor) s.instanceColor.needsUpdate = true;
+    if (f.instanceColor) f.instanceColor.needsUpdate = true;
   }, [seats, finishes, tones]);
-  return <group key={n}>
-    <instancedMesh ref={top} raycast={noRay} args={[undefined, undefined, n]} castShadow receiveShadow><boxGeometry args={[1.05, 0.05, 0.5]} /><meshStandardMaterial color={finishes.wood} roughness={0.55} /></instancedMesh>
-    <instancedMesh ref={panel} raycast={noRay} args={[undefined, undefined, n]} castShadow><boxGeometry args={[0.98, 0.6, 0.03]} /><meshStandardMaterial color={finishes.baseboard} roughness={0.7} /></instancedMesh>
-    <instancedMesh ref={legs} raycast={noRay} args={[undefined, undefined, n * 2]} castShadow><boxGeometry args={[0.04, 0.72, 0.46]} /><meshStandardMaterial color={finishes.baseboard} roughness={0.7} /></instancedMesh>
-    <instancedMesh ref={base} raycast={noRay} args={[undefined, undefined, n]} castShadow><boxGeometry args={[0.36, 0.02, 0.25]} /><meshStandardMaterial color={finishes.laptop} metalness={0.4} roughness={0.35} /></instancedMesh>
-    <instancedMesh ref={screen} raycast={noRay} args={[undefined, undefined, n]}><boxGeometry args={[0.36, 0.24, 0.015]} /><meshBasicMaterial toneMapped={false} /></instancedMesh>
-  </group>;
+
+  return (
+    <group key={n}>
+      <instancedMesh ref={top} raycast={noRay} args={[undefined, undefined, n]} castShadow receiveShadow>
+        <boxGeometry args={[1.05, 0.05, 0.5]} />
+        <meshStandardMaterial color={finishes.wood} roughness={0.55} />
+      </instancedMesh>
+      <instancedMesh ref={panel} raycast={noRay} args={[undefined, undefined, n]} castShadow>
+        <boxGeometry args={[0.98, 0.6, 0.03]} />
+        <meshStandardMaterial color={finishes.baseboard} roughness={0.7} />
+      </instancedMesh>
+      <instancedMesh ref={legs} raycast={noRay} args={[undefined, undefined, n * 2]} castShadow>
+        <boxGeometry args={[0.04, 0.72, 0.46]} />
+        <meshStandardMaterial color={finishes.baseboard} roughness={0.7} />
+      </instancedMesh>
+      <instancedMesh ref={base} raycast={noRay} args={[undefined, undefined, n]} castShadow>
+        <boxGeometry args={[0.36, 0.02, 0.25]} />
+        <meshStandardMaterial color={finishes.laptop} metalness={0.4} roughness={0.35} />
+      </instancedMesh>
+      <instancedMesh ref={screen} raycast={noRay} args={[undefined, undefined, n]}>
+        <boxGeometry args={[0.36, 0.24, 0.015]} />
+        <meshBasicMaterial toneMapped={false} />
+      </instancedMesh>
+      <instancedMesh ref={folders} raycast={noRay} args={[undefined, undefined, Math.max(1, n * 4)]} castShadow>
+        <boxGeometry args={[0.22, 0.018, 0.28]} />
+        <meshStandardMaterial roughness={0.45} metalness={0.1} />
+      </instancedMesh>
+    </group>
+  );
+}
+
+function ZonePlate({
+  zone,
+  accent,
+  active,
+  onSelectZone,
+}: {
+  zone: RoomZone;
+  accent: string;
+  active: boolean;
+  onSelectZone?: (division: string) => void;
+}) {
+  const labelText = `${zone.division} (${zone.checked}/${zone.total})`;
+  const texture = useDrawnTexture(
+    640,
+    96,
+    (ctx) => {
+      ctx.fillStyle = "rgba(15, 23, 42, 0.88)";
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.roundRect(4, 4, 632, 88, 22);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#ffffff";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      fitFont(ctx, labelText, "700", 38, 20, 590);
+      ctx.fillText(labelText, 320, 48);
+    },
+    `${labelText}|${accent}|${active}`,
+  );
+
+  return (
+    <group position={[zone.centerX, 0.014, zone.centerZ]}>
+      <mesh
+        rotation-x={-Math.PI / 2}
+        onClick={(e) => {
+          if (onSelectZone) {
+            e.stopPropagation();
+            onSelectZone(zone.division);
+          }
+        }}
+      >
+        <planeGeometry args={[zone.width, zone.depth]} />
+        <meshBasicMaterial
+          color={accent}
+          transparent
+          opacity={active ? 0.24 : 0.11}
+          depthWrite={false}
+        />
+      </mesh>
+      <mesh rotation-x={-Math.PI / 2} position={[0, 0.003, -zone.depth / 2 + 0.22]}>
+        <planeGeometry args={[Math.min(zone.width - 0.2, 3.6), 0.52]} />
+        <meshBasicMaterial map={texture} transparent depthWrite={false} toneMapped={false} />
+      </mesh>
+    </group>
+  );
+}
+
+export function DepartmentZonePlates({
+  zones,
+  shirts,
+  defaultColor,
+  activeDivision,
+  onSelectZone,
+}: {
+  zones: RoomZone[];
+  shirts: Record<string, string>;
+  defaultColor: string;
+  activeDivision?: string;
+  onSelectZone?: (division: string) => void;
+}) {
+  if (!zones.length) return null;
+  return (
+    <group>
+      {zones.map((z) => (
+        <ZonePlate
+          key={z.division}
+          zone={z}
+          accent={shirts[z.division] ?? defaultColor}
+          active={activeDivision === z.division}
+          onSelectZone={onSelectZone}
+        />
+      ))}
+    </group>
+  );
 }

@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/AppShell";
-import { coverFor, toneFor } from "@/components/Brand";
+import { CourseCover, toneFor } from "@/components/Brand";
 
 export const Route = createFileRoute("/_authenticated/courses/")({
   head: () => ({ meta: [
@@ -67,7 +67,7 @@ function Catalog() {
           const isOnline = (c.training_type || "classroom") === "online";
           return (
             <Link key={c.id} to="/courses/$courseId" params={{ courseId: c.id }} className="glass overflow-hidden rounded-3xl transition hover:-translate-y-1">
-              <img src={coverFor(c.id, c.cover_url)} alt="" loading="lazy" className="aspect-[16/9] w-full object-cover" />
+              <CourseCover id={c.id} url={c.cover_url} alt={c.title} loading="lazy" className="aspect-[16/9] w-full object-cover" />
               <div className="p-5">
                 <div className="flex flex-wrap items-center gap-2 mb-1.5">
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${isOnline ? "bg-primary/15 text-primary" : "bg-amber/15 text-amber"}`}>

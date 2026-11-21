@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, useEffect } from "react";
 import { useServerFn } from "@tanstack/react-start";
@@ -33,6 +33,9 @@ import {
   Download,
   FileSpreadsheet,
   Send,
+  Printer,
+  Eye,
+  FileText,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/manage-team")({
@@ -79,6 +82,7 @@ type Member = {
 type Enrollment = {
   user_id: string;
   course_id: string;
+  course_title?: string;
   session_id: string | null;
   round_no: number | null;
   starts_at: string | null;
@@ -93,6 +97,12 @@ type Enrollment = {
   require_survey?: boolean;
   survey_done?: boolean;
   issue_certificate?: boolean;
+  pre_score?: number | null;
+  post_score?: number | null;
+  checked_at?: string | null;
+  cert_id?: string | null;
+  cert_no?: string | null;
+  cert_issued_at?: string | null;
 };
 
 type RecentAllocationInfo = {
@@ -579,8 +589,10 @@ function TeamAllocationHub() {
   const { data: me } = useMe();
   const qc = useQueryClient();
 
-  // Primary navigation: Allocation Board vs Matrix Overview
-  const [viewMode, setViewMode] = useState<"allocation" | "matrix">("allocation");
+  // Primary navigation: Allocation Board vs Matrix Overview vs Team Certificates
+  const [viewMode, setViewMode] = useState<"allocation" | "matrix" | "certificates">("allocation");
+  const [inspectMember, setInspectMember] = useState<Member | null>(null);
+  const [certCourseFilter, setCertCourseFilter] = useState<string>("");
 
   // Selected course for the allocation board
   const [activeCourseId, setActiveCourseId] = useState<string>("");
@@ -1050,21 +1062,21 @@ function TeamAllocationHub() {
           </div>
 
           {/* View Mode Toggle */}
-          <div className="flex items-center gap-1 rounded-2xl border bg-card p-1 shadow-2xs">
+          <div className="flex flex-wrap items-center gap-1 rounded-2xl border bg-card p-1 shadow-2xs">
             <button
               onClick={() => setViewMode("allocation")}
-              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition cursor-pointer ${
+              className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition cursor-pointer ${
                 viewMode === "allocation"
                   ? "bg-primary text-primary-foreground shadow-xs"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
               <Layers className="h-4 w-4" />
-              <span>กระดานจัดสรรการอบรม (Allocation Board)</span>
+              <span>กระดานจัดสรรการอบรม</span>
             </button>
             <button
               onClick={() => setViewMode("matrix")}
-              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition cursor-pointer ${
+              className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition cursor-pointer ${
                 viewMode === "matrix"
                   ? "bg-primary text-primary-foreground shadow-xs"
                   : "text-muted-foreground hover:text-foreground"
@@ -1072,6 +1084,17 @@ function TeamAllocationHub() {
             >
               <LayoutGrid className="h-4 w-4" />
               <span>ตารางสรุปภาพรวม Matrix</span>
+            </button>
+            <button
+              onClick={() => setViewMode("certificates")}
+              className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition cursor-pointer ${
+                viewMode === "certificates"
+                  ? "bg-emerald-600 text-white shadow-xs"
+                  : "text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10"
+              }`}
+            >
+              <GraduationCap className="h-4 w-4" />
+              <span>คลังใบประกาศของทีม ({data.enr.filter((e) => e.has_cert && e.cert_id).length})</span>
             </button>
           </div>
         </div>
@@ -1472,8 +1495,32 @@ function TeamAllocationHub() {
                           </div>
                         </div>
 
-                        {/* Semantic Pipeline Status Tag */}
-                        <div className="shrink-0 text-right ml-2">
+                        {/* Semantic Pipeline Status Tag & Dossier / Certificate Quick Actions */}
+                        <div className="shrink-0 flex items-center gap-1.5 ml-2">
+                          {enr?.has_cert && enr?.cert_id && (
+                            <Link
+                              to="/certificates/$certId"
+                              params={{ certId: enr.cert_id }}
+                              onClick={(ev) => ev.stopPropagation()}
+                              title="เปิดดูและพิมพ์ใบประกาศนียบัตรของบุคลากร"
+                              className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2 py-0.5 text-[10px] font-bold text-white shadow-2xs hover:bg-emerald-700 transition"
+                            >
+                              <Printer className="h-2.5 w-2.5" />
+                              <span>ใบประกาศ</span>
+                            </Link>
+                          )}
+                          <button
+                            type="button"
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              setInspectMember(m);
+                            }}
+                            title="ดูข้อมูลการอบรม คะแนนสอบ และใบประกาศทั้งหมดของบุคลากรคนนี้"
+                            className="inline-flex items-center gap-1 rounded-md border border-border bg-background/90 px-2 py-0.5 text-[10px] font-semibold text-foreground hover:border-primary hover:text-primary transition"
+                          >
+                            <Eye className="h-2.5 w-2.5" />
+                            <span>ข้อมูล</span>
+                          </button>
                           <span
                             className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] border shadow-2xs ${status.badgeClass}`}
                             title={status.label}
@@ -1752,7 +1799,7 @@ function TeamAllocationHub() {
             </div>
           </div>
         </div>
-      ) : (
+      ) : viewMode === "matrix" ? (
         /* ========================================================================= */
         /* MODE 2: TEAM ROSTER MATRIX (ตาราง Matrix กะทัดรัด สรุปทุกคน x ทุกหลักสูตร) */
         /* ========================================================================= */
@@ -1843,6 +1890,14 @@ function TeamAllocationHub() {
                           <td className="px-4 py-3">
                             <div className="font-semibold text-foreground text-xs">{m.full_name}</div>
                             <div className="text-[11px] text-muted-foreground">{m.position}</div>
+                            <button
+                              type="button"
+                              onClick={() => setInspectMember(m)}
+                              className="mt-1 inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary hover:bg-primary/20 transition cursor-pointer"
+                            >
+                              <Eye className="h-2.5 w-2.5" />
+                              <span>ดูประวัติการอบรม & ใบประกาศ</span>
+                            </button>
                           </td>
                           <td className="px-4 py-3 text-xs text-muted-foreground">
                             {m.department || m.division}
@@ -1884,9 +1939,9 @@ function TeamAllocationHub() {
                                       </select>
                                     </div>
 
-                                    {/* Rich Process Badge */}
+                                    {/* Rich Process Badge + Progress Summary + Certificate Print Link */}
                                     {enr && (
-                                      <div>
+                                      <div className="flex flex-wrap items-center gap-1">
                                         <span
                                           className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] border shadow-2xs ${status.badgeClass}`}
                                           title={status.label}
@@ -1894,6 +1949,34 @@ function TeamAllocationHub() {
                                           <StatusIcon className="h-2.5 w-2.5" />
                                           <span>{status.shortLabel}</span>
                                         </span>
+                                        {enr.post_score != null && (
+                                          <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-foreground">
+                                            สอบ {Math.round(Number(enr.post_score))}%
+                                          </span>
+                                        )}
+                                        {enr.has_cert && enr.cert_id && (
+                                          <div className="flex items-center gap-1">
+                                            <Link
+                                              to="/certificates/$certId"
+                                              params={{ certId: enr.cert_id }}
+                                              className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-emerald-700 transition"
+                                              title="เปิดดูใบประกาศนียบัตร"
+                                            >
+                                              <Eye className="h-2.5 w-2.5" />
+                                              <span>ดูใบประกาศ</span>
+                                            </Link>
+                                            <a
+                                              href={`/certificates/${enr.cert_id}?print=1`}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className="inline-flex items-center gap-1 rounded-md border border-emerald-600/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 transition"
+                                              title="เปิดหน้าสั่งพิมพ์ใบประกาศทันที"
+                                            >
+                                              <Printer className="h-2.5 w-2.5" />
+                                              <span>พิมพ์</span>
+                                            </a>
+                                          </div>
+                                        )}
                                       </div>
                                     )}
                                   </div>
@@ -1901,13 +1984,39 @@ function TeamAllocationHub() {
                                   /* Online course */
                                   <div className="space-y-1">
                                     {enr ? (
-                                      <div className="flex items-center gap-1.5">
+                                      <div className="flex flex-wrap items-center gap-1.5">
                                         <span
                                           className={`inline-flex items-center gap-1 rounded-md px-2.5 py-0.5 text-xs font-bold border shadow-2xs ${status.badgeClass}`}
                                         >
                                           <StatusIcon className="h-3 w-3" />
                                           <span>{status.shortLabel}</span>
                                         </span>
+                                        {enr.post_score != null && (
+                                          <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-foreground">
+                                            สอบ {Math.round(Number(enr.post_score))}%
+                                          </span>
+                                        )}
+                                        {enr.has_cert && enr.cert_id && (
+                                          <div className="flex items-center gap-1">
+                                            <Link
+                                              to="/certificates/$certId"
+                                              params={{ certId: enr.cert_id }}
+                                              className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-emerald-700 transition"
+                                            >
+                                              <Eye className="h-2.5 w-2.5" />
+                                              <span>ดูใบประกาศ</span>
+                                            </Link>
+                                            <a
+                                              href={`/certificates/${enr.cert_id}?print=1`}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className="inline-flex items-center gap-1 rounded-md border border-emerald-600/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 transition"
+                                            >
+                                              <Printer className="h-2.5 w-2.5" />
+                                              <span>พิมพ์</span>
+                                            </a>
+                                          </div>
+                                        )}
                                       </div>
                                     ) : (
                                       <button
@@ -1927,6 +2036,352 @@ function TeamAllocationHub() {
                     })}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* ========================================================================= */
+        /* MODE 3: TEAM CERTIFICATES VAULT (คลังใบประกาศนียบัตรของผู้ใต้บังคับบัญชา)   */
+        /* ========================================================================= */
+        <div className="space-y-4">
+          <div className="glass rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="ค้นหาชื่อบุคลากร หรือเลขที่ใบประกาศ…"
+                  className="rounded-xl border bg-card pl-8 pr-3 py-1.5 text-xs w-64"
+                />
+              </div>
+              <select
+                value={filterDept}
+                onChange={(e) => setFilterDept(e.target.value)}
+                className="rounded-xl border bg-card px-3 py-1.5 text-xs text-muted-foreground"
+              >
+                <option value="">ทุกแผนก/หน่วยในสังกัด</option>
+                {departments.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={certCourseFilter}
+                onChange={(e) => setCertCourseFilter(e.target.value)}
+                className="rounded-xl border bg-card px-3 py-1.5 text-xs text-muted-foreground"
+              >
+                <option value="">ทุกหลักสูตร</option>
+                {data.courses.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="text-xs text-muted-foreground">
+              ใบประกาศนียบัตรของผู้ใต้บังคับบัญชาทั้งหมด:{" "}
+              <strong className="text-emerald-600 dark:text-emerald-400">
+                {data.enr.filter((e) => e.has_cert && e.cert_id).length} ฉบับ
+              </strong>
+            </div>
+          </div>
+
+          <div className="glass overflow-hidden rounded-3xl">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[760px]">
+                <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-3">ผู้ใต้บังคับบัญชา</th>
+                    <th className="px-4 py-3">ฝ่าย / แผนก</th>
+                    <th className="px-4 py-3">หลักสูตรที่สำเร็จการอบรม</th>
+                    <th className="px-4 py-3">ผลคะแนน (Pre / Post)</th>
+                    <th className="px-4 py-3">เลขที่ใบประกาศ / วันที่ออก</th>
+                    <th className="px-4 py-3 text-right">การดำเนินการ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.enr
+                    .filter((e) => e.has_cert && e.cert_id)
+                    .filter((e) => {
+                      if (certCourseFilter && e.course_id !== certCourseFilter) return false;
+                      const member = data.members.find((m) => m.user_id === e.user_id);
+                      if (!member) return false;
+                      if (filterDept && (member.department || member.division) !== filterDept) return false;
+                      const q = searchQuery.trim().toLowerCase();
+                      if (q) {
+                        const hay = [
+                          member.full_name,
+                          member.position,
+                          member.department,
+                          e.course_title,
+                          e.cert_no,
+                        ]
+                          .filter(Boolean)
+                          .join(" ")
+                          .toLowerCase();
+                        if (!hay.includes(q)) return false;
+                      }
+                      return true;
+                    })
+                    .map((e) => {
+                      const member = data.members.find((m) => m.user_id === e.user_id);
+                      const course = data.courses.find((c) => c.id === e.course_id);
+                      return (
+                        <tr key={`${e.user_id}-${e.course_id}`} className="border-t hover:bg-muted/20 transition">
+                          <td className="px-4 py-3">
+                            <div className="font-bold text-xs text-foreground">{member?.full_name || "—"}</div>
+                            <div className="text-[11px] text-muted-foreground">{member?.position || ""}</div>
+                          </td>
+                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                            {member?.department || member?.division || "—"}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="font-semibold text-xs text-foreground">
+                              {course?.title || e.course_title || "—"}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground">
+                              {course?.hours ? `${course.hours} ชั่วโมงอบรม` : ""}
+                              {e.round_no ? ` · รอบที่ ${e.round_no}` : ""}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-xs">
+                            <div className="flex items-center gap-1.5">
+                              <span className="rounded bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+                                ก่อนเรียน: {e.pre_score != null ? `${Math.round(Number(e.pre_score))}%` : "—"}
+                              </span>
+                              <span className="rounded bg-emerald-500/15 px-2 py-0.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
+                                หลังเรียน: {e.post_score != null ? `${Math.round(Number(e.post_score))}%` : "ผ่าน"}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-xs">
+                            <div className="font-mono font-semibold text-foreground">{e.cert_no || "—"}</div>
+                            {e.cert_issued_at && (
+                              <div className="text-[11px] text-muted-foreground">
+                                {new Date(e.cert_issued_at).toLocaleDateString("th-TH", {
+                                  day: "numeric",
+                                  month: "short",
+                                  year: "numeric",
+                                })}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="inline-flex items-center gap-1.5">
+                              <Link
+                                to="/certificates/$certId"
+                                params={{ certId: e.cert_id! }}
+                                className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground shadow-xs hover:bg-primary/90 transition"
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                                <span>ดู / ดาวน์โหลด PDF</span>
+                              </Link>
+                              <a
+                                href={`/certificates/${e.cert_id}?print=1`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-600/40 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 transition"
+                              >
+                                <Printer className="h-3.5 w-3.5" />
+                                <span>พิมพ์ใบประกาศ</span>
+                              </a>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  {data.enr.filter((e) => e.has_cert && e.cert_id).length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-12 text-center text-xs text-muted-foreground">
+                        ยังไม่มีผู้ใต้บังคับบัญชาที่ได้รับใบประกาศนียบัตรในขณะนี้
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* SUBORDINATE TRAINING DOSSIER MODAL (ข้อมูลการอบรมและใบประกาศรายบุคคล)      */}
+      {/* ========================================================================= */}
+      {inspectMember && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+          onClick={() => setInspectMember(null)}
+        >
+          <div
+            className="max-h-[88vh] w-full max-w-3xl overflow-hidden rounded-3xl border border-border bg-card shadow-2xl flex flex-col"
+            onClick={(ev) => ev.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-start justify-between gap-3 border-b bg-muted/30 p-5">
+              <div className="flex items-center gap-3">
+                <div className="grid size-11 place-items-center rounded-2xl bg-primary/15 text-base font-bold text-primary">
+                  {inspectMember.full_name.slice(0, 1)}
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-foreground">{inspectMember.full_name}</h3>
+                  <p className="text-xs text-muted-foreground">
+                    {[inspectMember.position, inspectMember.department, inspectMember.division]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setInspectMember(null)}
+                className="rounded-xl p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+
+            {/* Modal Body: Per-course training progress & certificates */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-3">
+              <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                ประวัติการอบรมและใบประกาศนียบัตรทั้งหมด ({data.courses.length} หลักสูตร)
+              </div>
+
+              {data.courses.map((course) => {
+                const enr = data.enr.find(
+                  (e) => e.user_id === inspectMember.user_id && e.course_id === course.id,
+                );
+                const status = getTrainingProcessStatus(enr);
+                const StatusIcon = status.icon;
+                const lessonPct =
+                  enr && (enr.total_lessons ?? 0) > 0
+                    ? Math.min(100, Math.round(((enr.lessons_done ?? 0) / (enr.total_lessons ?? 1)) * 100))
+                    : 0;
+
+                return (
+                  <div
+                    key={course.id}
+                    className="rounded-2xl border border-border/80 bg-background/60 p-4 space-y-3"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <div className="text-sm font-bold text-foreground">{course.title}</div>
+                        <div className="text-[11px] text-muted-foreground">
+                          หมวด {course.category || "ทั่วไป"} · {course.hours ?? 0} ชั่วโมงอบรม
+                          {enr?.round_no ? ` · รอบที่ ${enr.round_no}` : ""}
+                        </div>
+                      </div>
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs border ${status.badgeClass}`}
+                      >
+                        <StatusIcon className="h-3 w-3" />
+                        <span>{status.label}</span>
+                      </span>
+                    </div>
+
+                    {enr ? (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                        <div className="rounded-xl border bg-card p-2.5">
+                          <div className="text-[10px] text-muted-foreground">การเช็คชื่อเข้าอบรม</div>
+                          <div className="mt-0.5 font-bold text-foreground">
+                            {enr.attended ? "✓ เข้าร่วมแล้ว" : "ยังไม่เช็คชื่อ"}
+                          </div>
+                          {enr.checked_at && (
+                            <div className="text-[10px] text-muted-foreground">
+                              {new Date(enr.checked_at).toLocaleDateString("th-TH", {
+                                day: "numeric",
+                                month: "short",
+                              })}{" "}
+                              {new Date(enr.checked_at).toLocaleTimeString("th-TH", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="rounded-xl border bg-card p-2.5">
+                          <div className="text-[10px] text-muted-foreground">คะแนนก่อนเรียน (Pre-test)</div>
+                          <div className="mt-0.5 font-bold text-foreground">
+                            {enr.pre_done
+                              ? enr.pre_score != null
+                                ? `${Math.round(Number(enr.pre_score))}%`
+                                : "ทำแล้ว"
+                              : enr.require_pretest
+                              ? "ยังไม่ได้ทำ"
+                              : "ไม่มี"}
+                          </div>
+                        </div>
+
+                        <div className="rounded-xl border bg-card p-2.5">
+                          <div className="text-[10px] text-muted-foreground">ความคืบหน้าบทเรียน</div>
+                          <div className="mt-0.5 font-bold text-foreground">
+                            {enr.lessons_done ?? 0} / {enr.total_lessons ?? 0} บทเรียน ({lessonPct}%)
+                          </div>
+                        </div>
+
+                        <div className="rounded-xl border bg-card p-2.5">
+                          <div className="text-[10px] text-muted-foreground">คะแนนหลังเรียน (Post-test)</div>
+                          <div
+                            className={`mt-0.5 font-bold ${
+                              enr.post_done ? "text-emerald-600 dark:text-emerald-400" : "text-foreground"
+                            }`}
+                          >
+                            {enr.post_score != null
+                              ? `${Math.round(Number(enr.post_score))}% (${enr.post_done ? "ผ่าน" : "ไม่ผ่าน"})`
+                              : enr.post_done
+                              ? "ผ่านเกณฑ์"
+                              : "ยังไม่ได้สอบ"}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-muted-foreground">
+                        ยังไม่ได้ลงทะเบียนหรือจัดสรรเข้าอบรมในหลักสูตรนี้
+                      </div>
+                    )}
+
+                    {enr?.has_cert && enr?.cert_id && (
+                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3">
+                        <div className="flex items-center gap-2 text-xs">
+                          <GraduationCap className="size-4 text-emerald-600 dark:text-emerald-400" />
+                          <div>
+                            <span className="font-bold text-emerald-800 dark:text-emerald-200">
+                              ได้รับใบประกาศนียบัตรแล้ว
+                            </span>
+                            {enr.cert_no && (
+                              <span className="ml-2 font-mono text-[11px] text-muted-foreground">
+                                ({enr.cert_no})
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Link
+                            to="/certificates/$certId"
+                            params={{ certId: enr.cert_id }}
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition"
+                          >
+                            <Eye className="size-3.5" />
+                            <span>เปิดดู / ดาวน์โหลด PDF</span>
+                          </Link>
+                          <a
+                            href={`/certificates/${enr.cert_id}?print=1`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-600/40 bg-card px-3 py-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 transition"
+                          >
+                            <Printer className="size-3.5" />
+                            <span>พิมพ์ใบประกาศ</span>
+                          </a>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

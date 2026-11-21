@@ -20,6 +20,7 @@ import { Route as AuthenticatedManageTeamRouteImport } from './routes/_authentic
 import { Route as AuthenticatedMyCoursesRouteImport } from './routes/_authenticated/my-courses'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedSimulationCprRouteImport } from './routes/_authenticated/simulation-cpr'
+import { Route as DirectorSignTokenRouteImport } from './routes/director-sign.$token'
 import { Route as JoinCourseIdRouteImport } from './routes/join.$courseId'
 import { Route as VerifyCertNoRouteImport } from './routes/verify.$certNo'
 import { Route as AuthenticatedAdminAuditRouteImport } from './routes/_authenticated/admin.audit'
@@ -95,6 +96,11 @@ const AuthenticatedSimulationCprRoute =
     path: '/simulation-cpr',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const DirectorSignTokenRoute = DirectorSignTokenRouteImport.update({
+  id: '/director-sign/$token',
+  path: '/director-sign/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const JoinCourseIdRoute = JoinCourseIdRouteImport.update({
   id: '/join/$courseId',
   path: '/join/$courseId',
@@ -214,6 +220,7 @@ export interface FileRoutesByFullPath {
   '/my-courses': typeof AuthenticatedMyCoursesRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/simulation-cpr': typeof AuthenticatedSimulationCprRoute
+  '/director-sign/$token': typeof DirectorSignTokenRoute
   '/join/$courseId': typeof JoinCourseIdRoute
   '/verify/$certNo': typeof VerifyCertNoRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
@@ -245,6 +252,7 @@ export interface FileRoutesByTo {
   '/my-courses': typeof AuthenticatedMyCoursesRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/simulation-cpr': typeof AuthenticatedSimulationCprRoute
+  '/director-sign/$token': typeof DirectorSignTokenRoute
   '/join/$courseId': typeof JoinCourseIdRoute
   '/verify/$certNo': typeof VerifyCertNoRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
@@ -278,6 +286,7 @@ export interface FileRoutesById {
   '/_authenticated/my-courses': typeof AuthenticatedMyCoursesRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/simulation-cpr': typeof AuthenticatedSimulationCprRoute
+  '/director-sign/$token': typeof DirectorSignTokenRoute
   '/join/$courseId': typeof JoinCourseIdRoute
   '/verify/$certNo': typeof VerifyCertNoRoute
   '/_authenticated/admin/audit': typeof AuthenticatedAdminAuditRoute
@@ -311,6 +320,7 @@ export interface FileRouteTypes {
     | '/my-courses'
     | '/settings'
     | '/simulation-cpr'
+    | '/director-sign/$token'
     | '/join/$courseId'
     | '/verify/$certNo'
     | '/admin/audit'
@@ -342,6 +352,7 @@ export interface FileRouteTypes {
     | '/my-courses'
     | '/settings'
     | '/simulation-cpr'
+    | '/director-sign/$token'
     | '/join/$courseId'
     | '/verify/$certNo'
     | '/admin/audit'
@@ -374,6 +385,7 @@ export interface FileRouteTypes {
     | '/_authenticated/my-courses'
     | '/_authenticated/settings'
     | '/_authenticated/simulation-cpr'
+    | '/director-sign/$token'
     | '/join/$courseId'
     | '/verify/$certNo'
     | '/_authenticated/admin/audit'
@@ -400,6 +412,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  DirectorSignTokenRoute: typeof DirectorSignTokenRoute
   JoinCourseIdRoute: typeof JoinCourseIdRoute
   VerifyCertNoRoute: typeof VerifyCertNoRoute
   CheckinCourseIdCodeRoute: typeof CheckinCourseIdCodeRoute
@@ -483,6 +496,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/simulation-cpr'
       preLoaderRoute: typeof AuthenticatedSimulationCprRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/director-sign/$token': {
+      id: '/director-sign/$token'
+      path: '/director-sign/$token'
+      fullPath: '/director-sign/$token'
+      preLoaderRoute: typeof DirectorSignTokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/join/$courseId': {
       id: '/join/$courseId'
@@ -684,6 +704,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  DirectorSignTokenRoute: DirectorSignTokenRoute,
   JoinCourseIdRoute: JoinCourseIdRoute,
   VerifyCertNoRoute: VerifyCertNoRoute,
   CheckinCourseIdCodeRoute: CheckinCourseIdCodeRoute,

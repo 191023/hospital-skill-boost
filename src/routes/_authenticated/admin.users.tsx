@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { roleLabel, useMe, type Role } from "@/lib/auth";
@@ -9,8 +9,9 @@ import { createMember, resetUserPassword } from "@/lib/admin.functions";
 import { parseAuthIdentifier, isSyntheticEmail, getDisplayIdentifier } from "@/lib/auth-identifier";
 import { PageHeader } from "@/components/AppShell";
 import { DeptPicker } from "@/components/DeptPicker";
-import { divisions, orgChart } from "@/lib/org";
+import { useOrgChart } from "@/lib/org";
 import { ImportMembers } from "@/components/ImportMembers";
+import { ChevronLeft, ChevronRight, RotateCcw, Search, X } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/users")({
   head: () => ({
@@ -28,77 +29,189 @@ export const Route = createFileRoute("/_authenticated/admin/users")({
 
 const inp = "w-full rounded-xl border bg-card px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring";
 
+type SortKey =
+  | "identifier"
+  | "full_name"
+  | "division"
+  | "department"
+  | "position"
+  | "role"
+  | "approved"
+  | "created_at";
+
+type ManagerLevel = "none" | "division_head" | "department_head";
+
 function Users() {
   const { data: me } = useMe();
   const qc = useQueryClient();
+  const { divisions, orgChart } = useOrgChart();
   const resetPwFn = useServerFn(resetUserPassword);
 
-  const [filter, setFilter] = useState<"all" | "pending">("all");
+  const [filter, setFilter] = useState<"all" | "approved" | "pending">("all");
   const [showAdd, setShowAdd] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [q, setQ] = useState("");
   const [fDiv, setFDiv] = useState("");
   const [fDept, setFDept] = useState("");
+  const [fRole, setFRole] = useState<"" | Role>("");
+  const [fManager, setFManager] = useState<"" | "any_head" | "division_head" | "department_head" | "none">("");
+  const [pageSize, setPageSize] = useState<number>(50);
+  const [page, setPage] = useState<number>(1);
   const [sort, setSort] = useState<{
-    key: "full_name" | "division" | "department" | "position" | "approved";
+    key: SortKey;
     dir: 1 | -1;
   }>({ key: "full_name", dir: 1 });
 
-  const { data = [] } = useQuery({
+  const { data: rawData } = useQuery({
     queryKey: ["admin-users"],
     enabled: !!me?.isAdmin,
     queryFn: async () => {
-      const [{ data: p }, { data: r }] = await Promise.all([
+      const [{ data: p }, { data: r }, { data: units }, { data: mgrs }] = await Promise.all([
         supabase.from("profiles").select("*").order("created_at", { ascending: false }),
         supabase.from("user_roles").select("user_id, role"),
+        supabase.from("org_units").select("id, name, kind, parent_id"),
+        supabase.from("org_unit_managers").select("user_id, org_unit_id"),
       ]);
-      return (p ?? []).map((x) => ({
-        ...x,
-        roles: (r ?? []).filter((y) => y.user_id === x.id).map((y) => y.role as Role),
-      }));
+
+      const unitMap = new Map((units ?? []).map((u) => [u.id, u]));
+      const mgrsByUser = new Map<string, { unitId: string; name: string; kind: string }[]>();
+      for (const m of mgrs ?? []) {
+        const u = unitMap.get(m.org_unit_id);
+        if (!u) continue;
+        const arr = mgrsByUser.get(m.user_id) ?? [];
+        arr.push({ unitId: u.id, name: u.name, kind: u.kind });
+        mgrsByUser.set(m.user_id, arr);
+      }
+
+      const users = (p ?? []).map((x) => {
+        const roles = (r ?? []).filter((y) => y.user_id === x.id).map((y) => y.role as Role);
+        const managedUnits = mgrsByUser.get(x.id) ?? [];
+        const isDivHead = managedUnits.some((u) => u.kind === "division");
+        const isDeptHead = managedUnits.some((u) => u.kind === "unit");
+        const managerLevel: ManagerLevel = isDivHead
+          ? "division_head"
+          : isDeptHead
+          ? "department_head"
+          : "none";
+        const displayId = getDisplayIdentifier(x.email, x.employee_id);
+        return {
+          ...x,
+          roles: roles.length ? roles : (["learner"] as Role[]),
+          managedUnits,
+          managerLevel,
+          displayId,
+        };
+      });
+
+      return {
+        users,
+        units: units ?? [],
+      };
     },
   });
 
+  const data = rawData?.users ?? [];
+  const orgUnits = rawData?.units ?? [];
+
+  // Reset to page 1 whenever filters or search change
+  useEffect(() => {
+    setPage(1);
+  }, [filter, q, fDiv, fDept, fRole, fManager, pageSize]);
+
   if (!me?.isAdmin) return <div className="glass rounded-3xl p-10 text-center">เฉพาะผู้ดูแลระบบ</div>;
 
-  const refresh = () => qc.invalidateQueries({ queryKey: ["admin-users"] });
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ["admin-users"] });
+    qc.invalidateQueries({ queryKey: ["org-admin"] });
+  };
   const pending = data.filter((u) => !u.approved).length;
+  const approvedCount = data.filter((u) => u.approved).length;
+  const managersCount = data.filter((u) => u.managerLevel !== "none").length;
 
   const list = useMemo(() => {
     const term = q.trim().toLowerCase();
-    let rows = filter === "pending" ? data.filter((u) => !u.approved) : data;
+    let rows =
+      filter === "pending"
+        ? data.filter((u) => !u.approved)
+        : filter === "approved"
+        ? data.filter((u) => u.approved)
+        : data;
+
     if (fDiv) rows = rows.filter((u) => u.division === fDiv);
     if (fDept) rows = rows.filter((u) => u.department === fDept);
-    if (term)
-      rows = rows.filter((u) =>
-        [u.full_name, u.email, u.employee_id, u.division, u.department, u.position].some((v) =>
-          (v ?? "").toLowerCase().includes(term)
-        )
-      );
+    if (fRole) rows = rows.filter((u) => u.roles.includes(fRole));
+    if (fManager) {
+      if (fManager === "any_head") rows = rows.filter((u) => u.managerLevel !== "none");
+      else rows = rows.filter((u) => u.managerLevel === fManager);
+    }
 
-    const val = (u: (typeof data)[number]) => {
-      const raw = sort.key === "approved" ? String(u.approved) : (u[sort.key] ?? "");
-      return raw;
+    if (term) {
+      rows = rows.filter((u) =>
+        [u.full_name, u.displayId, u.email, u.employee_id, u.division, u.department, u.position].some((v) =>
+          (v ?? "").toLowerCase().includes(term),
+        ),
+      );
+    }
+
+    const roleRank = (u: (typeof data)[number]) => {
+      if (u.roles.includes("admin")) return 3;
+      if (u.roles.includes("instructor")) return 2;
+      if (u.managerLevel === "division_head") return 1.8;
+      if (u.managerLevel === "department_head") return 1.5;
+      return 1;
     };
 
     return [...rows].sort((a, b) => {
-      const av = val(a) as string;
-      const bv = val(b) as string;
-      if (sort.key === "approved" && av !== bv) return sort.dir * (av === "true" ? 1 : -1);
-      return sort.dir * av.localeCompare(bv, "th");
+      if (sort.key === "approved") {
+        if (a.approved !== b.approved) return sort.dir * (a.approved ? -1 : 1);
+      } else if (sort.key === "created_at") {
+        return sort.dir * (a.created_at || "").localeCompare(b.created_at || "");
+      } else if (sort.key === "role") {
+        const diff = roleRank(b) - roleRank(a);
+        if (diff !== 0) return sort.dir * diff;
+      } else if (sort.key === "identifier") {
+        return sort.dir * (a.displayId || "").localeCompare(b.displayId || "", "th", { numeric: true });
+      } else {
+        const av = String(a[sort.key] ?? "");
+        const bv = String(b[sort.key] ?? "");
+        const cmp = av.localeCompare(bv, "th", { numeric: true });
+        if (cmp !== 0) return sort.dir * cmp;
+      }
+      return (a.full_name || "").localeCompare(b.full_name || "", "th", { numeric: true });
     });
-  }, [data, filter, q, sort, fDiv, fDept]);
+  }, [data, filter, q, sort, fDiv, fDept, fRole, fManager]);
 
-  function thLabel(label: string, key: typeof sort.key) {
+  const totalFiltered = list.length;
+  const effectivePageSize = pageSize <= 0 ? Math.max(1, totalFiltered) : pageSize;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / effectivePageSize));
+  const safePage = Math.min(page, totalPages);
+  const startIndex = (safePage - 1) * effectivePageSize;
+  const pagedList = pageSize <= 0 ? list : list.slice(startIndex, startIndex + effectivePageSize);
+
+  const hasActiveFilters =
+    filter !== "all" || Boolean(q.trim() || fDiv || fDept || fRole || fManager);
+
+  function resetAllFilters() {
+    setFilter("all");
+    setQ("");
+    setFDiv("");
+    setFDept("");
+    setFRole("");
+    setFManager("");
+    setPage(1);
+  }
+
+  function thLabel(label: string, key: SortKey) {
     const active = sort.key === key;
     return (
       <button
+        type="button"
         onClick={() => setSort((s) => ({ key, dir: active && s.dir === 1 ? -1 : 1 }))}
-        className={`inline-flex items-center gap-1 hover:text-foreground cursor-pointer ${
-          active ? "text-foreground font-semibold" : ""
+        className={`inline-flex items-center gap-1 hover:text-foreground cursor-pointer transition ${
+          active ? "text-primary font-bold" : ""
         }`}
       >
-        {label}
+        <span>{label}</span>
         <span className="text-[10px]">{active ? (sort.dir === 1 ? "▲" : "▼") : "↕"}</span>
       </button>
     );
@@ -116,10 +229,15 @@ function Users() {
     toast.success(`ส่งลิงก์รีเซ็ตไปที่ ${email} แล้ว`);
   }
 
-  async function handleDirectReset(user: { id: string; full_name: string; email: string | null; employee_id: string | null }) {
+  async function handleDirectReset(user: {
+    id: string;
+    full_name: string;
+    email: string | null;
+    employee_id: string | null;
+  }) {
     const idDisplay = getDisplayIdentifier(user.email, user.employee_id);
     const newPw = prompt(
-      `กำหนดรหัสผ่านใหม่สำหรับ "${user.full_name}" (${idDisplay})\nกรุณาระบุรหัสผ่านอย่างน้อย 6 ตัวอักษร:`
+      `กำหนดรหัสผ่านใหม่สำหรับ "${user.full_name}" (${idDisplay})\nกรุณาระบุรหัสผ่านอย่างน้อย 6 ตัวอักษร:`,
     );
     if (!newPw) return;
     if (newPw.trim().length < 6) {
@@ -158,21 +276,69 @@ function Users() {
     refresh();
   }
 
+  async function handleManagerLevelChange(
+    user: (typeof data)[number],
+    nextLevel: ManagerLevel,
+  ) {
+    // Remove existing manager assignments for this user first
+    await supabase.from("org_unit_managers").delete().eq("user_id", user.id);
+
+    if (nextLevel === "none") {
+      toast.success(`ปรับสถานะ "${user.full_name}" เป็นสมาชิกทั่วไปแล้ว`);
+      refresh();
+      return;
+    }
+
+    const divUnit = orgUnits.find((u) => u.kind === "division" && u.name === user.division);
+    if (!divUnit) {
+      toast.error(`กรุณาระบุฝ่ายของ "${user.full_name}" ให้ตรงกับโครงสร้างองค์กรก่อนตั้งเป็นหัวหน้า`);
+      refresh();
+      return;
+    }
+
+    if (nextLevel === "division_head") {
+      const { error } = await supabase
+        .from("org_unit_managers")
+        .insert({ user_id: user.id, org_unit_id: divUnit.id });
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      toast.success(`ตั้ง "${user.full_name}" เป็นหัวหน้าฝ่าย (${divUnit.name}) เรียบร้อยแล้ว`);
+    } else if (nextLevel === "department_head") {
+      const deptUnit = orgUnits.find(
+        (u) => u.kind === "unit" && u.parent_id === divUnit.id && u.name === user.department,
+      );
+      const targetUnitId = deptUnit?.id || divUnit.id;
+      const targetName = deptUnit?.name || divUnit.name;
+      const { error } = await supabase
+        .from("org_unit_managers")
+        .insert({ user_id: user.id, org_unit_id: targetUnitId });
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      toast.success(`ตั้ง "${user.full_name}" เป็นหัวหน้าแผนก (${targetName}) เรียบร้อยแล้ว`);
+    }
+    refresh();
+  }
+
   return (
     <>
       <PageHeader
+        eyebrow="ผู้ดูแลระบบ"
         title="จัดการสมาชิก"
-        subtitle={`บุคลากรทั้งหมด ${data.length} คน (รออนุมัติ ${pending} คน)`}
-        action={
-          <div className="flex gap-2">
+        subtitle={`บุคลากรทั้งหมด ${data.length} คน · อนุมัติแล้ว ${approvedCount} คน · รออนุมัติ ${pending} คน · หัวหน้าฝ่าย/แผนก ${managersCount} คน`}
+        right={
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={() => {
                 setShowImport(!showImport);
                 setShowAdd(false);
               }}
-              className="rounded-2xl border bg-card px-4 py-2 text-sm font-semibold cursor-pointer"
+              className="rounded-2xl border bg-card px-4 py-2 text-sm font-semibold hover:border-primary/50 transition cursor-pointer"
             >
-              {showImport ? "ปิดการนำเข้า" : "นำเข้า Excel / CSV"}
+              {showImport ? "ปิดการนำเข้า" : "📥 นำเข้า Excel / CSV"}
             </button>
             <button
               onClick={() => {
@@ -205,168 +371,397 @@ function Users() {
         />
       )}
 
-      {/* Filter Toolbar */}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <button
-          onClick={() => setFilter("all")}
-          className={`rounded-xl px-3 py-1.5 text-xs font-semibold cursor-pointer ${
-            filter === "all" ? "bg-primary text-primary-foreground shadow-xs" : "bg-card text-muted-foreground"
-          }`}
-        >
-          ทั้งหมด ({data.length})
-        </button>
-        <button
-          onClick={() => setFilter("pending")}
-          className={`rounded-xl px-3 py-1.5 text-xs font-semibold cursor-pointer ${
-            filter === "pending"
-              ? "bg-amber text-primary-foreground shadow-xs"
-              : "bg-card text-muted-foreground"
-          }`}
-        >
-          รออนุมัติ ({pending})
-        </button>
-        <input
-          className="rounded-xl border bg-card px-3 py-1.5 text-xs"
-          placeholder="ค้นหาชื่อ, รหัสผู้ใช้, อีเมล, แผนก..."
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
-        <select
-          className="rounded-xl border bg-card px-2.5 py-1.5 text-xs"
-          value={fDiv}
-          onChange={(e) => {
-            setFDiv(e.target.value);
-            setFDept("");
-          }}
-        >
-          <option value="">ทุกฝ่าย</option>
-          {divisions.map((d) => (
-            <option key={d} value={d}>
-              {d}
-            </option>
-          ))}
-        </select>
-        {fDiv && (
+      {/* Advanced Filter & Search Toolbar */}
+      <div className="glass mb-4 rounded-2xl p-3.5 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {/* Status Filter Pills */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setFilter("all")}
+              className={`rounded-xl px-3 py-1.5 text-xs font-semibold cursor-pointer transition ${
+                filter === "all"
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "bg-card text-muted-foreground hover:text-foreground border border-border/60"
+              }`}
+            >
+              ทั้งหมด ({data.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilter("approved")}
+              className={`rounded-xl px-3 py-1.5 text-xs font-semibold cursor-pointer transition ${
+                filter === "approved"
+                  ? "bg-mint text-primary-foreground shadow-xs"
+                  : "bg-card text-muted-foreground hover:text-foreground border border-border/60"
+              }`}
+            >
+              อนุมัติแล้ว ({approvedCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilter("pending")}
+              className={`rounded-xl px-3 py-1.5 text-xs font-semibold cursor-pointer transition ${
+                filter === "pending"
+                  ? "bg-amber text-primary-foreground shadow-xs"
+                  : "bg-card text-muted-foreground hover:text-foreground border border-border/60"
+              }`}
+            >
+              รออนุมัติ ({pending})
+            </button>
+          </div>
+
+          {/* Summary & Page Size Selector */}
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <span>
+              แสดง{" "}
+              <strong className="text-foreground">
+                {totalFiltered === 0 ? 0 : startIndex + 1}–{Math.min(totalFiltered, startIndex + pagedList.length)}
+              </strong>{" "}
+              จาก <strong className="text-primary">{totalFiltered}</strong> คน
+              {totalFiltered !== data.length && ` (กรองจากทั้งหมด ${data.length} คน)`}
+            </span>
+            <select
+              aria-label="จำนวนรายการต่อหน้า"
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value))}
+              className="rounded-xl border bg-card px-2.5 py-1 text-xs font-semibold text-foreground"
+            >
+              <option value={25}>25 คน / หน้า</option>
+              <option value={50}>50 คน / หน้า</option>
+              <option value={100}>100 คน / หน้า</option>
+              <option value={0}>แสดงทั้งหมด</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Multi-Dimension Filter Controls */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-[220px] flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+            <input
+              className="w-full rounded-xl border bg-card pl-8 pr-8 py-1.5 text-xs outline-none focus:ring-2 focus:ring-primary/40"
+              placeholder="ค้นหาชื่อ-นามสกุล, รหัสผู้ใช้ (เช่น P0259, DR45), อีเมล, แผนก, ตำแหน่ง..."
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+            {q && (
+              <button
+                type="button"
+                onClick={() => setQ("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                title="ล้างคำค้นหา"
+              >
+                <X className="size-3.5" />
+              </button>
+            )}
+          </div>
+
           <select
+            aria-label="กรองตามฝ่าย"
             className="rounded-xl border bg-card px-2.5 py-1.5 text-xs"
-            value={fDept}
-            onChange={(e) => setFDept(e.target.value)}
+            value={fDiv}
+            onChange={(e) => {
+              setFDiv(e.target.value);
+              setFDept("");
+            }}
           >
-            <option value="">ทุกแผนกในฝ่าย</option>
-            {(orgChart[fDiv] ?? []).map((dept) => (
-              <option key={dept} value={dept}>
-                {dept}
+            <option value="">ทุกฝ่าย ({divisions.length})</option>
+            {divisions.map((d) => (
+              <option key={d} value={d}>
+                {d}
               </option>
             ))}
           </select>
-        )}
+
+          {fDiv && (
+            <select
+              aria-label="กรองตามแผนก"
+              className="rounded-xl border bg-card px-2.5 py-1.5 text-xs"
+              value={fDept}
+              onChange={(e) => setFDept(e.target.value)}
+            >
+              <option value="">ทุกแผนกในฝ่าย</option>
+              {(orgChart[fDiv] ?? []).map((dept) => (
+                <option key={dept} value={dept}>
+                  {dept}
+                </option>
+              ))}
+            </select>
+          )}
+
+          <select
+            aria-label="กรองตามบทบาท"
+            className="rounded-xl border bg-card px-2.5 py-1.5 text-xs"
+            value={fRole}
+            onChange={(e) => setFRole(e.target.value as "" | Role)}
+          >
+            <option value="">ทุกบทบาท</option>
+            <option value="learner">ผู้เรียน</option>
+            <option value="instructor">วิทยากร</option>
+            <option value="admin">ผู้ดูแลระบบ</option>
+          </select>
+
+          <select
+            aria-label="กรองตามระดับหัวหน้า"
+            className="rounded-xl border bg-card px-2.5 py-1.5 text-xs"
+            value={fManager}
+            onChange={(e) =>
+              setFManager(
+                e.target.value as "" | "any_head" | "division_head" | "department_head" | "none",
+              )
+            }
+          >
+            <option value="">ทุกระดับหัวหน้า</option>
+            <option value="any_head">👑 เฉพาะหัวหน้าฝ่าย / แผนก ({managersCount})</option>
+            <option value="division_head">👑 หัวหน้าฝ่าย</option>
+            <option value="department_head">🏅 หัวหน้าแผนก / หน่วย</option>
+            <option value="none">บุคลากรทั่วไป</option>
+          </select>
+
+          <select
+            aria-label="เรียงลำดับตาม"
+            className="rounded-xl border bg-card px-2.5 py-1.5 text-xs font-semibold text-primary"
+            value={`${sort.key}:${sort.dir}`}
+            onChange={(e) => {
+              const [k, d] = e.target.value.split(":");
+              setSort({ key: k as SortKey, dir: Number(d) as 1 | -1 });
+            }}
+          >
+            <option value="full_name:1">เรียง: ชื่อ ก → ฮ</option>
+            <option value="full_name:-1">เรียง: ชื่อ ฮ → ก</option>
+            <option value="identifier:1">เรียง: รหัสผู้ใช้ A → Z</option>
+            <option value="identifier:-1">เรียง: รหัสผู้ใช้ Z → A</option>
+            <option value="division:1">เรียง: ฝ่าย ก → ฮ</option>
+            <option value="department:1">เรียง: แผนก ก → ฮ</option>
+            <option value="position:1">เรียง: ตำแหน่ง ก → ฮ</option>
+            <option value="created_at:-1">เรียง: วันที่เพิ่ม (ล่าสุดก่อน)</option>
+            <option value="created_at:1">เรียง: วันที่เพิ่ม (เก่าสุดก่อน)</option>
+          </select>
+
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={resetAllFilters}
+              className="inline-flex items-center gap-1 rounded-xl border border-coral/40 bg-coral/10 px-3 py-1.5 text-xs font-semibold text-coral hover:bg-coral/20 transition cursor-pointer"
+            >
+              <RotateCcw className="size-3" />
+              <span>ล้างตัวกรอง</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Members Table */}
       <div className="glass overflow-hidden rounded-3xl">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-mist text-xs text-muted-foreground">
-            <tr>
-              <th className="p-4">{thLabel("ชื่อ-นามสกุล / ข้อมูลบัญชี", "full_name")}</th>
-              <th>
-                {thLabel("ฝ่าย", "division")} / {thLabel("แผนก", "department")} /{" "}
-                {thLabel("ตำแหน่ง", "position")}
-              </th>
-              <th>บทบาท</th>
-              <th>{thLabel("สถานะ", "approved")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.map((u) => {
-              const isSynthetic = isSyntheticEmail(u.email);
-              const displayId = getDisplayIdentifier(u.email, u.employee_id);
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm min-w-[880px]">
+            <thead className="bg-mist text-xs text-muted-foreground">
+              <tr>
+                <th className="w-14 py-3.5 pl-4 pr-2 text-center font-bold">#</th>
+                <th className="w-44 py-3.5 px-3">{thLabel("รหัสผู้ใช้ / อีเมล", "identifier")}</th>
+                <th className="py-3.5 px-3">{thLabel("ชื่อ-นามสกุล", "full_name")}</th>
+                <th className="py-3.5 px-3">
+                  {thLabel("ฝ่าย", "division")} / {thLabel("แผนก", "department")} /{" "}
+                  {thLabel("ตำแหน่ง", "position")}
+                </th>
+                <th className="py-3.5 px-3">{thLabel("บทบาท & สถานะหัวหน้า", "role")}</th>
+                <th className="py-3.5 pl-3 pr-4">{thLabel("สถานะ & การจัดการ", "approved")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pagedList.map((u, idx) => {
+                const isSynthetic = isSyntheticEmail(u.email);
+                const rowNumber = startIndex + idx + 1;
 
-              return (
-                <tr key={u.id} className="border-t border-glass-border">
-                  <td className="p-4">
-                    <div className="font-semibold">{u.full_name}</div>
-                    {isSynthetic ? (
-                      <div className="mt-1 inline-flex items-center gap-1 rounded-md bg-sky-500/10 px-2 py-0.5 text-[11px] font-mono font-semibold text-sky-600 dark:text-sky-400">
-                        <span>รหัสผู้ใช้:</span>
-                        <span>{displayId}</span>
-                      </div>
-                    ) : (
-                      <div className="text-[11px] text-muted-foreground">{u.email}</div>
-                    )}
-                  </td>
-                  <td className="text-xs">
-                    <div className="text-muted-foreground">{u.division}</div>
-                    <div className="font-medium">{u.department}</div>
-                    <div className="text-muted-foreground">{u.position}</div>
-                  </td>
-                  <td>
-                    <div className="flex flex-wrap gap-1">
-                      {(["learner", "instructor", "admin"] as Role[]).map((r) => {
-                        const has = u.roles.includes(r);
-                        return (
-                          <button
-                            key={r}
-                            onClick={() => toggleRole(u.id, r, has)}
-                            className={`rounded-full px-2 py-0.5 text-[11px] font-semibold cursor-pointer ${
-                              has ? "bg-primary text-primary-foreground" : "bg-mist text-muted-foreground"
-                            }`}
-                          >
-                            {roleLabel[r]}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </td>
-                  <td className="pr-4">
-                    {u.approved ? (
-                      <button
-                        onClick={() => setApproved(u.id, false)}
-                        className="rounded-full bg-mint/15 px-2.5 py-0.5 text-[11px] font-semibold text-mint cursor-pointer"
-                      >
-                        อนุมัติแล้ว ✓
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => setApproved(u.id, true)}
-                        className="rounded-full bg-amber px-3 py-1 text-[11px] font-semibold text-primary-foreground cursor-pointer"
-                      >
-                        อนุมัติ
-                      </button>
-                    )}
+                return (
+                  <tr key={u.id} className="border-t border-glass-border hover:bg-muted/20 transition">
+                    {/* 1. Row Sequence Number (#) */}
+                    <td className="py-3.5 pl-4 pr-2 text-center font-mono text-xs font-bold text-muted-foreground">
+                      {rowNumber}
+                    </td>
 
-                    <div className="mt-1.5 flex flex-col gap-0.5">
+                    {/* 2. User ID / Email */}
+                    <td className="py-3.5 px-3">
                       {isSynthetic ? (
-                        <button
-                          onClick={() => handleDirectReset(u)}
-                          className="text-left text-[11px] font-semibold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
+                        <span className="inline-flex items-center gap-1 rounded-lg bg-sky-500/10 border border-sky-500/20 px-2.5 py-1 text-xs font-mono font-bold text-sky-700 dark:text-sky-300">
+                          {u.displayId}
+                        </span>
+                      ) : (
+                        <div className="space-y-0.5">
+                          <div className="text-xs font-mono font-semibold text-foreground break-all">
+                            {u.email}
+                          </div>
+                          {u.employee_id && (
+                            <div className="text-[10px] font-mono text-sky-600 dark:text-sky-400">
+                              รหัส: {u.employee_id}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </td>
+
+                    {/* 3. Full Name */}
+                    <td className="py-3.5 px-3">
+                      <div className="font-bold text-foreground">{u.full_name}</div>
+                      {u.managedUnits.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {u.managedUnits.map((mu) => (
+                            <span
+                              key={mu.unitId}
+                              className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300"
+                            >
+                              {mu.kind === "division" ? "👑 หัวหน้าฝ่าย:" : "🏅 หัวหน้าแผนก:"} {mu.name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+
+                    {/* 4. Division / Department / Position */}
+                    <td className="py-3.5 px-3 text-xs">
+                      <div className="text-muted-foreground">{u.division || "—"}</div>
+                      <div className="font-semibold text-foreground">{u.department || "—"}</div>
+                      <div className="text-muted-foreground">{u.position || "—"}</div>
+                    </td>
+
+                    {/* 5. Roles & Manager Level Assignment */}
+                    <td className="py-3.5 px-3">
+                      <div className="flex flex-wrap gap-1">
+                        {(["learner", "instructor", "admin"] as Role[]).map((r) => {
+                          const has = u.roles.includes(r);
+                          return (
+                            <button
+                              key={r}
+                              type="button"
+                              onClick={() => toggleRole(u.id, r, has)}
+                              className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold cursor-pointer transition ${
+                                has
+                                  ? "bg-primary text-primary-foreground shadow-2xs"
+                                  : "bg-mist text-muted-foreground hover:text-foreground"
+                              }`}
+                            >
+                              {roleLabel[r]}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Quick Manager Assignment Dropdown */}
+                      <div className="mt-2">
+                        <select
+                          aria-label={`ตั้งค่าระดับหัวหน้าของ ${u.full_name}`}
+                          value={u.managerLevel}
+                          onChange={(e) =>
+                            handleManagerLevelChange(u, e.target.value as ManagerLevel)
+                          }
+                          className={`rounded-lg border px-2 py-0.5 text-[11px] font-semibold outline-none cursor-pointer ${
+                            u.managerLevel !== "none"
+                              ? "border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300"
+                              : "border-border bg-card text-muted-foreground"
+                          }`}
                         >
-                          🔑 รีเซ็ตรหัสผ่าน
+                          <option value="none">สถานะหัวหน้า: สมาชิกทั่วไป</option>
+                          <option value="department_head">🏅 ตั้งเป็น: หัวหน้าแผนก/หน่วย</option>
+                          <option value="division_head">👑 ตั้งเป็น: หัวหน้าฝ่าย</option>
+                        </select>
+                      </div>
+                    </td>
+
+                    {/* 6. Approval Status & Password Actions */}
+                    <td className="py-3.5 pl-3 pr-4">
+                      {u.approved ? (
+                        <button
+                          type="button"
+                          onClick={() => setApproved(u.id, false)}
+                          className="rounded-full bg-mint/15 px-2.5 py-0.5 text-[11px] font-semibold text-mint cursor-pointer"
+                        >
+                          อนุมัติแล้ว ✓
                         </button>
                       ) : (
-                        <>
-                          {u.email && (
-                            <button
-                              onClick={() => sendReset(u.email!)}
-                              className="text-left text-[11px] font-semibold text-primary hover:underline cursor-pointer"
-                            >
-                              ส่งลิงก์รีเซ็ต
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleDirectReset(u)}
-                            className="text-left text-[10px] text-muted-foreground hover:underline cursor-pointer"
-                          >
-                            ตั้งรหัสตรง
-                          </button>
-                        </>
+                        <button
+                          type="button"
+                          onClick={() => setApproved(u.id, true)}
+                          className="rounded-full bg-amber px-3 py-1 text-[11px] font-semibold text-primary-foreground cursor-pointer"
+                        >
+                          อนุมัติ
+                        </button>
                       )}
-                    </div>
+
+                      <div className="mt-1.5 flex flex-col gap-0.5">
+                        {isSynthetic ? (
+                          <button
+                            type="button"
+                            onClick={() => handleDirectReset(u)}
+                            className="text-left text-[11px] font-semibold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
+                          >
+                            🔑 รีเซ็ตรหัสผ่าน
+                          </button>
+                        ) : (
+                          <>
+                            {u.email && (
+                              <button
+                                type="button"
+                                onClick={() => sendReset(u.email!)}
+                                className="text-left text-[11px] font-semibold text-primary hover:underline cursor-pointer"
+                              >
+                                ส่งลิงก์รีเซ็ต
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleDirectReset(u)}
+                              className="text-left text-[10px] text-muted-foreground hover:underline cursor-pointer"
+                            >
+                              ตั้งรหัสตรง
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+
+              {pagedList.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-xs text-muted-foreground">
+                    ไม่พบรายชื่อสมาชิกที่ตรงกับเงื่อนไขการค้นหา
                   </td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination Footer */}
+        {pageSize > 0 && totalPages > 1 && (
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-glass-border bg-card/50 px-4 py-3 text-xs">
+            <div className="text-muted-foreground">
+              หน้า <strong className="text-foreground">{safePage}</strong> จาก{" "}
+              <strong className="text-foreground">{totalPages}</strong> (ลำดับที่ {startIndex + 1}–
+              {Math.min(totalFiltered, startIndex + pagedList.length)} จาก {totalFiltered} คน)
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                disabled={safePage <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="inline-flex items-center gap-1 rounded-xl border bg-card px-3 py-1.5 font-semibold disabled:opacity-40 hover:border-primary/40 transition cursor-pointer"
+              >
+                <ChevronLeft className="size-3.5" /> ก่อนหน้า
+              </button>
+              <button
+                type="button"
+                disabled={safePage >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                className="inline-flex items-center gap-1 rounded-xl border bg-card px-3 py-1.5 font-semibold disabled:opacity-40 hover:border-primary/40 transition cursor-pointer"
+              >
+                ถัดไป <ChevronRight className="size-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
@@ -383,6 +778,7 @@ function AddMember({ onDone }: { onDone: () => void }) {
     department: "",
     position: "",
     role: "learner" as Role,
+    manager_role: "none" as ManagerLevel,
   });
 
   async function submit(e: React.FormEvent) {
@@ -405,6 +801,7 @@ function AddMember({ onDone }: { onDone: () => void }) {
           department: f.department,
           position: f.position,
           role: f.role,
+          manager_role: f.manager_role,
         },
       });
       toast.success(`เพิ่มสมาชิก "${f.full_name}" (${parsed.displayIdentifier}) เรียบร้อยแล้ว`);
@@ -454,17 +851,28 @@ function AddMember({ onDone }: { onDone: () => void }) {
         value={f.position}
         onChange={(e) => setF({ ...f, position: e.target.value })}
       />
-      <select
-        className={inp}
-        value={f.role}
-        onChange={(e) => setF({ ...f, role: e.target.value as Role })}
-      >
-        {(["learner", "instructor", "admin"] as Role[]).map((r) => (
-          <option key={r} value={r}>
-            {roleLabel[r]}
-          </option>
-        ))}
-      </select>
+      <div className="grid grid-cols-2 gap-2">
+        <select
+          className={inp}
+          value={f.role}
+          onChange={(e) => setF({ ...f, role: e.target.value as Role })}
+        >
+          {(["learner", "instructor", "admin"] as Role[]).map((r) => (
+            <option key={r} value={r}>
+              {roleLabel[r]}
+            </option>
+          ))}
+        </select>
+        <select
+          className={inp}
+          value={f.manager_role}
+          onChange={(e) => setF({ ...f, manager_role: e.target.value as ManagerLevel })}
+        >
+          <option value="none">สมาชิกทั่วไป</option>
+          <option value="department_head">🏅 หัวหน้าแผนก/หน่วย</option>
+          <option value="division_head">👑 หัวหน้าฝ่าย</option>
+        </select>
+      </div>
       <div className="sm:col-span-2 flex justify-end">
         <button
           disabled={busy}

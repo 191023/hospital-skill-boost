@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { fileUrl, kindLabel, youtubeEmbed } from "@/lib/data";
@@ -20,10 +20,14 @@ import {
   Pencil,
   Loader2,
   X,
+  ArrowUp,
+  ArrowDown,
+  ListOrdered,
 } from "lucide-react";
 
 export function Lessons({ courseId }: { courseId: string }) {
   const qc = useQueryClient();
+  const [reordering, setReordering] = useState(false);
   const { data = [] } = useQuery({
     queryKey: ["edit-lessons", courseId],
     queryFn: async () =>
@@ -33,9 +37,62 @@ export function Lessons({ courseId }: { courseId: string }) {
           .select("*")
           .eq("course_id", courseId)
           .is("deleted_at", null)
-          .order("position")
+          .order("position", { ascending: true })
+          .order("created_at", { ascending: true })
       ).data ?? [],
   });
+
+  async function syncSequentialPositions(orderedIds: string[]) {
+    await Promise.all(
+      orderedIds.map((id, idx) =>
+        supabase
+          .from("lessons")
+          .update({ position: idx + 1 })
+          .eq("id", id)
+      )
+    );
+    await qc.invalidateQueries({ queryKey: ["edit-lessons", courseId] });
+    await qc.invalidateQueries({ queryKey: ["course", courseId] });
+  }
+
+  async function moveLesson(index: number, delta: -1 | 1) {
+    const targetIndex = index + delta;
+    if (targetIndex < 0 || targetIndex >= data.length || reordering) return;
+    setReordering(true);
+    try {
+      const ids = data.map((l) => l.id);
+      const [moved] = ids.splice(index, 1);
+      ids.splice(targetIndex, 0, moved);
+      await syncSequentialPositions(ids);
+      toast.success(`ย้ายไปลำดับที่ ${targetIndex + 1} เรียบร้อยแล้ว`);
+    } catch (err: any) {
+      toast.error(`จัดลำดับไม่สำเร็จ: ${err.message || String(err)}`);
+    } finally {
+      setReordering(false);
+    }
+  }
+
+  async function moveLessonToPosition(lessonId: string, desiredPos: number) {
+    const currentIndex = data.findIndex((l) => l.id === lessonId);
+    if (currentIndex === -1) return;
+    const clampedIndex = Math.max(0, Math.min(data.length - 1, desiredPos - 1));
+    const ids = data.map((l) => l.id);
+    const [moved] = ids.splice(currentIndex, 1);
+    ids.splice(clampedIndex, 0, moved);
+    await syncSequentialPositions(ids);
+  }
+
+  async function renumberAll() {
+    if (data.length === 0 || reordering) return;
+    setReordering(true);
+    try {
+      await syncSequentialPositions(data.map((l) => l.id));
+      toast.success(`จัดเรียงลำดับบทเรียน 1–${data.length} เรียบร้อยแล้ว`);
+    } finally {
+      setReordering(false);
+    }
+  }
+
   async function add() {
     const { error } = await supabase.from("lessons").insert({
       course_id: courseId,
@@ -51,13 +108,47 @@ export function Lessons({ courseId }: { courseId: string }) {
   }
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-glass-border bg-card/40 px-4 py-2.5 text-xs">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <ListOrdered className="size-4 text-primary" />
+          <span>
+            ทั้งหมด <strong className="text-foreground">{data.length}</strong> บทเรียน · ใช้ปุ่มลูกศร{" "}
+            <strong className="text-foreground">↑ ↓</strong> หรือพิมพ์เลขลำดับแล้วกดบันทึกเพื่อสลับตำแหน่งอัตโนมัติ
+          </span>
+        </div>
+        {data.length > 1 && (
+          <button
+            type="button"
+            disabled={reordering}
+            onClick={renumberAll}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-primary/25 bg-primary/10 px-3 py-1 font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition cursor-pointer disabled:opacity-50"
+          >
+            {reordering ? <Loader2 className="size-3.5 animate-spin" /> : <ListOrdered className="size-3.5" />}
+            <span>รันเลข 1–{data.length} ใหม่</span>
+          </button>
+        )}
+      </div>
+
       <ImportLessons
         courseId={courseId}
         existingCount={data.length}
         onDone={() => qc.invalidateQueries({ queryKey: ["edit-lessons", courseId] })}
       />
-      {data.map((l) => (
-        <LessonRow key={l.id} lesson={l} courseId={courseId} />
+      {data.map((l, idx) => (
+        <LessonRow
+          key={l.id}
+          lesson={l}
+          index={idx}
+          total={data.length}
+          courseId={courseId}
+          reordering={reordering}
+          onMove={(delta) => moveLesson(idx, delta)}
+          onMoveToPosition={(pos) => moveLessonToPosition(l.id, pos)}
+          onAfterDelete={async (deletedId) => {
+            const remainingIds = data.filter((x) => x.id !== deletedId).map((x) => x.id);
+            await syncSequentialPositions(remainingIds);
+          }}
+        />
       ))}
       <button
         onClick={add}
@@ -81,7 +172,25 @@ type Lesson = {
   created_at: string;
 };
 
-function LessonRow({ lesson, courseId }: { lesson: Lesson; courseId: string }) {
+function LessonRow({
+  lesson,
+  index,
+  total,
+  courseId,
+  reordering,
+  onMove,
+  onMoveToPosition,
+  onAfterDelete,
+}: {
+  lesson: Lesson;
+  index: number;
+  total: number;
+  courseId: string;
+  reordering: boolean;
+  onMove: (delta: -1 | 1) => Promise<void>;
+  onMoveToPosition: (desiredPos: number) => Promise<void>;
+  onAfterDelete: (deletedId: string) => Promise<void>;
+}) {
   const qc = useQueryClient();
   const [f, setF] = useState(lesson);
   const [previewMd, setPreviewMd] = useState(false);
@@ -93,6 +202,13 @@ function LessonRow({ lesson, courseId }: { lesson: Lesson; courseId: string }) {
   const [showMediaAttachments, setShowMediaAttachments] = useState(
     Boolean(lesson.video_url || lesson.file_url || lesson.kind === "video" || lesson.kind === "pdf")
   );
+
+  useEffect(() => {
+    setF((prev) => ({
+      ...prev,
+      position: lesson.position,
+    }));
+  }, [lesson.position]);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const imgInputRef = useRef<HTMLInputElement | null>(null);
@@ -156,6 +272,7 @@ function LessonRow({ lesson, courseId }: { lesson: Lesson; courseId: string }) {
   }
 
   async function save() {
+    const desiredPos = Math.max(1, Math.min(total, Number(f.position) || index + 1));
     const { error } = await supabase
       .from("lessons")
       .update({
@@ -164,15 +281,20 @@ function LessonRow({ lesson, courseId }: { lesson: Lesson; courseId: string }) {
         body: f.body,
         video_url: f.video_url || null,
         file_url: f.file_url || null,
-        position: f.position,
+        position: desiredPos,
       })
       .eq("id", lesson.id);
     if (error) {
       toast.error(error.message);
       return;
     }
-    toast.success("บันทึกบทเรียนแล้ว");
-    refresh();
+    if (desiredPos !== index + 1) {
+      await onMoveToPosition(desiredPos);
+      toast.success(`บันทึกบทเรียนและย้ายไปลำดับที่ ${desiredPos} เรียบร้อยแล้ว`);
+    } else {
+      toast.success("บันทึกบทเรียนแล้ว");
+      refresh();
+    }
   }
 
   async function del() {
@@ -180,8 +302,8 @@ function LessonRow({ lesson, courseId }: { lesson: Lesson; courseId: string }) {
     try {
       const { error } = await supabase.from("lessons").delete().eq("id", lesson.id);
       if (error) throw error;
-      toast.success("ลบบทเรียนเรียบร้อยแล้ว");
-      await qc.invalidateQueries({ queryKey: ["edit-lessons", courseId] });
+      await onAfterDelete(lesson.id);
+      toast.success("ลบบทเรียนและจัดเรียงลำดับใหม่เรียบร้อยแล้ว");
     } catch (err: any) {
       toast.error(`ลบไม่สำเร็จ: ${err.message || String(err)}`);
     }
@@ -189,15 +311,45 @@ function LessonRow({ lesson, courseId }: { lesson: Lesson; courseId: string }) {
 
   return (
     <div className="glass space-y-3.5 rounded-3xl p-5">
-      {/* Row 1: Position, Title, Primary Kind */}
-      <div className="grid gap-3 sm:grid-cols-[80px_1fr_170px]">
-        <input
-          type="number"
-          className={inp}
-          value={f.position}
-          onChange={(e) => setF({ ...f, position: Number(e.target.value) })}
-          title="ลำดับบทเรียน"
-        />
+      {/* Row 1: Reorder Arrows + Position, Title, Primary Kind */}
+      <div className="grid gap-3 sm:grid-cols-[140px_1fr_170px]">
+        <div className="flex items-center gap-1.5">
+          <div className="flex flex-col gap-0.5">
+            <button
+              type="button"
+              disabled={index === 0 || reordering}
+              onClick={() => onMove(-1)}
+              title="เลื่อนบทเรียนขึ้น"
+              className="rounded-md border border-border bg-card p-1 text-muted-foreground hover:bg-primary/10 hover:text-primary disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
+            >
+              <ArrowUp className="size-3.5" />
+            </button>
+            <button
+              type="button"
+              disabled={index === total - 1 || reordering}
+              onClick={() => onMove(1)}
+              title="เลื่อนบทเรียนลง"
+              className="rounded-md border border-border bg-card p-1 text-muted-foreground hover:bg-primary/10 hover:text-primary disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
+            >
+              <ArrowDown className="size-3.5" />
+            </button>
+          </div>
+          <input
+            type="number"
+            min={1}
+            max={total}
+            className={inp + " text-center font-bold"}
+            value={f.position}
+            onChange={(e) => setF({ ...f, position: Number(e.target.value) })}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                save();
+              }
+            }}
+            title="ลำดับบทเรียน (พิมพ์เลขแล้วกด Enter หรือกดบันทึกเพื่อย้ายลำดับ)"
+          />
+        </div>
         <input
           className={inp}
           placeholder="ชื่อบทเรียน"

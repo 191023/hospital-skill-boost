@@ -1,3 +1,6 @@
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+
 // From hospital org chart: division (ฝ่าย) -> departments (แผนก)
 export const orgChart: Record<string, string[]> = {
   "ฝ่ายการเงิน": [
@@ -65,8 +68,47 @@ export const orgChart: Record<string, string[]> = {
     "ทรัพยากรบุคคล",
     "พัสดุ-จัดซื้อ",
     "สำนักเลขา"
+  ],
+  "องค์กรแพทย์": [
+    "คณะแพทย์ประจำการโรงพยาบาล",
+    "คณะแพทย์สมทบ"
   ]
 };
 
 export const divisions = Object.keys(orgChart);
 export const divisionOf = (dept: string) => divisions.find((d) => orgChart[d]!.includes(dept)) ?? "";
+
+export function useOrgChart() {
+  const { data } = useQuery({
+    queryKey: ["org-chart"],
+    staleTime: 1000 * 60 * 5,
+    queryFn: async () => {
+      const { data: rows, error } = await supabase
+        .from("org_units")
+        .select("id, name, kind, parent_id")
+        .is("deleted_at", null)
+        .order("name");
+      if (error || !rows || rows.length === 0) {
+        return { divisions, orgChart };
+      }
+      const divRows = rows.filter((r) => r.kind === "division");
+      if (divRows.length === 0) {
+        return { divisions, orgChart };
+      }
+      const chart: Record<string, string[]> = {};
+      for (const div of divRows) {
+        const units = rows
+          .filter((r) => r.parent_id === div.id)
+          .map((r) => r.name)
+          .sort((a, b) => a.localeCompare(b, "th"));
+        chart[div.name] = units;
+      }
+      const divNames = divRows
+        .map((d) => d.name)
+        .sort((a, b) => a.localeCompare(b, "th"));
+      return { divisions: divNames, orgChart: chart };
+    },
+  });
+
+  return data ?? { divisions, orgChart };
+}

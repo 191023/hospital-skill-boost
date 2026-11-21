@@ -3,7 +3,7 @@ import { useState, useMemo } from "react";
 import { useMe } from "@/lib/auth";
 import { useAssignedCourses, type CourseStatus } from "@/lib/data";
 import { PageHeader, Stat, Bar } from "@/components/AppShell";
-import { coverFor, toneFor } from "@/components/Brand";
+import { CourseCover, toneFor } from "@/components/Brand";
 import {
   Award,
   BookOpen,
@@ -450,8 +450,9 @@ function Dashboard() {
                   <div className="flex flex-col sm:flex-row gap-4">
                     {/* Cover thumbnail */}
                     <div className="relative h-28 w-full sm:w-44 shrink-0 overflow-hidden rounded-xl">
-                      <img
-                        src={coverFor(c.id, c.cover_url)}
+                      <CourseCover
+                        id={c.id}
+                        url={c.cover_url}
                         alt={c.title}
                         loading="lazy"
                         className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"

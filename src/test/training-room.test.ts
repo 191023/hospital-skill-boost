@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { arrivalPath, detectRoomArrivals, attendeeSymbol, roomDate, roomFirstName, roomDivisionTokens, matchesAttendee, roomSeats, getCountdownInfo, type RoomAttendee } from "@/lib/training-room";
+import {
+  arrivalPath,
+  computeDepartmentZones,
+  detectRoomArrivals,
+  detectRoomProgressEvents,
+  attendeeSymbol,
+  getLearnerStage,
+  roomDate,
+  roomFirstName,
+  roomDivisionTokens,
+  matchesAttendee,
+  roomSeats,
+  getCountdownInfo,
+  type RoomAttendee,
+} from "@/lib/training-room";
 const person: RoomAttendee = { userId: "1", name: "สมชาย", division: "ฝ่ายการพยาบาล", department: "หอผู้ป่วย", registeredAt: "2026-10-08", checkedAt: null };
 describe("training room", () => {
   it("shows only first names without titles or surnames", () => {
@@ -64,5 +78,33 @@ describe("training room", () => {
 
     // Unscheduled
     expect(getCountdownInfo(null, null).state).toBe("none");
+  });
+
+  it("maps learner stages and computes department zones cleanly", () => {
+    const waiting: RoomAttendee = { ...person, checkedAt: null };
+    const checked: RoomAttendee = { ...person, userId: "2", checkedAt: "2026-10-09" };
+    const certified: RoomAttendee = { ...person, userId: "3", division: "ฝ่ายการแพทย์", checkedAt: "2026-10-09", hasCert: true };
+
+    expect(getLearnerStage(waiting)).toBe("waiting");
+    expect(getLearnerStage(checked)).toBe("checked");
+    expect(getLearnerStage(certified)).toBe("certified");
+
+    const zonedSeats = roomSeats([waiting, checked, certified], 4, 0, "zones");
+    expect(zonedSeats).toHaveLength(4);
+    const zones = computeDepartmentZones(zonedSeats);
+    expect(zones).toHaveLength(2);
+    expect(zones.find((z) => z.division === "ฝ่ายการพยาบาล")?.total).toBe(2);
+    expect(zones.find((z) => z.division === "ฝ่ายการพยาบาล")?.checked).toBe(1);
+  });
+
+  it("detects live progress transitions across snapshots", () => {
+    const s1 = roomSeats([{ ...person, checkedAt: "2026-10-09", preDone: false, postPassed: false, hasCert: false }], 1);
+    const init = detectRoomProgressEvents(s1, null, 100);
+    expect(init.events).toHaveLength(0);
+
+    const s2 = roomSeats([{ ...person, checkedAt: "2026-10-09", preDone: true, postPassed: true, postScore: 95, hasCert: true }], 1);
+    const next = detectRoomProgressEvents(s2, init.snapshot, 200);
+    expect(next.events).toHaveLength(1);
+    expect(next.events[0]?.kind).toBe("certified");
   });
 });

@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/lib/auth";
 import { kindLabel } from "@/lib/data";
 import { Bar } from "@/components/AppShell";
-import { coverFor } from "@/components/Brand";
+import { CourseCover } from "@/components/Brand";
 import { SurveyForm } from "@/components/Survey";
 import { useSessions } from "@/components/Sessions";
 import { CourseSessionSelection } from "@/components/CourseSessionSelection";
@@ -47,6 +47,7 @@ function useCourseState(courseId: string, userId?: string) {
       const ls = lessons ?? [];
       const pre = (att ?? []).find((a) => a.kind === "pre");
       const posts = (att ?? []).filter((a) => a.kind === "post");
+      const postPassed = posts.some((p) => p.passed);
       return {
         course,
         lessons: ls,
@@ -59,7 +60,7 @@ function useCourseState(courseId: string, userId?: string) {
         cert,
         surveyDone: !!surveyRes,
         hasQuestions: (qs ?? []).length > 0,
-        allDone: ls.length > 0 && ls.every((l) => done.has(l.id)),
+        allDone: ls.length > 0 && (ls.every((l) => done.has(l.id)) || !!cert || postPassed),
       };
     },
   });
@@ -144,7 +145,12 @@ function CoursePage() {
   const usePost = hasQuestions && course.require_posttest;
   const needPre = usePre && !pre;
   const bestPost = posts.length ? Math.max(...posts.map((p) => Number(p.percent))) : undefined;
-  const pct = lessons.length ? Math.round((lessons.filter((l) => done.has(l.id)).length / lessons.length) * 100) : 0;
+  const isCompletedLearner = !!cert || (bestPost !== undefined && bestPost >= course.pass_score);
+  const pct = isCompletedLearner
+    ? 100
+    : lessons.length
+    ? Math.round((lessons.filter((l) => done.has(l.id)).length / lessons.length) * 100)
+    : 0;
 
   async function enroll() {
     if (!me) return;
@@ -163,7 +169,7 @@ function CoursePage() {
     <div className="grid gap-6 lg:grid-cols-3">
       <div className="lg:col-span-2 space-y-6">
         <div className="glass overflow-hidden rounded-3xl">
-          <img src={coverFor(course.id, course.cover_url)} alt="" className="aspect-[21/9] w-full object-cover" />
+          <CourseCover id={course.id} url={course.cover_url} alt={course.title} className="aspect-[21/9] w-full object-cover" />
           <div className="p-6">
             <div className="flex flex-wrap items-center gap-2">
               <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${isClassroomCourse ? "bg-amber/15 text-amber" : "bg-primary/15 text-primary"}`}>
@@ -361,9 +367,15 @@ function CoursePage() {
                 </div>
               ) : (
                 <Link key={l.id} to="/courses/$courseId/lesson/$lessonId" params={{ courseId, lessonId: l.id }} className="flex items-center gap-3 rounded-2xl border border-glass-border bg-glass p-4 hover:bg-card">
-                  <Num n={i + 1} done={done.has(l.id)} />
+                  <Num n={i + 1} done={done.has(l.id) || isCompletedLearner} />
                   <div className="flex-1"><div className="text-sm font-medium">{l.title}</div><div className="text-[11px] text-muted-foreground">{kindLabel[l.kind]}</div></div>
-                  <span className={`text-[11px] font-semibold ${done.has(l.id) ? "text-mint" : "text-primary"}`}>{done.has(l.id) ? "เรียนแล้ว ✓" : "เรียน →"}</span>
+                  <span className={`text-[11px] font-semibold ${done.has(l.id) || isCompletedLearner ? "text-mint" : "text-primary"}`}>
+                    {done.has(l.id)
+                      ? "เรียนแล้ว ✓"
+                      : isCompletedLearner
+                      ? "อัปเดตใหม่ (อ่านเพิ่มเติม) →"
+                      : "เรียน →"}
+                  </span>
                 </Link>
               );
             })}

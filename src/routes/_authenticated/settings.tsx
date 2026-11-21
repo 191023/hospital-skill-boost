@@ -27,7 +27,15 @@ import {
   Bot,
   RefreshCw,
   ExternalLink,
+  PenLine,
+  Link2,
+  Copy,
+  Trash2,
+  QrCode,
 } from "lucide-react";
+import { SignaturePad } from "@/components/SignaturePad";
+import { CertificateDesign } from "@/components/CertificateDesign";
+import { QRImg } from "@/components/QR";
 import { useServerFn } from "@tanstack/react-start";
 import { testAiConnection } from "@/lib/ai.functions";
 import { getDisplayIdentifier, isSyntheticEmail } from "@/lib/auth-identifier";
@@ -158,12 +166,88 @@ function SettingsPage() {
   }
 
   // State: Tab 3 (Certificate Defaults)
-  const [certForm, setCertForm] = useState({
+  const [certForm, setCertForm] = useState<{
+    number_pattern: string;
+    director_name: string;
+    director_title: string;
+    verify_public_enabled: boolean;
+    director_signature_url?: string | null;
+    director_signed_at?: string | null;
+    sign_token?: string | null;
+    sign_token_expires_at?: string | null;
+    default_background_url?: string | null;
+  }>({
     number_pattern: "OVB-{YEAR}-{RUNNING}",
     director_name: "นพ. กฤษณ์ วงศ์วิวัฒน์",
     director_title: "ผู้อำนวยการโรงพยาบาลโอเวอร์บรุ๊ค",
     verify_public_enabled: true,
+    director_signature_url: null,
+    director_signed_at: null,
+    sign_token: null,
+    sign_token_expires_at: null,
+    default_background_url: "system/certificate-background.png",
   });
+  const [signingDirector, setSigningDirector] = useState(false);
+  const [creatingMagicLink, setCreatingMagicLink] = useState(false);
+  const [defaultBgPreview, setDefaultBgPreview] = useState<string | null>(null);
+  const directorSigFileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let active = true;
+    fileUrl(certForm.default_background_url || "system/certificate-background.png").then((url) => {
+      if (active) setDefaultBgPreview(url);
+    });
+    return () => {
+      active = false;
+    };
+  }, [certForm.default_background_url]);
+
+  async function saveDirectorSignatureDataUrl(dataUrl: string) {
+    setSavingSettings(true);
+    try {
+      const { error } = await (supabase.rpc as any)("submit_director_signature", {
+        _token: certForm.sign_token || "",
+        _director_name: certForm.director_name,
+        _director_title: certForm.director_title,
+        _signature_data_url: dataUrl,
+      });
+      if (error) throw error;
+      setCertForm((prev) => ({
+        ...prev,
+        director_signature_url: dataUrl,
+        director_signed_at: new Date().toISOString(),
+      }));
+      setSigningDirector(false);
+      toast.success("บันทึกลายเซ็นผู้อำนวยการและอัปเดตหลักสูตรทั้งหมดเรียบร้อยแล้ว");
+      refetchSettings();
+    } catch (err: any) {
+      toast.error(`บันทึกลายเซ็นไม่สำเร็จ: ${err.message || String(err)}`);
+    } finally {
+      setSavingSettings(false);
+    }
+  }
+
+  async function handleGenerateMagicSignLink() {
+    setCreatingMagicLink(true);
+    try {
+      const { data, error } = await (supabase.rpc as any)("create_director_sign_token");
+      if (error) throw error;
+      const res = data as { token: string; expires_at: string };
+      setCertForm((prev) => ({
+        ...prev,
+        sign_token: res.token,
+        sign_token_expires_at: res.expires_at,
+      }));
+      const url = `${window.location.origin}/director-sign/${res.token}`;
+      await navigator.clipboard.writeText(url).catch(() => {});
+      toast.success("สร้างลิงก์ด่วนสำหรับผู้อำนวยการและคัดลอกลิงก์แล้ว (ใช้งานได้ 7 วัน)");
+      refetchSettings();
+    } catch (err: any) {
+      toast.error(`สร้างลิงก์ไม่สำเร็จ: ${err.message || String(err)}`);
+    } finally {
+      setCreatingMagicLink(false);
+    }
+  }
 
   // State: Tab 4 (Training Policies)
   const [policyForm, setPolicyForm] = useState({
@@ -739,19 +823,30 @@ function SettingsPage() {
           <div>
             <h2 className="flex items-center gap-2 text-lg font-bold text-foreground">
               <Award className="size-5 text-primary" />
-              <span>การตั้งค่าแม่แบบและลายเซ็นต์ใบประกาศนียบัตรกลาง</span>
+              <span>การตั้งค่าแม่แบบและลายเซ็นผู้อำนวยการโรงพยาบาล</span>
             </h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              กำหนดรูปแบบการรันเลขที่ใบประกาศและข้อมูลผู้บริหารกลางของโรงพยาบาล
+              กำหนดข้อมูลผู้อำนวยการ ลายเซ็นอิเล็กทรอนิกส์กลาง และลิงก์ด่วนสำหรับส่งให้ผู้อำนวยการเซ็นบน iPad/มือถือ
             </p>
           </div>
 
           <form
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
-              saveSettingBlock("certificate_rules", certForm, "การตั้งค่าใบประกาศ");
+              await saveSettingBlock("certificate_rules", certForm, "การตั้งค่าใบประกาศ");
+              // Also sync director name/title/signature to courses' director_* columns
+              await supabase
+                .from("courses")
+                .update({
+                  director_name: certForm.director_name,
+                  director_title: certForm.director_title,
+                  ...(certForm.director_signature_url !== undefined
+                    ? { director_signature_url: certForm.director_signature_url }
+                    : {}),
+                })
+                .is("deleted_at", null);
             }}
-            className="space-y-5"
+            className="space-y-6"
           >
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
@@ -808,6 +903,235 @@ function SettingsPage() {
               </div>
             </div>
 
+            {/* Director E-Signature & Magic Link Card */}
+            <div className="grid gap-5 rounded-2xl border border-border/80 bg-background/60 p-5 lg:grid-cols-2">
+              {/* Left: Signature Pad / Upload */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-bold text-foreground">
+                      1. ลายเซ็นผู้อำนวยการโรงพยาบาล (Master E-Signature)
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      หากยังไม่มีลายเซ็น ใบประกาศจะแสดงเฉพาะชื่อและตำแหน่งผู้อำนวยการอย่างเป็นทางการ
+                    </p>
+                  </div>
+                  {certForm.director_signature_url ? (
+                    <span className="rounded-full bg-mint/15 px-2.5 py-0.5 text-[11px] font-semibold text-mint">
+                      ✓ มีลายเซ็นแล้ว
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-amber/15 px-2.5 py-0.5 text-[11px] font-semibold text-amber">
+                      ยังไม่ได้แนบลายเซ็น
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex h-32 items-center justify-center rounded-2xl border bg-card p-3">
+                  {certForm.director_signature_url ? (
+                    <img
+                      src={certForm.director_signature_url}
+                      alt="ลายเซ็นผู้อำนวยการ"
+                      className="max-h-full max-w-full object-contain"
+                    />
+                  ) : (
+                    <div className="text-center text-xs text-muted-foreground">
+                      <div>({certForm.director_name})</div>
+                      <div className="text-[11px]">{certForm.director_title}</div>
+                      <div className="mt-1 text-[10px] text-primary">
+                        * ปัจจุบันแสดงเฉพาะชื่อ-ตำแหน่ง (ยังไม่มีรูปลายเซ็น)
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setSigningDirector((v) => !v)}
+                    className="rounded-xl text-xs"
+                  >
+                    <PenLine className="mr-1.5 size-3.5" />
+                    {signingDirector ? "ปิดกระดานเซ็น" : "เซ็นลายเซ็นบนหน้าจอนี้"}
+                  </Button>
+
+                  <input
+                    ref={directorSigFileRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        saveDirectorSignatureDataUrl(String(reader.result));
+                      };
+                      reader.readAsDataURL(file);
+                      e.target.value = "";
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => directorSigFileRef.current?.click()}
+                    className="rounded-xl text-xs"
+                  >
+                    <Upload className="mr-1.5 size-3.5" />
+                    อัปโหลดไฟล์ PNG
+                  </Button>
+
+                  {certForm.director_signature_url && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={async () => {
+                        const next = { ...certForm, director_signature_url: null, director_signed_at: null };
+                        setCertForm(next);
+                        await saveSettingBlock("certificate_rules", next, "การลบลายเซ็นผู้อำนวยการ");
+                      }}
+                      className="rounded-xl text-xs text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="mr-1 size-3.5" />
+                      ลบลายเซ็น
+                    </Button>
+                  )}
+                </div>
+
+                {signingDirector && (
+                  <div className="rounded-2xl border bg-card p-3">
+                    <SignaturePad
+                      onCancel={() => setSigningDirector(false)}
+                      onSave={(file) => {
+                        const reader = new FileReader();
+                        reader.onload = () => saveDirectorSignatureDataUrl(String(reader.result));
+                        reader.readAsDataURL(file);
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Right: Magic Link for iPad / Mobile */}
+              <div className="space-y-3 rounded-2xl border border-primary/25 bg-primary/5 p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-1.5 text-sm font-bold text-primary">
+                      <QrCode className="size-4" />
+                      <span>2. ส่งลิงก์ด่วนให้ผู้อำนวยการเซ็นผ่าน iPad / มือถือ</span>
+                    </div>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      สร้างลิงก์เฉพาะกิจ (Magic Link) ส่งทาง LINE / Telegram หรือให้ผู้อำนวยการสแกน QR Code เพื่อเปิดกระดานเซ็นชื่อได้ทันทีโดยไม่ต้องล็อกอิน
+                    </p>
+                  </div>
+                </div>
+
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={creatingMagicLink}
+                  onClick={handleGenerateMagicSignLink}
+                  className="w-full rounded-xl bg-primary text-xs font-semibold text-primary-foreground"
+                >
+                  <Link2 className="mr-1.5 size-3.5" />
+                  {creatingMagicLink
+                    ? "กำลังสร้างลิงก์..."
+                    : certForm.sign_token
+                    ? "สร้างลิงก์ด่วนใหม่ (รีเซ็ตลิงก์เดิม)"
+                    : "สร้างลิงก์ด่วนสำหรับผู้อำนวยการ (อายุ 7 วัน)"}
+                </Button>
+
+                {certForm.sign_token && typeof window !== "undefined" && (
+                  <div className="space-y-3 rounded-xl border bg-card p-3">
+                    <div className="flex items-center gap-2">
+                      <input
+                        readOnly
+                        className="w-full rounded-lg border bg-muted/50 px-2.5 py-1.5 text-xs font-mono"
+                        value={`${window.location.origin}/director-sign/${certForm.sign_token}`}
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          navigator.clipboard.writeText(
+                            `${window.location.origin}/director-sign/${certForm.sign_token}`
+                          );
+                          toast.success("คัดลอกลิงก์สำหรับส่งให้ผู้อำนวยการแล้ว");
+                        }}
+                        className="shrink-0 rounded-lg text-xs"
+                      >
+                        <Copy className="mr-1 size-3.5" />
+                        คัดลอกลิงก์
+                      </Button>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="rounded-xl border bg-white p-1.5">
+                        <QRImg
+                          value={`${window.location.origin}/director-sign/${certForm.sign_token}`}
+                          size={84}
+                        />
+                      </div>
+                      <div className="space-y-1 text-[11px] text-muted-foreground">
+                        <div className="font-semibold text-foreground">
+                          สแกนด้วย iPad หรือโทรศัพท์มือถือของผู้อำนวยการ
+                        </div>
+                        <div>
+                          เมื่อผู้อำนวยการเซ็นและกดยืนยัน ลายเซ็นจะถูกนำมาใช้กับทุกหลักสูตรโดยอัตโนมัติทันที
+                        </div>
+                        <a
+                          href={`/director-sign/${certForm.sign_token}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
+                        >
+                          <span>เปิดดูหน้าลงนามของผู้บริหาร</span>
+                          <ExternalLink className="size-3" />
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Live Preview of Default Hospital Certificate */}
+            <div className="space-y-2.5 pt-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-foreground">
+                  ตัวอย่างแม่แบบใบประกาศนียบัตรมาตรฐานของโรงพยาบาล
+                </span>
+                <span className="text-[11px] text-muted-foreground">
+                  ใช้เป็นค่าเริ่มต้นสำหรับทุกหลักสูตร
+                </span>
+              </div>
+              <div className="mx-auto max-w-3xl">
+                <CertificateDesign
+                  recipientName="นางสาวสุพินดา อภิเดชกุล"
+                  recipientDetail="พยาบาลวิชาชีพ · แผนกผู้ป่วยนอก · ฝ่ายการพยาบาล"
+                  courseTitle="นโยบายสิ่งแวดล้อมและความปลอดภัย ประจำปี 2026"
+                  trainingYear={2026}
+                  hours={3}
+                  score={95}
+                  certificateNumber="CERT-20261114-PREVIEW"
+                  issuedDate="14 พฤศจิกายน 2569"
+                  hospitalLogoUrl={activeLogoPreview || obhLogoUrl}
+                  organizationName={hospitalForm.name_th || "โรงพยาบาลโอเวอร์บรุ๊ค"}
+                  departmentSubtitle={hospitalForm.center_name || "ศูนย์พัฒนาศักยภาพบุคลากร"}
+                  signatureUrl={certForm.director_signature_url}
+                  instructorName={certForm.director_name}
+                  instructorTitle={certForm.director_title}
+                  backgroundUrl={defaultBgPreview}
+                  verifyUrl={typeof window !== "undefined" ? `${window.location.origin}/verify/SAMPLE` : undefined}
+                  preview
+                />
+              </div>
+            </div>
+
             <div className="pt-2">
               <Button
                 type="submit"
@@ -815,7 +1139,7 @@ function SettingsPage() {
                 className="rounded-xl bg-primary px-6 font-semibold text-primary-foreground shadow-brand hover:bg-primary/90"
               >
                 <Save className="mr-2 size-4" />
-                {savingSettings ? "กำลังบันทึก..." : "บันทึกการตั้งค่าใบประกาศ"}
+                {savingSettings ? "กำลังบันทึก..." : "บันทึกการตั้งค่าใบประกาศและอัปเดตหลักสูตร"}
               </Button>
             </div>
           </form>

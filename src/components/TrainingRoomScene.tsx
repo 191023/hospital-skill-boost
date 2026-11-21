@@ -3,13 +3,26 @@ import { Environment, Lightformer, OrbitControls, useGLTF } from "@react-three/d
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { roomDivisionTokens, type RoomSeat } from "@/lib/training-room";
+import {
+  getLearnerStage,
+  roomDivisionTokens,
+  type RoomLiveEvent,
+  type RoomQualityTier,
+  type RoomSeat,
+  type RoomZone,
+} from "@/lib/training-room";
 import chairUrl from "@/assets/chair.glb?url";
 import { RoomPeople } from "./RoomPeople";
 import { RoomFurniture, type RoomFinishes } from "./RoomFurniture";
 import { RoomWallFade } from "./RoomWallFade";
 import { RoomTrainers } from "./RoomTrainers";
-import { OfficeEnvironment, OfficeDesks, type OfficeFinishes, type OfficeTones } from "./RoomOffice";
+import {
+  DepartmentZonePlates,
+  OfficeEnvironment,
+  OfficeDesks,
+  type OfficeFinishes,
+  type OfficeTones,
+} from "./RoomOffice";
 import { RoomOfficePeople } from "./RoomOfficePeople";
 
 type Palette = { background: string; floor: string; line: string; checked: string; waiting: string; empty: string; selected: string; white: string; foreground: string; shirts: Record<string, string>; finishes: RoomFinishes };
@@ -20,6 +33,9 @@ type Props = {
   view: "angle" | "top"; zoom: number; roomName: string; date: string; round: string; courseTitle: string;
   kiosk: boolean; walk: boolean; focus: RoomFocus; pulseMap: Record<string, number>;
   stats: RoomStats; updatedLabel: string; countdownText?: string; celebrate?: number; theme?: "hall" | "office";
+  zones?: RoomZone[]; focusZone?: string | null; onSelectZone?: (division: string) => void;
+  liveEvents?: RoomLiveEvent[];
+  onMetrics?: (fps: number, tier: RoomQualityTier) => void;
 };
 
 function readPalette(): Palette {
@@ -157,7 +173,18 @@ function Seating({ seats, selected, onSelect, highlighted, palette, reduced, pul
     seats.forEach((seat, i) => {
       const active = selected === seat.index || hovered === seat.index;
       const visible = !seat.attendee || highlighted.has(seat.attendee.userId);
-      dummyColor.set(active ? palette.selected : seat.attendee ? (seat.attendee.checkedAt ? palette.checked : palette.waiting) : palette.empty);
+      const stage = getLearnerStage(seat.attendee);
+      const stageColor =
+        stage === "certified"
+          ? "#10b981"
+          : stage === "post_pending"
+          ? "#f59e0b"
+          : stage === "learning" || stage === "checked"
+          ? palette.checked
+          : stage === "waiting"
+          ? palette.waiting
+          : palette.empty;
+      dummyColor.set(active ? palette.selected : stageColor);
       if (!visible) dummyColor.lerp(floorColor, 0.8);
       mesh.setColorAt(i, dummyColor);
     });
@@ -216,7 +243,99 @@ function Seating({ seats, selected, onSelect, highlighted, palette, reduced, pul
   </>;
 }
 
-function Room({ palette, reduced, ...props }: Props & { palette: Palette; reduced: boolean }) {
+function FloatingPopupItem({ x, z, text, kind }: { x: number; z: number; text: string; kind: RoomLiveEvent["kind"] }) {
+  const spriteRef = useRef<THREE.Sprite>(null);
+  const elapsed = useRef(0);
+  const accent =
+    kind === "certified"
+      ? "#10b981"
+      : kind === "post_passed"
+      ? "#38bdf8"
+      : kind === "pre_done"
+      ? "#818cf8"
+      : "#2dd4bf";
+
+  const texture = useMemo(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 640;
+    canvas.height = 112;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.fillStyle = "rgba(15, 23, 42, 0.94)";
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.roundRect(6, 6, 628, 100, 50);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#ffffff";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = '700 32px "IBM Plex Sans Thai", sans-serif';
+      ctx.fillText(text, 320, 56, 590);
+    }
+    const t = new THREE.CanvasTexture(canvas);
+    t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  }, [text, accent]);
+
+  useEffect(() => () => texture.dispose(), [texture]);
+
+  useFrame((_, rawDelta) => {
+    const s = spriteRef.current;
+    if (!s) return;
+    elapsed.current += Math.min(rawDelta, 0.05);
+    const p = Math.min(1, elapsed.current / 4.2);
+    s.position.y = 2.25 + p * 0.75;
+    s.material.opacity = p < 0.15 ? p / 0.15 : p > 0.75 ? (1 - p) / 0.25 : 1;
+    s.visible = p < 1;
+  });
+
+  return (
+    <sprite ref={spriteRef} position={[x, 2.25, z]} scale={[1.95, 0.34, 1]} renderOrder={25}>
+      <spriteMaterial map={texture} transparent depthTest={false} depthWrite={false} toneMapped={false} />
+    </sprite>
+  );
+}
+
+function FloatingEventPopups({ seats, liveEvents = [] }: { seats: RoomSeat[]; liveEvents?: RoomLiveEvent[] }) {
+  const recent = liveEvents.filter((ev) => Date.now() - ev.timestamp < 5000).slice(0, 6);
+  return (
+    <>
+      {recent.map((ev) => {
+        const seat = seats.find((s) => s.index === ev.seatIndex || s.attendee?.userId === ev.userId);
+        if (!seat) return null;
+        return <FloatingPopupItem key={ev.id} x={seat.x} z={seat.z} text={ev.text} kind={ev.kind} />;
+      })}
+    </>
+  );
+}
+
+function FpsMonitor({ onTierChange }: { onTierChange: (fps: number, tier: RoomQualityTier) => void }) {
+  const frames = useRef(0);
+  const accTime = useRef(0);
+  const currentTier = useRef<RoomQualityTier>("high");
+
+  useFrame((_, rawDelta) => {
+    frames.current += 1;
+    accTime.current += rawDelta;
+    if (accTime.current >= 1.8) {
+      const fps = Math.min(120, Math.round(frames.current / accTime.current));
+      frames.current = 0;
+      accTime.current = 0;
+      let nextTier: RoomQualityTier = currentTier.current;
+      if (fps < 30) nextTier = "low";
+      else if (fps < 45) nextTier = "med";
+      else if (fps >= 52) nextTier = "high";
+      currentTier.current = nextTier;
+      onTierChange(fps, nextTier);
+    }
+  });
+
+  return null;
+}
+
+function Room({ palette, reduced, qualityTier, ...props }: Props & { palette: Palette; reduced: boolean; qualityTier: RoomQualityTier }) {
   const { camera, size } = useThree();
   const depth = Math.max(3, ...props.seats.map((seat) => seat.z + 1.8));
   const center = depth / 2 - 2;
@@ -259,14 +378,21 @@ function Room({ palette, reduced, ...props }: Props & { palette: Palette; reduce
     if (props.kiosk) return;
     const focusIndex = props.focus?.index;
     const focusSeat = focusIndex == null ? null : props.seats.find((s) => s.index === focusIndex);
+    const activeZoneObj = props.focusZone ? (props.zones ?? []).find((z) => z.division === props.focusZone) : null;
     if (focusSeat) {
       desired.current = { p: new THREE.Vector3(focusSeat.x + 2, 3.2, focusSeat.z - 2.7), l: new THREE.Vector3(focusSeat.x, 0.9, focusSeat.z), zoom: baseZoom * 3.3 };
+    } else if (activeZoneObj) {
+      desired.current = {
+        p: new THREE.Vector3(activeZoneObj.centerX + 5.5, 8.2, activeZoneObj.centerZ + 6.5),
+        l: new THREE.Vector3(activeZoneObj.centerX, 0.5, activeZoneObj.centerZ),
+        zoom: baseZoom * 1.85,
+      };
     } else if (props.view === "top") {
       desired.current = { p: new THREE.Vector3(0, 20, center + 0.01), l: new THREE.Vector3(0, 0, center), zoom: baseZoom };
     } else {
       desired.current = { p: new THREE.Vector3(14, 14, center + 14), l: new THREE.Vector3(0, 0, center), zoom: baseZoom };
     }
-  }, [camera, size, depth, center, props.view, props.zoom, props.focus, props.walk, props.kiosk, props.seats, baseZoom]);
+  }, [camera, size, depth, center, props.view, props.zoom, props.focus, props.focusZone, props.zones, props.walk, props.kiosk, props.seats, baseZoom]);
 
   useFrame((_, rawDelta) => {
     if (!(camera instanceof THREE.OrthographicCamera)) return;
@@ -377,10 +503,21 @@ function Room({ palette, reduced, ...props }: Props & { palette: Palette; reduce
       shadow-camera-bottom={-14}
       shadow-bias={-0.001}
     />
-    <Environment resolution={64}>
+    <Environment resolution={qualityTier === "low" ? 32 : 64}>
       <Lightformer intensity={2} position={[0, 8, 0]} rotation-x={-Math.PI / 2} scale={[15, 15, 1]} />
       <Lightformer intensity={1} color={palette.finishes.light} position={[-10, 4, 0]} rotation-y={Math.PI / 2} scale={[10, 5, 1]} />
     </Environment>
+
+    {props.zones && props.zones.length > 0 && (
+      <DepartmentZonePlates
+        zones={props.zones}
+        shirts={palette.shirts}
+        defaultColor={palette.selected}
+        activeDivision={props.focusZone ?? undefined}
+        onSelectZone={props.onSelectZone}
+      />
+    )}
+    <FloatingEventPopups seats={props.seats} liveEvents={props.liveEvents} />
 
     {isOffice ? (
       <>
@@ -431,7 +568,7 @@ function Room({ palette, reduced, ...props }: Props & { palette: Palette; reduce
           <RoomFurniture depth={depth} finishes={palette.finishes} reduced={reduced} />
           <RoomTrainers white={palette.white} dark={palette.finishes.panel} doctor={palette.shirts["ฝ่ายการแพทย์"] ?? palette.selected} nurse={palette.checked} accent={palette.selected} celebrate={props.celebrate ?? 0} reduced={reduced} />
           <Seating {...props} palette={palette} reduced={reduced} />
-          <RoomPeople seats={props.seats} pulseMap={props.pulseMap} reduced={reduced} color={palette.selected} fadedColor={palette.empty} highlighted={props.highlighted} onSelect={props.onSelect} shirts={palette.shirts} labelBackground={palette.white} labelForeground={palette.foreground} />
+          <RoomPeople seats={props.seats} pulseMap={props.pulseMap} reduced={reduced} color={palette.selected} fadedColor={palette.empty} highlighted={props.highlighted} selected={props.selected} onSelect={props.onSelect} shirts={palette.shirts} labelBackground={palette.white} labelForeground={palette.foreground} />
         </Suspense>
       </>
     )}
@@ -443,6 +580,7 @@ export default function TrainingRoomScene(props: Props) {
   const [palette, setPalette] = useState<Palette | null>(null);
   const [reduced, setReduced] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
+  const [qualityTier, setQualityTier] = useState<RoomQualityTier>("high");
 
   useEffect(() => {
     let cancelled = false;
@@ -467,21 +605,36 @@ export default function TrainingRoomScene(props: Props) {
 
   if (!palette) return null;
 
+  const maxDpr =
+    qualityTier === "low"
+      ? 1
+      : qualityTier === "med"
+      ? 1.35
+      : typeof window !== "undefined"
+      ? Math.min(window.devicePixelRatio || 1, 1.75)
+      : 1;
+
   return (
     <Canvas
       orthographic
       frameloop={isVisible ? "always" : "never"}
-      shadows={reduced ? false : { type: THREE.PCFShadowMap }}
-      dpr={[1, typeof window !== "undefined" ? Math.min(window.devicePixelRatio || 1, 1.75) : 1]}
+      shadows={reduced || qualityTier === "low" ? false : { type: THREE.PCFShadowMap }}
+      dpr={[1, maxDpr]}
       camera={{ position: [14, 14, 22], near: 0.1, far: 200, zoom: 60 }}
       gl={{
-        antialias: true,
+        antialias: qualityTier !== "low",
         preserveDrawingBuffer: true,
         powerPreference: "high-performance",
         toneMapping: THREE.ACESFilmicToneMapping,
       }}
     >
-      <Room {...props} palette={palette} reduced={reduced} />
+      <FpsMonitor
+        onTierChange={(fps, tier) => {
+          setQualityTier((prev) => (prev === tier ? prev : tier));
+          props.onMetrics?.(fps, tier);
+        }}
+      />
+      <Room {...props} palette={palette} reduced={reduced || qualityTier === "low"} qualityTier={qualityTier} />
     </Canvas>
   );
 }

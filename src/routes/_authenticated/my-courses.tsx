@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useMe } from "@/lib/auth";
 import { useAssignedCourses, type CourseStatus, type CourseProgress } from "@/lib/data";
 import { PageHeader } from "@/components/AppShell";
-import { coverFor, toneFor } from "@/components/Brand";
+import { CourseCover, toneFor } from "@/components/Brand";
 import { CourseTimeline } from "@/components/CourseTimeline";
 import {
   ArrowRight,
@@ -211,8 +211,9 @@ function MyCourses() {
                     params={{ courseId: c.id }}
                     className="group relative block overflow-hidden rounded-2xl"
                   >
-                    <img
-                      src={coverFor(c.id, c.cover_url)}
+                    <CourseCover
+                      id={c.id}
+                      url={c.cover_url}
                       alt={c.title}
                       loading="lazy"
                       className="h-36 sm:h-32 lg:h-36 w-full sm:w-48 lg:w-full rounded-2xl object-cover transition duration-300 group-hover:scale-105"

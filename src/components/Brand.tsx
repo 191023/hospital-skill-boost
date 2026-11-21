@@ -89,10 +89,63 @@ export function Brand({
 
 const covers = [c1, c2, c3];
 export function coverFor(id: string, url?: string | null) {
-  if (url) return url;
+  if (
+    url &&
+    (url.startsWith("http") ||
+      url.startsWith("/") ||
+      url.startsWith("data:") ||
+      url.startsWith("blob:"))
+  ) {
+    return url;
+  }
   let h = 0;
   for (const ch of id) h = (h + ch.charCodeAt(0)) % 997;
   return covers[h % covers.length];
+}
+
+export function CourseCover({
+  id,
+  url,
+  alt = "",
+  className,
+  loading,
+}: {
+  id: string;
+  url?: string | null;
+  alt?: string;
+  className?: string;
+  loading?: "lazy" | "eager";
+}) {
+  const isDirectUrl =
+    !!url &&
+    (url.startsWith("http") ||
+      url.startsWith("/") ||
+      url.startsWith("data:") ||
+      url.startsWith("blob:"));
+
+  const { data: signedUrl } = useQuery({
+    queryKey: ["course-cover", url],
+    queryFn: () => fileUrl(url),
+    enabled: !!url && !isDirectUrl,
+    staleTime: 1000 * 60 * 30,
+  });
+
+  const finalSrc = isDirectUrl ? url! : signedUrl || coverFor(id, null);
+
+  return (
+    <img
+      src={finalSrc}
+      alt={alt}
+      loading={loading}
+      className={className}
+      onError={(e) => {
+        const fallback = coverFor(id, null);
+        if (e.currentTarget.src !== fallback) {
+          e.currentTarget.src = fallback;
+        }
+      }}
+    />
+  );
 }
 
 const tones = ["text-primary", "text-mint", "text-coral", "text-amber"];

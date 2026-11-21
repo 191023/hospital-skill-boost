@@ -33,10 +33,12 @@ function Manage() {
 
   async function create() {
     let logoUrl = "system/hospital-logo.png";
+    let bgUrl = "system/certificate-background.png";
     let orgName = "โรงพยาบาลโอเวอร์บรุ๊ค";
     let deptSubtitle = "ศูนย์พัฒนาศักยภาพบุคลากร";
-    let instructorName = "";
-    let instructorTitle = "";
+    let directorName = "นพ. กฤษณ์ วงศ์วิวัฒน์";
+    let directorTitle = "ผู้อำนวยการโรงพยาบาลโอเวอร์บรุ๊ค";
+    let directorSigUrl: string | null = null;
 
     try {
       const { data: settings } = await supabase
@@ -53,9 +55,16 @@ function Manage() {
             if (hp.center_name) deptSubtitle = hp.center_name;
           }
           if (s.key === "certificate_rules" && s.value && typeof s.value === "object") {
-            const cr = s.value as { director_name?: string; director_title?: string };
-            if (cr.director_name) instructorName = cr.director_name;
-            if (cr.director_title) instructorTitle = cr.director_title;
+            const cr = s.value as {
+              director_name?: string;
+              director_title?: string;
+              director_signature_url?: string | null;
+              default_background_url?: string;
+            };
+            if (cr.director_name) directorName = cr.director_name;
+            if (cr.director_title) directorTitle = cr.director_title;
+            if (cr.director_signature_url) directorSigUrl = cr.director_signature_url;
+            if (cr.default_background_url) bgUrl = cr.default_background_url;
           }
         }
       }
@@ -69,10 +78,14 @@ function Manage() {
         title: "หลักสูตรใหม่",
         training_type: "online",
         hospital_logo_url: logoUrl,
+        certificate_background_url: bgUrl,
         organization_name: orgName,
         department_subtitle: deptSubtitle,
-        instructor_name: instructorName,
-        instructor_title: instructorTitle,
+        director_name: directorName,
+        director_title: directorTitle,
+        director_signature_url: directorSigUrl,
+        show_director_signature: true,
+        show_instructor_signature: false,
       })
       .select("id")
       .single();
